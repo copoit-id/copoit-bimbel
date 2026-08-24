@@ -1,0 +1,28 @@
+/* ==========================================================================
+   Dark Theme (Future Ready)
+   ========================================================================== */
+
+[data-theme="dark"] {
+    /* Background */
+    --theme-bg-primary: #0f172a;
+    --theme-bg-secondary: #1e293b;
+    --theme-bg-tertiary: #334155;
+    --theme-bg-elevated: #1e293b;
+
+    /* Text */
+    --theme-text-primary: #f8fafc;
+    --theme-text-secondary: #cbd5e1;
+    --theme-text-tertiary: #94a3b8;
+    --theme-text-muted: #64748b;
+    --theme-text-inverse: #0f172a;
+
+    /* Border */
+    --theme-border-default: #334155;
+    --theme-border-light: #1e293b;
+    --theme-border-dark: #475569;
+
+    /* Shadow */
+    --theme-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --theme-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+    --theme-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+}

@@ -5,20 +5,29 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Users</h2>
+            <h2 class="text-2xl font-bold">Manajemen User</h2>
             <p class="text-gray-500">Kelola pengguna dan akses sistem</p>
         </div>
         <div class="flex gap-2">
+            <a href="{{ route('admin.user.export-excel') }}"
+                class="bg-white text-green border border-green px-4 py-2 rounded-lg hover:bg-green/5 flex items-center gap-2">
+                <i class="ri-file-excel-2-line"></i>
+                Export Excel
+            </a>
             <a href="{{ route('admin.user.import') }}"
                 class="bg-green text-white px-4 py-2 rounded-lg hover:bg-green/90 flex items-center gap-2">
                 <i class="ri-upload-line"></i>
                 Import CSV
             </a>
-            <a href="{{ route('admin.user.create') }}"
-                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
-                <i class="ri-add-line"></i>
-                Tambah User
-            </a>
+            {{-- Button dengan Cek Plan Quota --}}
+            <x-plan-quota-button 
+                feature="user"
+                href="{{ route('admin.user.create') }}"
+                icon="ri-add-line"
+                label="Tambah User"
+                variant="primary"
+                size="md"
+                tooltipPosition="bottom" />
         </div>
     </div>
 
@@ -36,48 +45,76 @@
     </div>
     @endif
 
+    {{-- Alert Quota Status --}}
+    @php
+        $userQuota = $planQuota['user'] ?? \App\Services\PlanQuotaService::canRegisterUser();
+    @endphp
+    
+    @if(!$userQuota['allowed'])
+        <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-information-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota User Terpenuhi</p>
+                    <p>{{ $userQuota['reason'] }} Silakan hubungi administrator untuk upgrade plan.</p>
+                </div>
+            </div>
+        </div>
+    @elseif($userQuota['limit'] > 0 && $userQuota['current'] >= $userQuota['limit'] - 5)
+        {{-- Warning jika hampir penuh (5 user tersisa) --}}
+        <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+            <div class="flex items-center gap-2">
+                <i class="ri-alert-line text-lg"></i>
+                <div>
+                    <p class="font-medium">Kuota User Hampir Penuh</p>
+                    <p>Anda telah menggunakan {{ $userQuota['current'] }} dari {{ $userQuota['limit'] }} user. Segera upgrade plan untuk menambah lebih banyak user.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @include('admin.pages.user.partials.management-tabs', [
+        'activeManagementTab' => $activeRole,
+        'roleOptions' => $roleOptions,
+    ])
+
     <form id="bulk-delete-form" action="{{ route('admin.user.bulk-destroy') }}" method="POST" class="hidden">
         @csrf
         @method('DELETE')
     </form>
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-        <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-2">
+        <div class="mb-4 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
+            <form method="GET" action="{{ route('admin.user.index') }}" class="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="role" value="{{ $activeRole }}">
                 <div class="relative">
-                    <input type="text" id="user-search" placeholder="Cari user..."
+                    <input type="search" name="search" value="{{ $search }}" placeholder="Cari nama, email, username, atau nomor HP..."
                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
 
-                {{-- Karena controller index saat ini hanya menampilkan role=user,
-                filter role tetap disediakan (untuk konsistensi UI),
-                tetapi nilainya mengikuti enum di migration. --}}
-                <select id="role-filter"
-                    class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Role</option>
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
-                </select>
-
-                <select id="status-filter"
+                <select name="status"
                     class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Semua Status</option>
-                    <option value="aktif">Aktif</option>
-                    <option value="nonaktif">Tidak Aktif</option>
+                    <option value="aktif" @selected($status === 'aktif')>Aktif</option>
+                    <option value="nonaktif" @selected($status === 'nonaktif')>Tidak Aktif</option>
                 </select>
 
-                <button id="reset-filters"
+                <button type="submit"
+                    class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">
+                    <i class="ri-search-line"></i> Cari
+                </button>
+                <a href="{{ route('admin.user.index', ['role' => $activeRole]) }}"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
                     <i class="ri-refresh-line"></i> Reset
-                </button>
-            </div>
+                </a>
+            </form>
 
             <div class="flex items-center gap-3">
                 <div id="user-count" class="text-sm text-gray-500">
-                    Halaman ini: <span class="font-medium text-gray-700 current-count">{{ $users->count() }} User</span>
+                    Menampilkan: <span class="font-medium text-gray-700">{{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }}</span>
                     <span class="mx-1 text-gray-300">•</span>
-                    Total: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
+                    Total {{ $roleOptions[$activeRole] ?? 'User' }}: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
                 </div>
                 <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
                     class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
@@ -91,7 +128,7 @@
         </div>
 
         <!-- User Table -->
-        <div id="user-table-container">
+        <div>
             <div class="relative overflow-x-auto">
                 <table class="w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
@@ -102,16 +139,20 @@
                             </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
+                            <th scope="col" class="px-6 py-3">Tujuan Belajar</th>
+                            <th scope="col" class="px-6 py-3">Program & Kelas</th>
+                            <th scope="col" class="px-6 py-3">Kehadiran</th>
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
-                            <th scope="col" class="px-6 py-3">Action</th>
+                            <th scope="col" class="px-6 py-3 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="user-tbody">
                         @forelse ($users as $user)
                         <tr class="bg-white border-b border-dashed border-gray-200 user-row"
                             data-name="{{ Str::lower($user->name) }}" data-email="{{ Str::lower($user->email) }}"
+                            data-username="{{ Str::lower($user->username) }}" data-phone="{{ Str::lower($user->phone) }}"
                             data-role="{{ $user->role }}" data-status="{{ $user->status }}">
                             <td class="px-6 py-4">
                                 <input type="checkbox" name="ids[]" value="{{ $user->id }}" form="bulk-delete-form"
@@ -124,6 +165,9 @@
                                     <div>
                                         <p class="font-medium">{{ $user->name }}</p>
                                         <p class="text-sm text-gray-500">{{ $user->email }}</p>
+                                        @if($user->phone)
+                                            <p class="mt-0.5 text-xs text-gray-400"><i class="ri-phone-line"></i> {{ $user->phone }}</p>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -131,15 +175,51 @@
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
                             <td class="px-6 py-4">
+                                <span class="text-gray-700">
+                                    {{ $user->participant_destination_display_name ?? '-' }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                @php
+                                    $activePackages = $user->userPackageAccess->filter(fn ($access) => $access->is_active);
+                                    $packageNames = $activePackages->pluck('package.name')->filter()->values();
+                                    $studyGroupNames = $user->studyGroups->pluck('name')->filter()->values();
+                                @endphp
+                                <div class="space-y-1.5">
+                                    <p class="max-w-48 truncate text-sm font-medium text-gray-700" title="{{ $packageNames->implode(', ') }}">
+                                        <i class="ri-book-open-line text-primary"></i>
+                                        {{ $packageNames->isNotEmpty() ? $packageNames->implode(', ') : 'Belum ada paket aktif' }}
+                                    </p>
+                                    <p class="max-w-48 truncate text-xs text-gray-500" title="{{ $studyGroupNames->implode(', ') }}">
+                                        <i class="ri-team-line"></i>
+                                        {{ $studyGroupNames->isNotEmpty() ? $studyGroupNames->implode(', ') : 'Belum masuk rombel' }}
+                                    </p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if($user->attendance_record_count > 0)
+                                    @php $attendanceRate = round(($user->attendance_present_count / $user->attendance_record_count) * 100); @endphp
+                                    <div class="min-w-24">
+                                        <div class="mb-1 flex items-center justify-between gap-2 text-xs"><span class="font-medium text-gray-700">{{ $attendanceRate }}%</span><span class="text-gray-400">{{ $user->attendance_present_count }}/{{ $user->attendance_record_count }}</span></div>
+                                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full {{ $attendanceRate >= 80 ? 'bg-emerald-500' : ($attendanceRate >= 60 ? 'bg-amber-400' : 'bg-red-500') }}" style="width: {{ $attendanceRate }}%"></div></div>
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400">Belum ada data</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">
                                 @php
                                 $roleClass = match($user->role) {
                                 'admin' => 'bg-red-100 text-red-800',
+                                'admin_demo' => 'bg-amber-100 text-amber-800',
                                 'user' => 'bg-green-100 text-green-800',
+                                'konsultan' => 'bg-blue-100 text-blue-800',
                                 default => 'bg-gray-100 text-gray-800'
                                 };
+                                $roleLabel = $roleOptions[$user->role] ?? \Illuminate\Support\Str::headline($user->role);
                                 @endphp
                                 <span class="px-2 py-1 text-xs font-medium rounded-full {{ $roleClass }}">
-                                    {{ ucfirst($user->role) }}
+                                    {{ $roleLabel }}
                                 </span>
                             </td>
                             <td class="px-6 py-4">
@@ -158,35 +238,47 @@
                                 {{ optional($user->created_at)->format('Y-m-d') }}
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center justify-center gap-1.5">
                                     <a href="{{ route('admin.user.show', $user->id) }}"
-                                        class="text-primary hover:text-primary/80" title="Lihat">
-                                        <i class="ri-eye-line"></i>
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Lihat detail user" aria-label="Lihat detail user">
+                                        <i class="ri-eye-line text-base"></i>
+                                        <span class="sr-only">Lihat detail user</span>
                                     </a>
                                     <a href="{{ route('admin.user.report', $user->id) }}"
-                                        class="text-amber-600 hover:text-amber-700" title="Laporan">
-                                        <i class="ri-bar-chart-line"></i>
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Lihat laporan belajar" aria-label="Lihat laporan belajar">
+                                        <i class="ri-bar-chart-line text-base"></i>
+                                        <span class="sr-only">Lihat laporan belajar</span>
                                     </a>
                                     @if($user->role === 'user')
                                     <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
-                                        class="inline-block"
+                                        class="inline-flex"
                                         target="_blank">
                                         @csrf
-                                        <button type="submit" class="text-primary hover:text-primary/80" title="Login As User (Tab Baru)">
-                                            <i class="ri-user-shared-line"></i>
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            title="Login sebagai user di tab baru" aria-label="Login sebagai user di tab baru">
+                                            <i class="ri-user-shared-line text-base"></i>
+                                            <span class="sr-only">Login sebagai user di tab baru</span>
                                         </button>
                                     </form>
                                     @endif
-                                    <a href="{{ route('admin.user.edit', $user->id) }}"
-                                        class="text-blue-600 hover:text-blue-800" title="Edit">
-                                        <i class="ri-edit-line"></i>
+                                    <a href="{{ route('admin.user.edit', array_merge(request()->query(), ['user' => $user->id])) }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Edit user" aria-label="Edit user">
+                                        <i class="ri-edit-line text-base"></i>
+                                        <span class="sr-only">Edit user</span>
                                     </a>
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
-                                        onsubmit="return confirm('Hapus user ini?')" class="inline-block">
+                                        onsubmit="return confirm('Hapus user {{ addslashes($user->name) }}?')" class="inline-flex">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:text-red-800" title="Hapus">
-                                            <i class="ri-delete-bin-line"></i>
+                                        <button type="submit"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-100"
+                                            title="Hapus user" aria-label="Hapus user">
+                                            <i class="ri-delete-bin-line text-base"></i>
+                                            <span class="sr-only">Hapus user</span>
                                         </button>
                                     </form>
                                 </div>
@@ -194,7 +286,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="10" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>
@@ -209,74 +301,14 @@
             </div>
         </div>
 
-        <div id="no-results" class="hidden text-center py-12">
-            <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <i class="ri-user-line text-3xl text-gray-400"></i>
-            </div>
-            <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada user ditemukan</h3>
-            <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
-        </div>
     </div>
 
-    {{-- Client-side filter untuk data pada halaman saat ini --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const searchInput = document.getElementById('user-search');
-            const roleFilter = document.getElementById('role-filter');
-            const statusFilter = document.getElementById('status-filter');
-            const resetButton = document.getElementById('reset-filters');
-            const userCount = document.getElementById('user-count');
-            const tbody = document.getElementById('user-tbody');
-            const rows = Array.from(tbody.querySelectorAll('.user-row'));
-            const noResults = document.getElementById('no-results');
-            const tableContainer = document.getElementById('user-table-container');
             const selectAll = document.getElementById('select-all-users');
             const bulkButton = document.getElementById('bulk-delete-button');
             const bulkCount = document.getElementById('bulk-selected-count');
             const bulkForm = document.getElementById('bulk-delete-form');
-
-            function getText(el, attr) {
-                return (el.getAttribute(attr) || '').toLowerCase();
-            }
-
-            function applyFilters() {
-                const q = (searchInput.value || '').toLowerCase().trim();
-                const role = roleFilter.value;
-                const status = statusFilter.value;
-
-                let visible = 0;
-                rows.forEach(row => {
-                    const name = getText(row, 'data-name');
-                    const email = getText(row, 'data-email');
-                    const r = row.getAttribute('data-role') || '';
-                    const s = row.getAttribute('data-status') || '';
-
-                    const matchesSearch = !q || name.includes(q) || email.includes(q);
-                    const matchesRole = !role || r === role;
-                    const matchesStatus = !status || s === status;
-
-                    const show = matchesSearch && matchesRole && matchesStatus;
-                    row.style.display = show ? '' : 'none';
-                    if (show) visible++;
-                });
-
-                // Toggle empty state
-                const anyVisible = visible > 0;
-                tableContainer.style.display = anyVisible ? 'block' : 'none';
-                noResults.classList.toggle('hidden', anyVisible);
-
-                const currentCount = userCount.querySelector('.current-count');
-                if (currentCount) {
-                    currentCount.textContent = `${visible} User`;
-                }
-            }
-
-            function resetFilters() {
-                searchInput.value = '';
-                roleFilter.value = '';
-                statusFilter.value = '';
-                applyFilters();
-            }
 
             function getRowCheckboxes() {
                 return Array.from(document.querySelectorAll('.user-checkbox'));
@@ -308,11 +340,6 @@
                 }
             }
 
-            searchInput.addEventListener('input', applyFilters);
-            roleFilter.addEventListener('change', applyFilters);
-            statusFilter.addEventListener('change', applyFilters);
-            resetButton.addEventListener('click', resetFilters);
-
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
                     getRowCheckboxes().forEach(cb => {
@@ -328,6 +355,7 @@
                 cb.addEventListener('change', updateBulkState);
             });
 
+
             if (bulkForm) {
                 bulkForm.addEventListener('submit', function (event) {
                     const selected = getRowCheckboxes().filter(cb => cb.checked);
@@ -342,7 +370,6 @@
                 });
             }
 
-            applyFilters();
             updateBulkState();
         });
     </script>
@@ -403,8 +430,9 @@
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
                                 required>
                                 <option value="" @selected(old('role')==='' )>Pilih role</option>
-                                <option value="admin" @selected(old('role')==='admin' )>Admin</option>
-                                <option value="user" @selected(old('role')==='user' )>User</option>
+                                @foreach($roleOptions as $roleSlug => $roleName)
+                                    <option value="{{ $roleSlug }}" @selected(old('role') === $roleSlug)>{{ $roleName }}</option>
+                                @endforeach
                             </select>
                             @error('role') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
@@ -430,7 +458,7 @@
                                         <i class="ri-upload-cloud-2-line text-4xl text-gray-500 mb-2"></i>
                                         <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Klik untuk
                                                 upload</span> atau drag and drop</p>
-                                        <p class="text-xs text-gray-500">PNG atau JPG (MAX. 2MB)</p>
+                                        <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG atau JPG (maks. 2MB)</p>
                                     </div>
                                     <input id="dropzone-file" type="file" name="avatar" accept="image/png,image/jpeg"
                                         class="hidden" />

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Models\Faq;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class FaqController extends Controller
 {
@@ -12,7 +13,7 @@ class FaqController extends Controller
     {
         $faqs = Faq::orderBy('sort_order')
             ->orderBy('id')
-            ->paginate(15);
+            ->paginate(\App\Support\Pagination::perPage(15));
 
         return view('admin.pages.faq.index', compact('faqs'));
     }
@@ -20,6 +21,11 @@ class FaqController extends Controller
     public function create()
     {
         return view('admin.pages.faq.form');
+    }
+
+    public function csrfToken(): JsonResponse
+    {
+        return response()->json(['token' => csrf_token()]);
     }
 
     public function store(Request $request)
@@ -42,7 +48,7 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil ditambahkan.');
+            ->with('success', $this->faqLabel() . ' berhasil ditambahkan.');
     }
 
     public function edit(Faq $faq)
@@ -70,7 +76,7 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil diperbarui.');
+            ->with('success', $this->faqLabel() . ' berhasil diperbarui.');
     }
 
     public function destroy(Faq $faq)
@@ -79,6 +85,11 @@ class FaqController extends Controller
 
         return redirect()
             ->route('admin.faq.index')
-            ->with('success', 'FAQ berhasil dihapus.');
+            ->with('success', $this->faqLabel() . ' berhasil dihapus.');
+    }
+
+    private function faqLabel(): string
+    {
+        return config('client.branding.faq_label', 'FAQ') ?: 'FAQ';
     }
 }

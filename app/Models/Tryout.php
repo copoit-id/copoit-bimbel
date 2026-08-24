@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasIndividualPricing;
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Hash;
 
 class Tryout extends Model
 {
     use HasFactory;
+    use HasIndividualPricing;
 
     protected $table = 'tryouts';
     protected $primaryKey = 'tryout_id';
@@ -17,19 +22,82 @@ class Tryout extends Model
         'is_certification' => 'boolean',
         'is_toefl' => 'boolean',
         'is_irt' => 'boolean',
+        'material_category_id' => 'integer',
+        'certificate_template_id' => 'integer',
+        'scoring_method' => 'string',
         'is_active' => 'boolean',
+        'is_for_sale' => 'boolean',
+        'is_displayed' => 'boolean',
+        'type_price' => 'string',
+        'show_discussion' => 'boolean',
+        'lobby_token_enabled' => 'boolean',
+        'show_leaderboard' => 'boolean',
+        'show_passing_grade' => 'boolean',
+        'show_result_scores' => 'boolean',
+        'result_score_display' => 'string',
         'section_break_duration' => 'integer',
+        'max_attempts' => 'integer',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'results_release_at' => 'datetime',
         'results_released_at' => 'datetime',
         'results_reset_at' => 'datetime',
         'assessment_type' => 'string',
+        'answer_persistence_mode' => 'string',
+        'subtest_display_mode' => 'string',
+        'user_card_display' => 'string',
+        'enable_anti_copy' => 'boolean',
+        'enable_tab_switch_detection' => 'boolean',
+        'enable_webcam_check' => 'boolean',
+        'enable_screen_check' => 'boolean',
+        'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            $user = auth()->user();
+
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner($user)) {
+                return;
+            }
+
+            $query->where($query->qualifyColumn('created_by'), $user->id);
+        });
+    }
 
     public function requiresIrtScoring(): bool
     {
-        return $this->type_tryout === 'utbk_full' && $this->is_irt;
+        return $this->scoring_method === 'irt_utbk'
+            || $this->scoring_method === 'irt'
+            || $this->is_irt;
+    }
+
+    public function requiresLobbyToken(): bool
+    {
+        return (bool) $this->lobby_token_enabled && filled($this->lobby_token_hash);
+    }
+
+    public function lobbyTokenIsValid(string $token): bool
+    {
+        return $this->requiresLobbyToken() && Hash::check($token, $this->lobby_token_hash);
+    }
+
+    public function shouldShowResultScores(): bool
+    {
+        return $this->show_result_scores ?? true;
+    }
+
+    public function shouldShowPassingGrade(): bool
+    {
+        return $this->show_passing_grade ?? true;
+    }
+
+    public function shouldShowTotalResultScore(): bool
+    {
+        return $this->shouldShowResultScores()
+            && ($this->result_score_display ?? 'total_and_subtest') === 'total_and_subtest';
     }
 
     public function hasReleasedUtbk(): bool
@@ -50,15 +118,19 @@ class Tryout extends Model
         return $this->requiresIrtScoring() && ! $this->hasReleasedUtbk();
     }
 
-    // Direct relationship (untuk tryout yang dibuat langsung di package)
-    public function directPackage()
-    {
-        return $this->belongsTo(Package::class, 'package_id', 'package_id');
-    }
-
     public function tryoutDetails()
     {
         return $this->hasMany(TryoutDetail::class, 'tryout_id', 'tryout_id');
+    }
+
+    public function materialCategory()
+    {
+        return $this->belongsTo(MaterialCategory::class, 'material_category_id', 'category_id');
+    }
+
+    public function certificateTemplate()
+    {
+        return $this->belongsTo(CertificateTemplate::class, 'certificate_template_id', 'certificate_template_id');
     }
 
     // Polymorphic relationship untuk detail packages
@@ -89,6 +161,19 @@ class Tryout extends Model
         return $this->hasMany(FeedbackSubmission::class, 'tryout_id', 'tryout_id');
     }
 
+    public function proctoringSnapshots()
+    {
+        return $this->hasMany(ProctoringSnapshot::class, 'tryout_id', 'tryout_id');
+    }
+
+    /**
+     * Relasi ke user access (individual)
+     */
+    public function userAccess()
+    {
+        return $this->hasMany(UserTryoutAccess::class, 'tryout_id', 'tryout_id');
+    }
+
     public function classes()
     {
         return $this->belongsToMany(ClassModel::class, 'class_assessments', 'tryout_id', 'class_id')
@@ -106,5 +191,149 @@ class Tryout extends Model
     public function getTotalDurationAttribute()
     {
         return $this->tryoutDetails()->sum('duration');
+    }
+
+    public function getAttemptLimitLabelAttribute(): string
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        return $maxAttempts > 0 ? $maxAttempts.' kali' : 'Tidak dibatasi';
+    }
+
+    public function completedAttemptCountForUser(int $userId): int
+    {
+        $finalStatuses = ['completed', 'pending_release'];
+
+        if ($this->relationLoaded('userAnswers')) {
+            return $this->userAnswers
+                ->where('user_id', $userId)
+                ->whereIn('status', $finalStatuses)
+                ->pluck('attempt_token')
+                ->filter()
+                ->unique()
+                ->count();
+        }
+
+        return $this->userAnswers()
+            ->where('user_id', $userId)
+            ->whereIn('status', $finalStatuses)
+            ->distinct('attempt_token')
+            ->count('attempt_token');
+    }
+
+    public function hasInProgressAttemptForUser(int $userId): bool
+    {
+        if ($this->relationLoaded('userAnswers')) {
+            return $this->userAnswers
+                ->where('user_id', $userId)
+                ->where('status', 'in_progress')
+                ->isNotEmpty();
+        }
+
+        return $this->userAnswers()
+            ->where('user_id', $userId)
+            ->where('status', 'in_progress')
+            ->exists();
+    }
+
+    public function remainingAttemptsForUser(int $userId): ?int
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        if ($maxAttempts <= 0) {
+            return null;
+        }
+
+        return max(0, $maxAttempts - $this->completedAttemptCountForUser($userId));
+    }
+
+    public function hasReachedAttemptLimitForUser(int $userId): bool
+    {
+        $maxAttempts = (int) ($this->max_attempts ?? 0);
+
+        return $maxAttempts > 0 && $this->completedAttemptCountForUser($userId) >= $maxAttempts;
+    }
+
+    /**
+     * Check if user can access this tryout (via any method)
+     */
+    public function canUserAccess(int $userId): bool
+    {
+        // Check via package
+        $hasPackageAccess = $this->packages()
+            ->whereHas('userAccess', function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->where('status', 'active')
+                  ->where(function ($q) {
+                      $q->whereNull('end_date')->orWhere('end_date', '>', now());
+                  });
+            })
+            ->exists();
+
+        if ($hasPackageAccess) {
+            return true;
+        }
+
+        // Check via direct user access
+        $hasDirectAccess = $this->userAccess()
+            ->where('user_id', $userId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check via individual purchase.
+        if ($this->isIndividuallyAvailable()) {
+            $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
+                ->where('purchasable_type', self::class)
+                ->where('purchasable_id', $this->tryout_id)
+                ->where('status', 'approved')
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
+                ->exists();
+
+            if ($hasIndividualPurchase) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has purchased this individually
+     */
+    public function hasUserPurchased(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->tryout_id)
+            ->where('status', 'approved')
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
+            ->exists();
+    }
+
+    /**
+     * Check if user has pending purchase for this
+     */
+    public function hasPendingPurchase(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->tryout_id)
+            ->where('status', 'pending')
+            ->exists();
     }
 }

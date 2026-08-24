@@ -7,27 +7,67 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>{{ $clientBranding['name'] }} - Tryout</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
+    <script>
+        window.MathJax = {
+            skipStartupTypeset: true,
+            tex2jax: {
+                inlineMath: [
+                    ['$', '$'],
+                    ['\\(', '\\)']
+                ],
+                displayMath: [
+                    ['$$', '$$'],
+                    ['\\[', '\\]']
+                ],
+                processEscapes: true
+            },
+            messageStyle: 'none',
+            showMathMenu: false,
+            'HTML-CSS': {
+                availableFonts: ['TeX']
+            }
+        };
+    </script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_HTML"></script>
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
-    @include('components.mathjax')
+    <x-website-translation-head />
 </head>
 
 <body>
+    @include('components.login-as-header')
     @include('user.components.navbar')
 
-    <div class="px-[30px] md:px-[150px]">
+    <div class="px-3 md:px-[150px] mt-14">
         @yield('content')
     </div>
+    @include('user.components.footer')
     @include('components.flash-alert')
 
     {{-- jquery --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+    <script>
+        window.renderMathJax = function() {
+            if (window.MathJax) {
+                if (window.MathJax.Hub) {
+                    MathJax.Hub.Queue(['Typeset', MathJax.Hub]);
+                } else if (window.MathJax.typesetPromise) {
+                    MathJax.typesetPromise();
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            window.renderMathJax();
+        });
+    </script>
 
     @vite('resources/js/app.js')
     @yield('scripts')
     @stack('scripts')
+    <x-website-translator />
 </body>
 
 </html>

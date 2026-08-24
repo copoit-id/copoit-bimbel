@@ -1,589 +1,231 @@
-@extends('user.layout.user')
-@section('title', 'Paket Pembelian')
+@extends('user.layout.new-user')
+
+@section('title', 'Paket')
+
 @section('content')
 @php
-    $typePriceLabels = [
-        'free_unconditional' => ['label' => 'Gratis', 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-100'],
-        'free_conditional' => ['label' => 'Gratis Bersyarat', 'class' => 'bg-amber-50 text-amber-700 border border-amber-100'],
-    ];
-    $paymentMode = config('client.branding.payment_mode', 'gateway');
-    $kelasPackages = $kelasPackages ?? collect();
-    $tryoutPackages = $tryoutPackages ?? collect();
-    $sertifikasiPackages = $sertifikasiPackages ?? collect();
+$primaryColor = $clientBranding['primary_color'] ?? '#10b981';
+$activeTab = request('tab', 'berbayar');
 @endphp
-<div class="dashboard">
-    <x-page-desc title="Paket " description="Pilihan paket gratis hingga berbayar"></x-page-desc>
-    <div class="flex flex-col md:flex-row md:items-center justify-between">
-        <div class="flex justify-start gap-2 mt-4">
-            <div id="btn-kelas" class="tab-btn px-6 py-1.5 bg-primary text-white rounded-xl cursor-pointer">
-                Kelas
-            </div>
-            <div id="btn-tryout"
-                class="tab-btn px-6 py-1.5 border border-primary text-primary rounded-xl cursor-pointer">
-                Tryout
-            </div>
-            <div id="btn-sertifikasi"
-                class="tab-btn px-6 py-1.5 border border-primary text-primary rounded-xl cursor-pointer">
-                Sertifikasi
-            </div>
-        </div>
 
-        <a href="{{ route('user.package.riwayatPembelian') }}" class="text-blue-600 underline mt-3 md:mt-0">Riwayat
-            Pembelian</a>
+<style>
+.tab-active {
+    background-color: {{ $primaryColor }} !important;
+    color: white !important;
+}
+</style>
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Paket</h1>
+        <p class="text-gray-500 mt-1">Pilih paket belajar yang sesuai dengan kebutuhanmu</p>
     </div>
+    @if(auth()->check())
+    <a href="{{ route('user.package.my') }}" class="px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity text-white" style="background-color: {{ $primaryColor }}">
+        <i class="ri-road-map-line mr-1"></i>Paket Saya
+    </a>
+    @endif
+</div>
 
-    <!-- Kelas Package -->
-    <div id="kelas-package" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600">
-        @forelse($kelasPackages as $package)
-        <div class="bg-white px-5 py-5 shadow rounded-lg">
-            @php
-                $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
-                $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
-                $thumbUrl = $package->image ? Storage::url($package->image) : null;
-                $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
-            @endphp
-            <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
-                @if($package->image)
-                    @if($thumbIsVideo)
-                    <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
-                    @else
-                        <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
-                            class="w-full h-full object-cover">
-                    @endif
-                @else
-                    <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <i class="ri-image-line text-3xl text-gray-400"></i>
-                    </div>
-                @endif
-            </div>
-            <div class="flex items-center justify-between text-xs font-semibold mb-2">
-                @if($typePriceStyle)
-                <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
-                    {{ $typePriceStyle['label'] }}
-                </span>
-                @endif
-                <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
-                    {{ $package->type_package }}
-                </span>
-            </div>
-            <p class="text-lg font-bold text-black">{{ $package->name }}</p>
-            <p class="font-light">{{ $package->description }}</p>
-            <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
+<!-- Filter Tabs -->
+<div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+    <a href="{{ route('user.package.index', ['tab' => 'berbayar']) }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap {{ $activeTab == 'berbayar' ? 'tab-active' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        <i class="ri-vip-crown-line mr-1"></i>Berbayar
+    </a>
+    <a href="{{ route('user.package.index', ['tab' => 'gratis']) }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap {{ $activeTab == 'gratis' ? 'tab-active' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        <i class="ri-gift-line mr-1"></i>Gratis
+    </a>
+    <a href="{{ route('user.package.index', ['tab' => 'event']) }}" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap {{ $activeTab == 'event' ? 'tab-active' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+        <i class="ri-calendar-event-line mr-1"></i>Event
+    </a>
+</div>
 
-            <div class="flex flex-col mt-4 gap-3 font-light">
-                @if($package->features)
-                @foreach (json_decode($package->features) as $feature)
-                <span>
-                    <i class="ri-checkbox-circle-fill text-green-500"></i>
-                    {{ $feature }}
-                </span>
-                @endforeach
-                @endif
-            </div>
+@php
+if ($activeTab == 'berbayar') {
+    $packages = \App\Models\Package::where('status', 'active')
+        ->where('is_displayed', true)
+        ->where('type_price', 'paid')
+        ->get();
+} elseif ($activeTab == 'gratis') {
+    $packages = \App\Models\Package::where('status', 'active')
+        ->where('is_displayed', true)
+        ->whereIn('type_price', ['free_unconditional', 'free_conditional'])
+        ->get();
+} else {
+    // Event tab
+    $packages = \App\Models\Package::where('status', 'active')
+        ->where('is_displayed', true)
+        ->where(function($query) {
+            $query->where('type_package', 'event')
+                ->orWhere(function($q) {
+                    $q->where('type_package', '!=', 'event')
+                      ->where('start_date', '<=', now())
+                      ->where('end_date', '>=', now());
+                });
+        })
+        ->get();
+}
+@endphp
 
-            <div class="mt-4">
-                @if($package->user_access_count > 0)
-                <a href="{{ route('user.package.bimbel', $package->package_id) }}"
-                    class="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-bold text-center block">
-                    SUDAH DIBELI
-                </a>
-                @else
-                @if($paymentMode === 'manual')
-                    <button type="button" data-modal-open="manual-payment-{{ $package->package_id }}"
-                        class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        BELI SEKARANG
-                    </button>
-                @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                        class="buy-package-form">
-                        @csrf
-                        <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                            BELI SEKARANG
-                        </button>
-                    </form>
-                @endif
-                @endif
-            </div>
-        </div>
-        @if($package->user_access_count === 0 && $paymentMode === 'manual')
-        <div class="payment-modal hidden" data-modal="manual-payment-{{ $package->package_id }}">
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
-                data-modal-overlay="manual-payment-{{ $package->package_id }}">
-                <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
-                    data-modal-panel>
-                    <button type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                        data-modal-close="manual-payment-{{ $package->package_id }}">
-                        <i class="ri-close-line text-xl"></i>
-                    </button>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Pembayaran Manual</p>
-                            <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
-                            <p class="text-sm text-gray-500">Upload bukti pembayaran untuk diproses admin.</p>
-                        </div>
-                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Total Tagihan</p>
-                                <p>Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Transfer ke</p>
-                                @if(!empty($clientBranding['payment_bank_name']) && !empty($clientBranding['payment_account_number']) && !empty($clientBranding['payment_account_holder']))
-                                    <p>{{ $clientBranding['payment_bank_name'] }} {{ $clientBranding['payment_account_number'] }}</p>
-                                    <p class="text-gray-500">a.n {{ $clientBranding['payment_account_holder'] }}</p>
-                                @else
-                                    <p class="text-gray-500">Info rekening belum diatur.</p>
-                                @endif
-                                @if(!empty($clientBranding['payment_bank_note']))
-                                    <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
-                                @endif
-                            </div>
-                        </div>
-                        <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                            enctype="multipart/form-data" class="buy-package-form space-y-4">
-                            @csrf
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
-                                <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.pdf"
-                                    class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
-                            </div>
-                            <div class="flex items-center justify-end gap-3">
-                                <button type="button"
-                                    class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    data-modal-close="manual-payment-{{ $package->package_id }}">Batal</button>
-                                <button type="submit"
-                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                                    Kirim Bukti
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        @endif
-        @empty
-        <div class="col-span-full text-center py-8">
-            <p class="text-gray-500">Belum ada paket kelas tersedia</p>
-        </div>
-        @endforelse
-    </div>
-
-    <!-- Tryout Package -->
-    <div id="tryout-package" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600 hidden">
-        @forelse($tryoutPackages as $package)
-        <div class="flex flex-col justify-between bg-white px-5 py-5 shadow rounded-lg">
-            <div>
+<!-- Packages Grid -->
+@if($packages->count() > 0)
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    @foreach($packages as $package)
+    @php
+    $featureList = $package->features ? json_decode($package->features, true) : [];
+    @endphp
+    <div class="bg-white rounded-2xl border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all overflow-hidden">
+        <!-- Package Image -->
+        <div class="h-32 relative overflow-hidden" style="background: linear-gradient(135deg, {{ $primaryColor }}30 0%, {{ $primaryColor }}10 100%);">
+            @if($package->image)
                 @php
-                    $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
-                    $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
-                    $thumbUrl = $package->image ? Storage::url($package->image) : null;
-                    $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
+                    $thumbExt = strtolower(pathinfo($package->image, PATHINFO_EXTENSION));
+                    $thumbIsVideo = in_array($thumbExt, ['mp4','webm','mov','m4v'], true);
+                    $thumbUrl = Storage::url($package->image);
                 @endphp
-                <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
-                    @if($package->image)
-                        @if($thumbIsVideo)
-                            <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
-                        @else
-                            <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
-                                class="w-full h-full object-cover">
-                        @endif
-                    @else
-                    <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <i class="ri-image-line text-3xl text-gray-400"></i>
-                    </div>
-                    @endif
-                </div>
-                <div class="flex items-center justify-between text-xs font-semibold mb-2">
-                    @if($typePriceStyle)
-                    <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
-                        {{ $typePriceStyle['label'] }}
-                    </span>
-                    @endif
-                    <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
-                        {{ $package->type_package }}
-                    </span>
-                </div>
-                <p class="text-lg font-bold text-black">{{ $package->name }}</p>
-                <p class="font-light">{{ $package->description }}</p>
-                <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
-
-                <div class="flex flex-col mt-4 gap-3 font-light">
-                    @if($package->features)
-                    @foreach (json_decode($package->features) as $feature)
-                    <span>
-                        <i class="ri-checkbox-circle-fill text-green-500"></i>
-                        {{ $feature }}
-                    </span>
-                    @endforeach
-                    @endif
-                </div>
-            </div>
-
-            <div class="mt-4">
-                @if($package->user_access_count > 0)
-                <a href="{{ route('user.package.tryout', $package->package_id) }}"
-                    class="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-bold text-center block">
-                    SUDAH DIBELI
-                </a>
+                @if($thumbIsVideo)
+                <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
                 @else
-                @if($paymentMode === 'manual')
-                    <button type="button" data-modal-open="manual-payment-{{ $package->package_id }}"
-                        class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        BELI SEKARANG
-                    </button>
-                @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                        class="buy-package-form">
-                        @csrf
-                        <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                            BELI SEKARANG
-                        </button>
-                    </form>
+                <img src="{{ $thumbUrl }}" alt="{{ $package->name }}" class="w-full h-full object-cover">
                 @endif
-                @endif
+            @else
+            <div class="w-full h-full flex items-center justify-center">
+                <i class="ri-book-3-line text-4xl" style="color: {{ $primaryColor }}40"></i>
             </div>
-        </div>
-        @if($package->user_access_count === 0 && $paymentMode === 'manual')
-        <div class="payment-modal hidden" data-modal="manual-payment-{{ $package->package_id }}">
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
-                data-modal-overlay="manual-payment-{{ $package->package_id }}">
-                <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
-                    data-modal-panel>
-                    <button type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                        data-modal-close="manual-payment-{{ $package->package_id }}">
-                        <i class="ri-close-line text-xl"></i>
-                    </button>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Pembayaran Manual</p>
-                            <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
-                            <p class="text-sm text-gray-500">Upload bukti pembayaran untuk diproses admin.</p>
-                        </div>
-                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Total Tagihan</p>
-                                <p>Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Transfer ke</p>
-                                @if(!empty($clientBranding['payment_bank_name']) && !empty($clientBranding['payment_account_number']) && !empty($clientBranding['payment_account_holder']))
-                                    <p>{{ $clientBranding['payment_bank_name'] }} {{ $clientBranding['payment_account_number'] }}</p>
-                                    <p class="text-gray-500">a.n {{ $clientBranding['payment_account_holder'] }}</p>
-                                @else
-                                    <p class="text-gray-500">Info rekening belum diatur.</p>
-                                @endif
-                                @if(!empty($clientBranding['payment_bank_note']))
-                                    <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
-                                @endif
-                            </div>
-                        </div>
-                        <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                            enctype="multipart/form-data" class="buy-package-form space-y-4">
-                            @csrf
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
-                                <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.pdf"
-                                    class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
-                            </div>
-                            <div class="flex items-center justify-end gap-3">
-                                <button type="button"
-                                    class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    data-modal-close="manual-payment-{{ $package->package_id }}">Batal</button>
-                                <button type="submit"
-                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                                    Kirim Bukti
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        @endif
-        @empty
-        <div class="col-span-full text-center py-8">
-            <p class="text-gray-500">Belum ada paket tryout tersedia</p>
-        </div>
-        @endforelse
-    </div>
+            @endif
 
-    <!-- Sertifikasi Package -->
-    <div id="sertifikasi-package"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 text-gray-600 hidden">
-        @forelse($sertifikasiPackages as $package)
-        <div class="bg-white px-5 py-5 shadow rounded-lg">
+            <!-- Type Package Badge -->
+            <span class="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-gray-700 text-xs rounded-full font-medium capitalize">
+                <i class="ri-book-marked-line me-1"></i>{{ $package->type_package }}
+            </span>
+
+            <!-- Price Badge -->
+            @if($package->type_price == 'paid')
+            <div class="absolute top-3 right-3 px-3 py-1 bg-amber-500 text-white text-xs rounded-full font-bold">
+                Rp {{ number_format($package->price, 0, ',', '.') }}
+            </div>
+            @elseif($package->type_price == 'free_conditional')
+            <div class="absolute top-3 right-3 px-3 py-1 bg-orange-500 text-white text-xs rounded-full font-bold">
+                Gratis*
+            </div>
+            @else
+            <div class="absolute top-3 right-3 px-3 py-1 bg-green-500 text-white text-xs rounded-full font-bold">
+                GRATIS
+            </div>
+            @endif
+        </div>
+
+        <!-- Content -->
+        <div class="p-5">
+            <h3 class="font-bold text-gray-800 mb-1">{{ $package->name }}</h3>
+            <div class="text-sm text-gray-500 mb-4 line-clamp-2">{!! $package->description ?? 'Paket pembelajaran lengkap' !!}</div>
+
+            <!-- Features -->
             @php
-                $thumbExt = $package->image ? strtolower(pathinfo($package->image, PATHINFO_EXTENSION)) : null;
-                $thumbIsVideo = $package->image ? in_array($thumbExt, ['mp4','webm','mov','m4v'], true) : false;
-                $thumbUrl = $package->image ? Storage::url($package->image) : null;
-                $typePriceStyle = $typePriceLabels[$package->type_price] ?? null;
+                $features = json_decode($package->features ?? '[]', true);
+                $features = is_array($features) ? array_filter($features) : [];
             @endphp
-            <div class="w-full h-32 bg-gray-300 rounded-xl mb-4 overflow-hidden">
-                @if($package->image)
-                    @if($thumbIsVideo)
-                        <video src="{{ $thumbUrl }}" class="w-full h-full object-cover" controls preload="metadata" playsinline></video>
+            @if(!empty($features))
+            <div class="space-y-1.5 mb-4">
+                @foreach ($features as $feature)
+                <div class="flex items-center text-sm text-gray-600">
+                    <i class="ri-checkbox-circle-fill mr-2" style="color: {{ $primaryColor }}"></i>
+                    <span>{{ $feature }}</span>
+                </div>
+                @endforeach
+            </div>
+            @endif
+
+            <!-- Action -->
+            <div class="flex items-center justify-between pt-3 border-t">
+                @if(auth()->check())
+                    @php
+                    $hasAccess = auth()->user()->userPackageAccess()
+                        ->where('package_id', $package->package_id)
+                        ->where('status', 'active')
+                        ->exists();
+                    @endphp
+
+                    @if($hasAccess)
+                    <a href="{{ route('user.package.show', $package->package_id) }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        Buka
+                    </a>
+                    @elseif($package->type_price == 'paid')
+                    <button onclick="buyPackage({{ $package->package_id }})"
+                            class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        Beli
+                    </button>
+                    @elseif($package->type_price === 'free_conditional')
+                    <a href="{{ route('user.package.detail', $package->package_id) }}"
+                       class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                       style="background-color: {{ $primaryColor }}">
+                        Ajukan
+                    </a>
                     @else
-                        <img src="{{ $thumbUrl }}" alt="{{ $package->name }}"
-                            class="w-full h-full object-cover">
+                    <button onclick="claimPackage({{ $package->package_id }})"
+                            class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                            style="background-color: {{ $primaryColor }}">
+                        Ambil
+                    </button>
                     @endif
                 @else
-                <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <i class="ri-image-line text-3xl text-gray-400"></i>
-                </div>
-                @endif
-            </div>
-            <div class="flex items-center justify-between text-xs font-semibold mb-2">
-                @if($typePriceStyle)
-                <span class="px-3 py-1 rounded-full {{ $typePriceStyle['class'] }}">
-                    {{ $typePriceStyle['label'] }}
-                </span>
-                @endif
-                <span class="px-3 py-1 rounded-full bg-gray-50 border border-gray-100 capitalize text-gray-600">
-                    {{ $package->type_package }}
-                </span>
-            </div>
-            <p class="text-lg font-bold text-black">{{ $package->name }}</p>
-            <p class="font-light">{{ $package->description }}</p>
-            <span class="font-bold text-black">Rp {{ number_format($package->price, 0, ',', '.') }}</span>
-
-            <div class="flex flex-col mt-4 gap-3 font-light">
-                @if($package->features)
-                @foreach (json_decode($package->features) as $feature)
-                <span>
-                    <i class="ri-checkbox-circle-fill text-green-500"></i>
-                    {{ $feature }}
-                </span>
-                @endforeach
-                @endif
-            </div>
-
-            <div class="mt-4">
-                @if($package->user_access_count > 0)
-                <a href="{{ route('user.package.bimbel', $package->package_id) }}"
-                    class="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-bold text-center block">
-                    SUDAH DIBELI
+                <a href="{{ route('login') }}"
+                   class="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                   style="background-color: {{ $primaryColor }}">
+                    Lihat Detail
                 </a>
-                @else
-                @if($paymentMode === 'manual')
-                    <button type="button" data-modal-open="manual-payment-{{ $package->package_id }}"
-                        class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                        BELI SEKARANG
-                    </button>
-                @else
-                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                        class="buy-package-form">
-                        @csrf
-                        <button type="submit" class="w-full bg-primary text-white px-4 py-3 rounded-lg font-bold">
-                            BELI SEKARANG
-                        </button>
-                    </form>
-                @endif
                 @endif
             </div>
         </div>
-        @if($package->user_access_count === 0 && $paymentMode === 'manual')
-        <div class="payment-modal hidden" data-modal="manual-payment-{{ $package->package_id }}">
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8"
-                data-modal-overlay="manual-payment-{{ $package->package_id }}">
-                <div class="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
-                    data-modal-panel>
-                    <button type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                        data-modal-close="manual-payment-{{ $package->package_id }}">
-                        <i class="ri-close-line text-xl"></i>
-                    </button>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <p class="text-xs font-semibold text-primary uppercase tracking-wide">Pembayaran Manual</p>
-                            <h3 class="text-xl font-semibold text-gray-900 mt-1">{{ $package->name }}</h3>
-                            <p class="text-sm text-gray-500">Upload bukti pembayaran untuk diproses admin.</p>
-                        </div>
-                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Total Tagihan</p>
-                                <p>Rp {{ number_format($package->price, 0, ',', '.') }}</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 mb-1">Transfer ke</p>
-                                @if(!empty($clientBranding['payment_bank_name']) && !empty($clientBranding['payment_account_number']) && !empty($clientBranding['payment_account_holder']))
-                                    <p>{{ $clientBranding['payment_bank_name'] }} {{ $clientBranding['payment_account_number'] }}</p>
-                                    <p class="text-gray-500">a.n {{ $clientBranding['payment_account_holder'] }}</p>
-                                @else
-                                    <p class="text-gray-500">Info rekening belum diatur.</p>
-                                @endif
-                                @if(!empty($clientBranding['payment_bank_note']))
-                                    <p class="text-xs text-gray-500 mt-1">{{ $clientBranding['payment_bank_note'] }}</p>
-                                @endif
-                            </div>
-                        </div>
-                        <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST"
-                            enctype="multipart/form-data" class="buy-package-form space-y-4">
-                            @csrf
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Bukti</label>
-                                <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.pdf"
-                                    class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <p class="mt-2 text-xs text-gray-500">Format: JPG, PNG, PDF (maks 20MB)</p>
-                            </div>
-                            <div class="flex items-center justify-end gap-3">
-                                <button type="button"
-                                    class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                                    data-modal-close="manual-payment-{{ $package->package_id }}">Batal</button>
-                                <button type="submit"
-                                    class="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90">
-                                    Kirim Bukti
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        @endif
-        @empty
-        <div class="col-span-full text-center py-8">
-            <p class="text-gray-500">Belum ada paket sertifikasi tersedia</p>
-        </div>
-        @endforelse
     </div>
-
+    @endforeach
 </div>
-
-<!-- Loading Modal -->
-<div id="loadingModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-    <div class="bg-white p-6 rounded-lg">
-        <div class="flex items-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
-            <p>Memproses pembayaran...</p>
-        </div>
+@else
+<div class="text-center py-16">
+    <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="ri-package-line text-4xl text-gray-400"></i>
     </div>
+    <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada paket</h3>
+    <p class="text-gray-400 text-sm">Paket akan segera hadir. Stay tuned!</p>
 </div>
-
+@endif
 @endsection
 
 @section('scripts')
 <script>
-    $(document).ready(function () {
-        const tabs = ['kelas', 'tryout', 'sertifikasi'];
+function buyPackage(packageId) {
+    if (!confirm('Beli paket ini?')) return;
+    // Implement buy logic
+    window.location.href = '/user/paket-pembelian/' + packageId + '/buy';
+}
 
-        function activateTab(active) {
-            tabs.forEach(tab => {
-                const container = $(`#${tab}-package`);
-                const button = $(`#btn-${tab}`);
-
-                if (tab === active) {
-                    container.removeClass('hidden').addClass('grid');
-                    button.addClass('bg-primary text-white').removeClass('border border-primary text-primary');
-                } else {
-                    container.addClass('hidden').removeClass('grid');
-                    button.removeClass('bg-primary text-white').addClass('border border-primary text-primary');
-                }
-            });
+function claimPackage(packageId) {
+    if (!confirm('Ambil paket gratis ini?')) return;
+    
+    fetch('/user/event/' + packageId + '/join', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
         }
-
-        // Tab click events
-        tabs.forEach(tab => {
-            $(`#btn-${tab}`).click(function() {
-                activateTab(tab);
-            });
-        });
-
-        function toggleModal(id, show) {
-            const modal = $(`[data-modal="${id}"]`);
-            if (!modal.length) return;
-
-            if (show) {
-                modal.removeClass('hidden');
-                $('html').addClass('overflow-hidden');
-            } else {
-                modal.addClass('hidden');
-                if (!$('.payment-modal:not(.hidden)').length) {
-                    $('html').removeClass('overflow-hidden');
-                }
-            }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            window.location.href = '{{ route('user.package.my') }}';
+        } else {
+            alert(data.message || 'Gagal mengambil paket');
         }
-
-        $('[data-modal-open]').on('click', function () {
-            toggleModal($(this).data('modal-open'), true);
-        });
-
-        $('[data-modal-close]').on('click', function () {
-            toggleModal($(this).data('modal-close'), false);
-        });
-
-        $('[data-modal-overlay]').on('click', function (e) {
-            if (e.target !== this) return;
-            toggleModal($(this).data('modal-overlay'), false);
-        });
-
-        $('[data-modal-panel]').on('click', function (e) {
-            e.stopPropagation();
-        });
-
-        // Handle buy package form submission
-        $('.buy-package-form').on('submit', function(e) {
-            e.preventDefault();
-
-            const form = $(this);
-            const button = form.find('button[type="submit"]');
-            const originalText = button.text();
-
-            button.prop('disabled', true).text('Memproses...');
-            $('#loadingModal').removeClass('hidden').addClass('flex');
-
-            const formData = new FormData(this);
-
-            $.ajax({
-                url: form.attr('action'),
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    $('#loadingModal').addClass('hidden').removeClass('flex');
-
-                    if (response.redirect_url) {
-                        window.location.href = response.redirect_url;
-                        return;
-                    }
-
-                    if (response.success) {
-                        if (response.message) {
-                            alert(response.message);
-                        }
-                        location.reload();
-                        return;
-                    }
-
-                    button.prop('disabled', false).text(originalText);
-                },
-                error: function(xhr) {
-                    $('#loadingModal').addClass('hidden').removeClass('flex');
-                    button.prop('disabled', false).text(originalText);
-
-                    let errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
-                    }
-
-                    alert(errorMessage);
-                }
-            });
-        });
-
-        // Initialize first tab
-        activateTab('kelas');
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Terjadi kesalahan. Silakan coba lagi.');
     });
+}
 </script>
-@endsection
-
-@section('styles')
-<style>
-    .buy-package-form button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-</style>
 @endsection

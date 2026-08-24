@@ -22,7 +22,7 @@
     <div class="space-y-4">
         @foreach($submission->answers as $answer)
         <div class="border border-gray-200 rounded-lg p-4">
-            <p class="font-semibold text-gray-900">{{ $answer->question->question_text ?? '-' }}</p>
+            <p class="font-semibold text-gray-900">{!! $answer->question->question_text ?? '-' !!}</p>
             <div class="mt-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
                     Skor: {{ $answer->score }} / 5

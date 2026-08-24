@@ -1,22 +1,24 @@
-@props(['name', 'label' => '', 'options' => [], 'required' => false, 'value' => null])
+{{--
+    Form Select Component (Legacy - Redirect to ui.Input.select)
+    
+    This component is kept for backward compatibility.
+    Please use <x-ui.input.select> for new code.
+--}}
 
-<div>
-    @if($label)
-    <label for="{{ $name }}" class="block mb-2 text-sm font-medium text-gray-900">{{ $label }}</label>
-    @endif
-    <select name="{{ $name }}" id="{{ $name }}" {{ $required ? 'required' : '' }} {{ $attributes->merge(['class' =>
-        'bg-white border text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 ' .
-        ($errors->has($name) ? 'border-red-500' : 'border-gray-300 text-gray-900')]) }}
-        >
-        <option value="">Pilih {{ strtolower($label) }}</option>
-        @foreach($options as $value => $labelOption)
-        <option value="{{ $value }}" {{ old($name, $value)==$value ? 'selected' : ($value==$value ? 'selected' : '' )
-            }}>
-            {{ $labelOption }}
-        </option>
-        @endforeach
-    </select>
-    @error($name)
-    <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-    @enderror
-</div>
+@props([
+    'name',
+    'label' => '',
+    'options' => [],
+    'required' => false,
+    'value' => null,
+])
+
+<x-ui.input.select
+    :name="$name"
+    :label="$label"
+    :options="$options"
+    :required="$required"
+    :value="$value"
+    size="md"
+    {{ $attributes }}
+/>

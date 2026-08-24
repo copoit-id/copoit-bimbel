@@ -14,6 +14,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            TryoutMaterialCategorySeeder::class,
+            PtnSupportingSubjectSeeder::class,
             CompleteSystemSeeder::class,
         ]);
     }

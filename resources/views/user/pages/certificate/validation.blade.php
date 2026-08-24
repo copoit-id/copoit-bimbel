@@ -1,4 +1,4 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Validasi Sertifikat')
 
 @section('content')
@@ -76,10 +76,6 @@
                             <span class="font-medium" id="cert-holder"></span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Tanggal Lahir:</span>
-                            <span class="font-medium" id="cert-dob"></span>
-                        </div>
-                        <div class="flex justify-between">
                             <span class="text-gray-600">Program:</span>
                             <span class="font-medium" id="cert-program"></span>
                         </div>
@@ -109,29 +105,6 @@
                             <span class="text-gray-600">Kode Verifikasi:</span>
                             <span class="font-medium" id="cert-verification"></span>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Scores Section -->
-            <div class="mb-6">
-                <h4 class="font-semibold text-gray-700 mb-3">Hasil Ujian</h4>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-lg font-bold text-primary" id="score-listening">-</div>
-                        <div class="text-xs text-gray-600">Listening</div>
-                    </div>
-                    <div class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-lg font-bold text-primary" id="score-reading">-</div>
-                        <div class="text-xs text-gray-600">Reading</div>
-                    </div>
-                    <div class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-lg font-bold text-primary" id="score-writing">-</div>
-                        <div class="text-xs text-gray-600">Writing</div>
-                    </div>
-                    <div class="text-center p-3 bg-primary/10 rounded-lg">
-                        <div class="text-lg font-bold text-primary" id="score-overall">-</div>
-                        <div class="text-xs text-primary">Overall Score</div>
                     </div>
                 </div>
             </div>
@@ -272,7 +245,6 @@
         // Fill certificate data
         $('#cert-number').text(data.certificate_number || 'Unknown');
         $('#cert-holder').text(data.holder_name || 'Unknown');
-        $('#cert-dob').text(data.date_of_birth || 'Unknown');
         $('#cert-program').text(data.package_name || 'Unknown');
         $('#cert-institution').text(data.institution_name || 'Unknown');
         $('#cert-issued').text(data.issued_date || 'Unknown');
@@ -288,16 +260,9 @@
             statusEl.text('Aktif').addClass('text-green-600');
         }
 
-        // Fill scores
-        $('#score-listening').text(data.scores?.listening || '-');
-        $('#score-reading').text(data.scores?.reading || '-');
-        $('#score-writing').text(data.scores?.writing || '-');
-        $('#score-overall').text(Math.round(data.scores?.overall || 0));
-
         // Set certificate preview
-        if (data.certificate_id) {
-            const previewUrl = `{{ route('user.certificate.view', ['certificate_id' => ':cert_id', 'token' => 'public']) }}`.replace(':cert_id', data.certificate_id);
-            $('#cert-preview').attr('src', previewUrl);
+        if (data.preview_url) {
+            $('#cert-preview').attr('src', data.preview_url);
         }
 
         // Show valid certificate section
@@ -333,15 +298,13 @@
 
     // Download certificate - gunakan route baru yang hanya perlu certificate_id
     $('#downloadCertBtn').on('click', function() {
-        if (!currentCertificateData || !currentCertificateData.certificate_id) {
+        if (!currentCertificateData || !currentCertificateData.download_url) {
             showAlert('error', 'Data sertifikat tidak ditemukan');
             return;
         }
 
         try {
-            // Langsung redirect ke route download yang baru
-            const downloadUrl = `{{ route("user.certificate.validation.download", ":cert_id") }}`.replace(':cert_id', currentCertificateData.certificate_id);
-            window.open(downloadUrl, '_blank');
+            window.open(currentCertificateData.download_url, '_blank');
         } catch (error) {
             console.error('Download error:', error);
             showAlert('error', 'Gagal mengunduh sertifikat');

@@ -20,18 +20,22 @@ class UserAnswer extends Model
         'attempt_token',
         'started_at',
         'finished_at',
+        'subtest_submitted_at',
         'score',
         'utbk_total_score',
         'correct_answers',
         'total_questions',
+        'tab_switch_count',
         'status'
     ];
 
     protected $casts = [
         'started_at' => 'datetime:Y-m-d H:i:s',
         'finished_at' => 'datetime:Y-m-d H:i:s',
+        'subtest_submitted_at' => 'datetime:Y-m-d H:i:s',
         'score' => 'decimal:2',
-        'utbk_total_score' => 'decimal:2'
+        'utbk_total_score' => 'decimal:2',
+        'tab_switch_count' => 'integer',
     ];
 
     // Pastikan timezone Jakarta untuk semua datetime
@@ -52,7 +56,9 @@ class UserAnswer extends Model
     // Accessor untuk timezone Jakarta
     public function getStartedAtAttribute($value)
     {
-        return $value ? Carbon::parse($value)->setTimezone('Asia/Jakarta') : null;
+        if (!$value) return null;
+        if ($value instanceof Carbon) return $value->setTimezone('Asia/Jakarta');
+        return Carbon::parse($value)->setTimezone('Asia/Jakarta');
     }
 
     public function getFinishedAtAttribute($value)

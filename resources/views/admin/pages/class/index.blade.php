@@ -13,7 +13,7 @@
 </div>
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
-    <x-page-desc title="Manajemen Kelas" description="Kelola semua kelas yang tersedia"></x-page-desc>
+    <x-page-desc title="Manajemen Kelas" description="Kelola kelas live/Zoom lama. Jadwal rutin dan sekali jalan baru ada di menu Jadwal & Absensi."></x-page-desc>
 
     <div class="relative overflow-x-auto mt-4">
         <table class="w-full text-sm text-left rtl:text-right text-gray-500">
@@ -38,7 +38,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">{{ $class->title }}</td>
-                    <td class="px-6 py-4 text-center">{{ $class->mentor ?? '-' }}</td>
+                    <td class="px-6 py-4 text-center">{{ $class->tentor?->name ?? $class->mentor ?? '-' }}</td>
                     <td class="px-6 py-4 text-center">
                         @if($class->status == 'upcoming')
                         <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">Akan Datang</span>
@@ -65,7 +65,7 @@
                                 <i class="ri-folder-line text-xl"></i>
                             </a>
                             @endif
-                            <a href="{{ route('admin.class.edit', $class->class_id) }}"
+                            <a href="{{ route('admin.class.edit', array_merge(request()->query(), ['class' => $class->class_id])) }}"
                                 class="text-gray-500 hover:text-yellow-500">
                                 <i class="ri-edit-line text-xl"></i>
                             </a>

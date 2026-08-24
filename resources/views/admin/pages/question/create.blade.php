@@ -30,7 +30,7 @@
 
             @php
             $rawType = old('question_type', isset($question) ? $question->question_type : 'multiple_choice');
-            $currentType = in_array($rawType, ['short_answer', 'essay']) ? $rawType : ($rawType === 'true_false' ?
+            $currentType = in_array($rawType, ['short_answer', 'essay', 'multiple_true_false']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
             'multiple_choice' : $rawType);
 
             $metadata = isset($question) ? ($question->metadata ?? []) : [];
@@ -53,15 +53,53 @@
                 implode("\n", $shortAnswerMeta['expected_answers']) : '');
                 $shortAnswerCaseSensitive = filter_var(old('short_answer_case_sensitive',
                 $shortAnswerMeta['case_sensitive'] ?? false), FILTER_VALIDATE_BOOLEAN);
+                
+                // Essay AI Quota Check
+                $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
+                
+                $essayEvaluationMode = old(
+                    'essay_evaluation_mode',
+                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                );
+                // Force manual jika AI tidak tersedia
+                if (!$essayAI['allowed'] && $essayEvaluationMode === 'auto') {
+                    $essayEvaluationMode = 'manual';
+                }
+                
                 $essayScoringMode = old(
                     'essay_scoring_mode',
-                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                    isset($question) ? $question->essay_scoring_mode : 'full'
                 );
 
                 $audioMeta = $metadata['audio_answer'] ?? [];
                 $audioInstructions = old('audio_instructions', $audioMeta['instructions'] ?? '');
                 $audioMaxDuration = old('audio_max_duration', $audioMeta['max_duration'] ?? '');
                 $audioMaxSize = old('audio_max_size', $audioMeta['max_size'] ?? '');
+
+                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
+                $mtfTrueLabel = old('mtf_true_label', $mtfMeta['true_label'] ?? 'Benar');
+                $mtfFalseLabel = old('mtf_false_label', $mtfMeta['false_label'] ?? 'Salah');
+                $mtfScoringMode = old('mtf_scoring_mode', $mtfMeta['scoring_mode'] ?? 'fullscore');
+                $mtfScoreCorrect = old('mtf_score_correct', $mtfMeta['score_correct'] ?? 1);
+                $mtfScoreWrong = old('mtf_score_wrong', $mtfMeta['score_wrong'] ?? 0);
+                $mtfStatementsInput = old('mtf_statements', $mtfMeta['statements'] ?? []);
+                $mtfStatements = [];
+                if (is_array($mtfStatementsInput)) {
+                    foreach ($mtfStatementsInput as $idx => $stmt) {
+                        $mtfStatements[] = [
+                            'id' => is_array($stmt) ? ($stmt['id'] ?? ('stmt_' . ($idx + 1))) : ('stmt_' . ($idx + 1)),
+                            'text' => is_array($stmt) ? ($stmt['text'] ?? '') : '',
+                            'correct' => is_array($stmt) && in_array(($stmt['correct'] ?? ''), ['true', 'false'], true) ? $stmt['correct'] : 'true',
+                        ];
+                    }
+                }
+                while (count($mtfStatements) < 2) {
+                    $mtfStatements[] = [
+                        'id' => 'stmt_' . (count($mtfStatements) + 1),
+                        'text' => '',
+                        'correct' => 'true',
+                    ];
+                }
                 @endphp
 
                 <div class="p-6 space-y-6">
@@ -73,9 +111,12 @@
                             <option value="multiple_choice" {{ $rawType==='multiple_choice' ? 'selected' : '' }}>
                                 Multiple
                                 Choice</option>
+                            <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
+                                Multiple Answer (Lebih dari 1 benar)</option>
                             <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
                             </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
+                            <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
@@ -137,6 +178,47 @@
                             @endif
                             @endif
                         </div>
+                        <div id="multipleAnswerScoreContainer"
+                            class="space-y-2 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
+                            <label class="block text-sm font-medium text-gray-700">Skor Multiple Answer</label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                                @php
+                                    $existingMultiMeta = isset($question) && is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+                                    $multiScoreCorrect = old('multiple_answer_score_correct', $existingMultiMeta['score_correct'] ?? 1);
+                                    $multiScoreWrong = old('multiple_answer_score_wrong', $existingMultiMeta['score_wrong'] ?? 0);
+                                    $multiScoringMode = old('multiple_answer_scoring_mode', $existingMultiMeta['scoring_mode'] ?? 'fullscore');
+                                @endphp
+                                <div>
+                                    <div class="flex items-center gap-1 mb-1">
+                                        <label for="multiple_answer_scoring_mode" class="block text-xs font-medium text-gray-600">Mode Penilaian</label>
+                                        <div class="relative group">
+                                            <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                            <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                                Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <select id="multiple_answer_scoring_mode" name="multiple_answer_scoring_mode"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="fullscore" {{ $multiScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                        <option value="partial" {{ $multiScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="multiple_answer_score_correct" class="block text-xs font-medium text-gray-600 mb-1">Skor Benar</label>
+                                    <input type="number" id="multiple_answer_score_correct" name="multiple_answer_score_correct" step="0.1"
+                                        value="{{ $multiScoreCorrect }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                                <div>
+                                    <label for="multiple_answer_score_wrong" class="block text-xs font-medium text-gray-600 mb-1">Skor Salah</label>
+                                    <input type="number" id="multiple_answer_score_wrong" name="multiple_answer_score_wrong" step="0.1"
+                                        value="{{ $multiScoreWrong }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">Skor akhir dihitung terpusat dari jumlah pilihan benar/salah yang dipilih peserta.</p>
+                        </div>
 
                         @foreach(['A', 'B', 'C', 'D', 'E'] as $index => $optionKey)
                         @php
@@ -153,7 +235,11 @@
                                 <input type="radio" id="correct_{{ strtolower($optionKey) }}" name="correct_answer"
                                     value="{{ $optionKey }}" {{ $isCorrect || old('correct_answer')==$optionKey
                                     ? 'checked' : '' }} {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary focus:ring-2">
+                                    class="single-correct w-4 h-4 text-primary bg-gray-100 border-gray-300 focus:ring-primary focus:ring-2">
+                                <input type="checkbox" id="correct_multi_{{ strtolower($optionKey) }}" name="correct_answers[]"
+                                    value="{{ $optionKey }}"
+                                    {{ in_array($optionKey, old('correct_answers', [])) || (!old('correct_answers') && $isCorrect) ? 'checked' : '' }}
+                                    class="multi-correct hidden w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
                             </div>
                             <div class="option-input w-full">
                                 <label for="option_{{ strtolower($optionKey) }}"
@@ -195,6 +281,44 @@
                                 memasangkan
                                 kolom kiri dengan kolom kanan.</p>
                         </div>
+                        @php
+                            $matchingScores = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+                            $matchingScoreCorrect = old('matching_score_correct', $matchingScores['score_correct'] ?? 1);
+                            $matchingScoreWrong = old('matching_score_wrong', $matchingScores['score_wrong'] ?? 0);
+                        @endphp
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <div class="flex items-center gap-1 mb-1">
+                                    <label for="matching_scoring_mode" class="block text-sm font-medium text-gray-700">Mode Penilaian</label>
+                                    <div class="relative group">
+                                        <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                        <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                            Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                        </div>
+                                    </div>
+                                </div>
+                                @php
+                                    $matchingScoringMode = old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore');
+                                @endphp
+                                <select id="matching_scoring_mode" name="matching_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" {{ $matchingScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                    <option value="partial" {{ $matchingScoringMode === 'partial' ? 'selected' : '' }}>Partial (seperti multiple)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="matching_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar</label>
+                                <input type="number" id="matching_score_correct" name="matching_score_correct" step="0.1"
+                                    value="{{ $matchingScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="matching_score_wrong" class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                                <input type="number" id="matching_score_wrong" name="matching_score_wrong" step="0.1"
+                                    value="{{ $matchingScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                        </div>
                         <div id="matchingPairsContainer" class="space-y-3">
                             @foreach($normalizedPairs as $index => $pair)
                             <div class="matching-pair-row flex flex-col sm:flex-row gap-3 items-start"
@@ -229,6 +353,94 @@
                         </button>
                     </div>
 
+                    <!-- Multiple True/False -->
+                    <div class="space-y-4 question-type-section" data-question-type="multiple_true_false" style="display:none;">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-800">Multiple True/False</h3>
+                            <p class="text-sm text-gray-600">Isi beberapa pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label for="mtf_true_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 1</label>
+                                <input type="text" id="mtf_true_label" name="mtf_true_label" value="{{ $mtfTrueLabel }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Contoh: Benar / Setuju">
+                            </div>
+                            <div>
+                                <label for="mtf_false_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 2</label>
+                                <input type="text" id="mtf_false_label" name="mtf_false_label" value="{{ $mtfFalseLabel }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Contoh: Salah / Tidak Setuju">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <label for="mtf_scoring_mode" class="block text-sm font-medium text-gray-700 mb-1">Mode Penilaian</label>
+                                <select id="mtf_scoring_mode" name="mtf_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" {{ $mtfScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
+                                    <option value="partial" {{ $mtfScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="mtf_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar (Total)</label>
+                                <input type="number" id="mtf_score_correct" name="mtf_score_correct" step="0.1"
+                                    value="{{ $mtfScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label for="mtf_score_wrong" class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                                <input type="number" id="mtf_score_wrong" name="mtf_score_wrong" step="0.1"
+                                    value="{{ $mtfScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-gray-100 text-gray-700">
+                                    <tr>
+                                        <th class="px-5 py-3.5 text-left font-semibold w-[75%]">Pernyataan</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderTrue">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Kolom 1' }}</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderFalse">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Kolom 2' }}</th>
+                                        <th class="px-5 py-3.5 text-center font-semibold w-[5%] min-w-[72px]">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mtfStatementsContainer">
+                                    @foreach($mtfStatements as $index => $statement)
+                                    <tr class="mtf-row border-t border-gray-200" data-index="{{ $index }}">
+                                        <td class="px-5 py-3.5 align-top">
+                                            <input type="hidden" name="mtf_statements[{{ $index }}][id]" value="{{ $statement['id'] }}">
+                                            <input type="hidden" name="mtf_statements[{{ $index }}][correct]" value="{{ $statement['correct'] === 'false' ? 'false' : 'true' }}" class="mtf-correct-input">
+                                            <textarea name="mtf_statements[{{ $index }}][text]" rows="2"
+                                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                placeholder="Tulis pernyataan...">{{ $statement['text'] }}</textarea>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                name="mtf_display_correct_{{ $index }}" value="true" {{ $statement['correct'] === 'true' ? 'checked' : '' }}>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                                name="mtf_display_correct_{{ $index }}" value="false" {{ $statement['correct'] === 'false' ? 'checked' : '' }}>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-center align-middle">
+                                            <button type="button"
+                                                class="remove-mtf-row inline-flex items-center justify-center w-9 h-9 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors">
+                                                <i class="ri-delete-bin-line"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" id="addMtfRow"
+                            class="px-4 py-2 border border-dashed border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2">
+                            <i class="ri-add-line"></i>
+                            Tambah Pernyataan
+                        </button>
+                    </div>
+
                     <!-- Short Answer / Essay -->
                     <div class="space-y-4 question-type-section" data-question-type="short_answer"
                         style="display:none;">
@@ -239,19 +451,71 @@
                         </div>
                         <div class="space-y-2" data-essay-scoring style="display:none;">
                             <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                            @if(!$essayAI['allowed'])
+                                <div class="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-2 rounded-lg text-sm">
+                                    <i class="ri-information-line mr-1"></i>
+                                    Essay AI tidak tersedia. Mode otomatis dinonaktifkan. 
+                                    Silakan upgrade paket atau hubungi admin untuk mengaktifkan fitur ini.
+                                </div>
+                            @endif
                             <div class="flex flex-wrap gap-4">
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="radio" name="essay_scoring_mode" value="auto" {{ $essayScoringMode === 'auto' ? 'checked' : '' }}
-                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                <label class="inline-flex items-center gap-2 text-sm {{ $essayAI['allowed'] ? 'text-gray-700' : 'text-gray-400 cursor-not-allowed' }}">
+                                    <input type="radio" name="essay_evaluation_mode" value="auto" {{ $essayEvaluationMode === 'auto' ? 'checked' : '' }}
+                                        {{ !$essayAI['allowed'] ? 'disabled' : '' }}
+                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary disabled:opacity-50">
                                     Otomatis (berdasarkan jawaban referensi)
+                                    @if(!$essayAI['allowed'])
+                                        <i class="ri-lock-line text-gray-400 ml-1" title="{{ $essayAI['reason'] ?? 'Essay AI tidak tersedia' }}"></i>
+                                    @endif
                                 </label>
                                 <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="radio" name="essay_scoring_mode" value="manual" {{ $essayScoringMode !== 'auto' ? 'checked' : '' }}
+                                    <input type="radio" name="essay_evaluation_mode" value="manual" {{ $essayEvaluationMode !== 'auto' ? 'checked' : '' }}
                                         class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                     Manual (perlu dikoreksi)
                                 </label>
                             </div>
                         </div>
+                        
+                        {{-- Mode Penilaian Essay: FULL vs RANGE --}}
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mode Penilaian Skor Essay</label>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="radio" name="essay_scoring_mode" value="full" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : 'full') === 'full' ? 'checked' : '' }}
+                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                        FULL (Benar/Salah)
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="radio" name="essay_scoring_mode" value="range" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : '') === 'range' ? 'checked' : '' }}
+                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                        RANGE (Proporsional)
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">
+                                    <strong>FULL:</strong> Benar = Skor Benar, Salah = Skor Salah | 
+                                    <strong>RANGE:</strong> Skor proporsional berdasarkan similarity (0 - Skor Benar)
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Benar</label>
+                                    <input type="number" name="essay_score_correct" step="0.01" min="0"
+                                        value="{{ old('essay_score_correct', isset($question) ? $question->essay_score_correct : '') }}"
+                                        placeholder="{{ $tryout_detail->default_weight ?? 1 }}"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <p class="text-xs text-gray-500 mt-1">Kosongkan = pakai default weight</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Salah</label>
+                                    <input type="number" name="essay_score_wrong" step="0.01" min="0"
+                                        value="{{ old('essay_score_wrong', isset($question) ? $question->essay_score_wrong : 0) }}"
+                                        placeholder="0"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <label for="short_answer_expected"
                                 class="block text-sm font-medium text-gray-700 mb-2">Daftar
@@ -363,11 +627,18 @@
         const form = document.querySelector('form');
         const matchingContainer = document.getElementById('matchingPairsContainer');
         const addMatchingPairBtn = document.getElementById('addMatchingPair');
+        const mtfContainer = document.getElementById('mtfStatementsContainer');
+        const addMtfRowBtn = document.getElementById('addMtfRow');
+        const mtfTrueLabelInput = document.getElementById('mtf_true_label');
+        const mtfFalseLabelInput = document.getElementById('mtf_false_label');
+        const mtfHeaderTrue = document.getElementById('mtfHeaderTrue');
+        const mtfHeaderFalse = document.getElementById('mtfHeaderFalse');
         const optionRows = document.querySelectorAll('.option-row');
+        const multipleAnswerScoreContainer = document.getElementById('multipleAnswerScoreContainer');
 
         function shouldShowSection(sectionType, currentType) {
             if (sectionType === 'multiple_choice') {
-                return currentType === 'multiple_choice' || currentType === 'true_false';
+                return currentType === 'multiple_choice' || currentType === 'true_false' || currentType === 'multiple_answer';
             }
             if (sectionType === 'short_answer') {
                 return currentType === 'short_answer' || currentType === 'essay';
@@ -396,11 +667,15 @@
             }
 
             if (customScoreToggle) {
-                const showCustomToggle = currentType === 'multiple_choice';
+                const showCustomToggle = currentType === 'multiple_choice' || currentType === 'true_false';
                 customScoreToggle.style.display = showCustomToggle ? '' : 'none';
             }
 
-            if (currentType === 'multiple_choice' || currentType === 'true_false') {
+            if (multipleAnswerScoreContainer) {
+                multipleAnswerScoreContainer.classList.toggle('hidden', currentType !== 'multiple_answer');
+            }
+
+            if (currentType === 'multiple_choice' || currentType === 'true_false' || currentType === 'multiple_answer') {
                 toggleScoreFields();
             } else if (useCustomScores) {
                 useCustomScores.checked = false;
@@ -449,7 +724,7 @@
 
         if (tryoutType === 'tkp') {
             form.addEventListener('submit', function(e) {
-                if (questionTypeSelect.value !== 'multiple_choice' && questionTypeSelect.value !== 'true_false') {
+                if (!['multiple_choice', 'true_false', 'multiple_answer'].includes(questionTypeSelect.value)) {
                     return;
                 }
 
@@ -543,12 +818,106 @@
             }
         }
 
+        if (addMtfRowBtn && mtfContainer) {
+            let mtfIndex = mtfContainer.querySelectorAll('.mtf-row').length;
+
+            addMtfRowBtn.addEventListener('click', function() {
+                const row = createMtfRow(mtfIndex);
+                mtfContainer.appendChild(row);
+                mtfIndex += 1;
+            });
+
+            mtfContainer.addEventListener('click', function(event) {
+                const removeButton = event.target.closest('.remove-mtf-row');
+                if (!removeButton) {
+                    return;
+                }
+
+                const rows = mtfContainer.querySelectorAll('.mtf-row');
+                if (rows.length <= 2) {
+                    alert('Minimal harus ada dua pernyataan.');
+                    return;
+                }
+
+                removeButton.closest('.mtf-row').remove();
+            });
+
+            mtfContainer.addEventListener('change', function(event) {
+                const radio = event.target.closest('.mtf-correct-radio');
+                if (!radio) {
+                    return;
+                }
+
+                const row = radio.closest('.mtf-row');
+                if (!row) {
+                    return;
+                }
+
+                const hiddenInput = row.querySelector('.mtf-correct-input');
+                if (hiddenInput) {
+                    hiddenInput.value = radio.value === 'false' ? 'false' : 'true';
+                }
+            });
+
+            function createMtfRow(index, textValue = '', correctValue = 'true') {
+                const row = document.createElement('tr');
+                const normalizedCorrect = correctValue === 'false' ? 'false' : 'true';
+                row.className = 'mtf-row border-t border-gray-200';
+                row.dataset.index = index.toString();
+                row.innerHTML = `
+                    <td class="px-5 py-3.5 align-top">
+                        <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
+                        <input type="hidden" name="mtf_statements[${index}][correct]" value="${normalizedCorrect}" class="mtf-correct-input">
+                        <textarea name="mtf_statements[${index}][text]" rows="2"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="Tulis pernyataan...">${textValue}</textarea>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                            name="mtf_display_correct_${index}" value="true" ${normalizedCorrect === 'true' ? 'checked' : ''}>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <input type="radio" class="mtf-correct-radio w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                            name="mtf_display_correct_${index}" value="false" ${normalizedCorrect === 'false' ? 'checked' : ''}>
+                    </td>
+                    <td class="px-5 py-3.5 text-center align-middle">
+                        <button type="button"
+                            class="remove-mtf-row inline-flex items-center justify-center w-9 h-9 border border-red text-red rounded-lg hover:bg-red hover:text-white transition-colors">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </td>
+                `;
+                return row;
+            }
+        }
+
+        function syncMtfHeaderLabels() {
+            if (mtfHeaderTrue && mtfTrueLabelInput) {
+                const text = mtfTrueLabelInput.value.trim();
+                mtfHeaderTrue.textContent = text !== '' ? text : 'Kolom 1';
+            }
+            if (mtfHeaderFalse && mtfFalseLabelInput) {
+                const text = mtfFalseLabelInput.value.trim();
+                mtfHeaderFalse.textContent = text !== '' ? text : 'Kolom 2';
+            }
+        }
+
+        if (mtfTrueLabelInput) {
+            mtfTrueLabelInput.addEventListener('input', syncMtfHeaderLabels);
+        }
+        if (mtfFalseLabelInput) {
+            mtfFalseLabelInput.addEventListener('input', syncMtfHeaderLabels);
+        }
+        syncMtfHeaderLabels();
+
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';
+            const isMultipleAnswer = questionType === 'multiple_answer';
             optionRows.forEach(row => {
                 const key = row.dataset.optionKey;
                 const textarea = row.querySelector('textarea');
-                const radio = row.querySelector('input[type="radio"]');
+                const radio = row.querySelector('input.single-correct');
+                const multiCheckbox = row.querySelector('input.multi-correct');
                 const scoreWrapper = row.querySelector('.custom-score-field');
 
                 if (isTrueFalse) {
@@ -563,6 +932,17 @@
                         if (radio) {
                             radio.required = false;
                         }
+                        if (multiCheckbox) {
+                            multiCheckbox.checked = false;
+                            multiCheckbox.classList.add('hidden');
+                        }
+                        if (scoreWrapper) {
+                            if (tryoutType === 'tkp') {
+                                scoreWrapper.style.display = '';
+                            } else {
+                                scoreWrapper.style.display = useCustomScores && useCustomScores.checked ? '' : 'none';
+                            }
+                        }
                     } else {
                         row.style.display = 'none';
                         if (textarea) {
@@ -573,12 +953,13 @@
                             radio.required = false;
                             radio.checked = false;
                         }
-                    }
-                    if (scoreWrapper) {
-                        scoreWrapper.style.display = 'none';
-                    }
-                    if (useCustomScores) {
-                        useCustomScores.checked = false;
+                        if (multiCheckbox) {
+                            multiCheckbox.checked = false;
+                            multiCheckbox.classList.add('hidden');
+                        }
+                        if (scoreWrapper) {
+                            scoreWrapper.style.display = 'none';
+                        }
                     }
                 } else {
                     row.style.display = '';
@@ -586,10 +967,16 @@
                         textarea.required = key !== 'E';
                     }
                     if (radio) {
-                        radio.required = key !== 'E';
+                        radio.required = !isMultipleAnswer && key !== 'E';
+                        radio.classList.toggle('hidden', isMultipleAnswer);
+                    }
+                    if (multiCheckbox) {
+                        multiCheckbox.classList.toggle('hidden', !isMultipleAnswer);
                     }
                     if (scoreWrapper) {
-                        if (tryoutType === 'tkp') {
+                        if (isMultipleAnswer) {
+                            scoreWrapper.style.display = 'none';
+                        } else if (tryoutType === 'tkp') {
                             scoreWrapper.style.display = '';
                         } else {
                             scoreWrapper.style.display = useCustomScores && useCustomScores.checked ? '' : 'none';

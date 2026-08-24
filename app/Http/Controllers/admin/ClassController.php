@@ -4,20 +4,27 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassModel;
+use App\Models\Tentor;
 use App\Models\Tryout;
+use App\Services\PurchaseAccessDuration;
 use Illuminate\Http\Request;
 
 class ClassController extends Controller
 {
     public function index()
     {
-        $classes = ClassModel::orderBy('schedule_time', 'desc')->paginate(10);
+        $classes = ClassModel::with('tentor')->orderBy('schedule_time', 'desc')->paginate(\App\Support\Pagination::perPage(10));
+
         return view('admin.pages.class.index', compact('classes'));
     }
 
     public function create()
     {
-        return view('admin.pages.class.create');
+        $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
+        $preOptions = Tryout::where('assessment_type', 'pre_test')->orderBy('name')->get(['tryout_id', 'name']);
+        $postOptions = Tryout::where('assessment_type', 'post_test')->orderBy('name')->get(['tryout_id', 'name']);
+
+        return view('admin.pages.class.create', compact('tentors', 'preOptions', 'postOptions'));
     }
 
     public function store(Request $request)
@@ -27,21 +34,43 @@ class ClassController extends Controller
             'schedule_time' => 'required|date',
             'zoom_link' => 'nullable|url',
             'drive_link' => 'nullable|url',
+            'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'nullable|boolean',
+            'is_displayed' => 'nullable|boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1',
+            'pre_test_tryout_id' => 'nullable|exists:tryouts,tryout_id|different:post_test_tryout_id',
+            'post_test_tryout_id' => 'nullable|exists:tryouts,tryout_id',
         ]);
 
         try {
-            ClassModel::create([
+            $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
+
+            $class = ClassModel::create([
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
-                'mentor' => $request->mentor,
-                'status' => $request->status
+                'tentor_id' => $tentor?->id,
+                'mentor' => $tentor?->name ?: $request->mentor,
+                'status' => $request->status,
+                'price' => $request->integer('price'),
+                'is_for_sale' => $request->boolean('is_for_sale'),
+                'is_displayed' => $request->boolean('is_displayed', true),
+                'type_price' => $request->input('type_price', 'paid'),
+                'conditional_requirement' => $request->input('conditional_requirement'),
+                'access_duration_unit' => PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
 
-            return redirect()->route('admin.class.index')
+            $this->syncAssessmentsFromRequest($class, $request);
+
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil ditambahkan');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -53,10 +82,26 @@ class ClassController extends Controller
     public function edit($id)
     {
         try {
-            $class = ClassModel::findOrFail($id);
-            return view('admin.pages.class.edit', compact('class'));
+            $class = ClassModel::with(['tentor', 'assessments'])->findOrFail($id);
+            $tentors = Tentor::active()
+                ->orWhere('id', $class->tentor_id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'expertise']);
+            $preOptions = Tryout::where('assessment_type', 'pre_test')->orderBy('name')->get(['tryout_id', 'name']);
+            $postOptions = Tryout::where('assessment_type', 'post_test')->orderBy('name')->get(['tryout_id', 'name']);
+            $preAssignment = $class->assessments->firstWhere('pivot.assessment_type', 'pre_test');
+            $postAssignment = $class->assessments->firstWhere('pivot.assessment_type', 'post_test');
+
+            return view('admin.pages.class.edit', compact(
+                'class',
+                'tentors',
+                'preOptions',
+                'postOptions',
+                'preAssignment',
+                'postAssignment'
+            ));
         } catch (\Exception $e) {
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('error', 'Kelas tidak ditemukan');
         }
     }
@@ -68,22 +113,43 @@ class ClassController extends Controller
             'schedule_time' => 'required|date',
             'zoom_link' => 'nullable|url',
             'drive_link' => 'nullable|url',
+            'tentor_id' => 'nullable|exists:tentors,id',
             'mentor' => 'nullable|string|max:255',
             'status' => 'required|in:upcoming,completed,cancelled',
+            'price' => 'nullable|integer|min:0',
+            'is_for_sale' => 'nullable|boolean',
+            'is_displayed' => 'nullable|boolean',
+            'type_price' => 'nullable|in:paid,free_unconditional,free_conditional',
+            'conditional_requirement' => 'nullable|string',
+            'access_duration_unit' => 'nullable|in:forever,day,week,month,year',
+            'access_duration_value' => 'nullable|integer|min:1',
+            'pre_test_tryout_id' => 'nullable|exists:tryouts,tryout_id|different:post_test_tryout_id',
+            'post_test_tryout_id' => 'nullable|exists:tryouts,tryout_id',
         ]);
 
         try {
             $class = ClassModel::findOrFail($id);
+            $tentor = $request->filled('tentor_id') ? Tentor::find($request->integer('tentor_id')) : null;
+            $mentorName = $tentor?->name ?: ($request->has('mentor') ? $request->input('mentor') : $class->mentor);
             $class->update([
                 'title' => $request->title,
                 'schedule_time' => $request->schedule_time,
                 'zoom_link' => $request->zoom_link,
                 'drive_link' => $request->drive_link,
-                'mentor' => $request->mentor,
-                'status' => $request->status
+                'tentor_id' => $tentor?->id,
+                'mentor' => $mentorName,
+                'status' => $request->status,
+                'price' => $request->integer('price'),
+                'is_for_sale' => $request->boolean('is_for_sale'),
+                'is_displayed' => $request->boolean('is_displayed', true),
+                'type_price' => $request->input('type_price', 'paid'),
+                'conditional_requirement' => $request->input('conditional_requirement'),
+                'access_duration_unit' => PurchaseAccessDuration::normalizedUnit($request->input('access_duration_unit')),
+                'access_duration_value' => PurchaseAccessDuration::normalizedValue($request->input('access_duration_unit'), $request->input('access_duration_value')),
             ]);
+            $this->syncAssessmentsFromRequest($class, $request);
 
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil diperbarui');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -97,7 +163,7 @@ class ClassController extends Controller
         try {
             $class = ClassModel::findOrFail($id);
             $class->delete();
-            return redirect()->route('admin.class.index')
+            return redirect()->route('admin.class-schedules.index', ['tab' => 'zoom'])
                 ->with('success', 'Kelas berhasil dihapus');
         } catch (\Exception $e) {
             return redirect()->back()
@@ -160,4 +226,27 @@ class ClassController extends Controller
         return redirect()->route('admin.class.assessments', $class->class_id)
             ->with('success', ucfirst(str_replace('_', ' ', $assessmentType)) . ' berhasil dihapus.');
     }
+
+    private function syncAssessmentsFromRequest(ClassModel $class, Request $request): void
+    {
+        foreach ([
+            'pre_test' => $request->input('pre_test_tryout_id'),
+            'post_test' => $request->input('post_test_tryout_id'),
+        ] as $assessmentType => $tryoutId) {
+            $class->assessments()->wherePivot('assessment_type', $assessmentType)->detach();
+
+            if (!$tryoutId) {
+                continue;
+            }
+
+            $tryout = Tryout::where('tryout_id', $tryoutId)
+                ->where('assessment_type', $assessmentType)
+                ->first();
+
+            if ($tryout) {
+                $class->assessments()->attach($tryout->tryout_id, ['assessment_type' => $assessmentType]);
+            }
+        }
+    }
+
 }

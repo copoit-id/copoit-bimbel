@@ -79,6 +79,7 @@
                     <div class="mt-4">
                         <form method="POST" action="{{ route('super-admin.roles.permissions', $role->id) }}">
                             @csrf
+                            <p class="mb-3 text-sm text-gray-500">Daftar ini mengikuti modul pada plan aktif. Role hanya mengatur siapa yang boleh memakai modul tersebut.</p>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm text-gray-600">
                                     <thead class="text-xs text-gray-500 uppercase bg-gray-50">
@@ -91,6 +92,7 @@
                                     </thead>
                                     <tbody>
                                         @foreach($features as $featureKey => $feature)
+                                            @continue(!($availableFeatures[$featureKey] ?? true))
                                             <tr class="border-t border-gray-100">
                                                 <td class="px-4 py-3 font-medium text-gray-800">{{ $feature['label'] ?? $featureKey }}</td>
                                                 @foreach($actions as $actionKey => $method)

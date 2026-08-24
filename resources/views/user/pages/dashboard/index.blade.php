@@ -60,8 +60,8 @@
                     </div>
                 </div>
                 <div class="text-right">
-                    <p class="text-sm font-medium">Berakhir: {{ $access->end_date->format('d M Y') }}</p>
-                    <p class="text-xs text-gray-500">{{ $access->end_date->diffForHumans() }}</p>
+                    <p class="text-sm font-medium">Berakhir: {{ $access->end_date ? $access->end_date->format('d M Y') : 'Selamanya' }}</p>
+                    <p class="text-xs text-gray-500">{{ $access->end_date ? $access->end_date->diffForHumans() : 'Tanpa batas waktu' }}</p>
                 </div>
             </div>
             @empty

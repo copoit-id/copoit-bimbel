@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'payment_gateway' => env('PAYMENT_GATEWAY', 'xendit'),
+    'payment_gateway' => env('PAYMENT_GATEWAY', config('payment_gateways.default', 'xendit')),
 
     /*
     |--------------------------------------------------------------------------
@@ -51,6 +51,24 @@ return [
         'status_url' => env('MIDTRANS_STATUS_URL', 'https://api.sandbox.midtrans.com/v2'),
     ],
 
+    'interactive_qris' => [
+        'api_key' => env('INTERACTIVE_QRIS_API_KEY'),
+        'mid' => env('INTERACTIVE_QRIS_MID'),
+        'use_tip' => env('INTERACTIVE_QRIS_USE_TIP', false),
+        'base_url' => env('INTERACTIVE_QRIS_BASE_URL', 'https://qris.interactive.co.id/restapi/qris'),
+    ],
+
+    'ipaymu' => [
+        'api_key' => env('IPAYMU_API_KEY'),
+        'va' => env('IPAYMU_VA'),
+        'base_url' => env(
+            'IPAYMU_BASE_URL',
+            env('IPAYMU_IS_PRODUCTION', false)
+                ? env('IPAYMU_PRODUCTION_URL', 'https://my.ipaymu.com')
+                : env('IPAYMU_SANDBOX_URL', 'https://sandbox.ipaymu.com')
+        ),
+    ],
+
     'recaptcha' => [
         'enabled' => env('RECAPTCHA_ENABLED', false),
         'site_key' => env('RECAPTCHA_SITE_KEY'),
@@ -59,5 +77,52 @@ return [
     ],
     'tinymce' => [
         'key' => env('TINYMCE_API_KEY'),
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'question_model' => env('OPENAI_QUESTION_MODEL', 'gpt-5.4-mini'),
+        'timeout' => env('OPENAI_TIMEOUT', 90),
+        'question_models' => [
+            'gpt-5.4' => 'OpenAI - GPT-5.4',
+            'gpt-5.4-mini' => 'OpenAI - GPT-5.4 Mini',
+            'gpt-5-mini' => 'OpenAI - GPT-5 Mini',
+            'gpt-4o' => 'OpenAI - GPT-4o',
+            'gpt-4o-mini' => 'OpenAI - GPT-4o Mini',
+        ],
+    ],
+
+    'edge_tts' => [
+        'binary' => env('EDGE_TTS_BINARY', 'edge-tts'),
+        'voice' => env('EDGE_TTS_VOICE', 'id-ID-GadisNeural'),
+        'rate' => env('EDGE_TTS_RATE', '+10%'),
+        'timeout' => env('EDGE_TTS_TIMEOUT', 30),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => env('GEMINI_TIMEOUT', 90),
+        'question_models' => [
+            'gemini-3.5-flash' => 'Gemini - 3.5 Flash',
+            'gemini-3.1-flash-lite' => 'Gemini - 3.1 Flash-Lite',
+        ],
+    ],
+    'ai_gateway' => [
+        'url' => env('AI_GATEWAY_URL'),
+        'key' => env('AI_GATEWAY_KEY'),
+        // Generate materi dapat memerlukan waktu lebih lama daripada request API biasa.
+        'timeout' => env('AI_GATEWAY_TIMEOUT', 120),
+        'connect_timeout' => env('AI_GATEWAY_CONNECT_TIMEOUT', 10),
+    ],
+
+    'ai_similarity' => [
+        'enabled' => env('AI_SIMILARITY_ENABLED', true),
+        'url' => env('SIMILARITY_SERVICE_URL', 'http://localhost:8000'),
+        'timeout' => env('SIMILARITY_SERVICE_TIMEOUT', 20),
+        'threshold' => env('ESSAY_AUTO_PASS_THRESHOLD', 0.6),
+        'callback_url' => env('SIMILARITY_CALLBACK_URL'),
+        'callback_secret' => env('SIMILARITY_CALLBACK_SECRET'),
     ],
 ];

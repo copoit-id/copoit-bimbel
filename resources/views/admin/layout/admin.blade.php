@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{ $clientBranding['name'] }} - Admin Dashboard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, proxy-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="turbo-cache-control" content="no-cache">
+    <title>{{ $clientBranding['name'] }} - {{ auth()->user()?->isTutor() ? 'Tutor' : 'Admin' }} Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.ckeditor.com/4.22.1/full-all/ckeditor.js"></script>
@@ -30,13 +34,15 @@
     @vite('resources/css/app.css')
     @include('components.branding-styles')
     @include('components.favicon-link')
+    <x-website-translation-head />
     @include('admin.partials.summernote')
     @stack('styles')
     @yield('styles')
 </head>
 
-<body>
+<body data-admin-selects>
     @include('admin.components.navbar')
+    @include('components.confirm-modal')
     @include('admin.components.sidebar')
     @include('components.flash-alert')
 
@@ -44,6 +50,10 @@
     <div class="p-6 md:p-12 sm:ml-64 mt-16 md:mt-10">
         @yield('content')
     </div>
+
+    @if(config('client.branding.admin_assistant_enabled', false) && !auth()->user()?->isTutor())
+        <x-admin.assistant />
+    @endif
 
     {{-- jquery --}}
     <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
@@ -71,6 +81,22 @@
         CKEDITOR.config.resize_enabled = false;
         CKEDITOR.config.removeDialogTabs = 'image:advanced;link:advanced';
 
+        const removeLegacyCkeditorSecurityNotice = () => {
+            document.querySelectorAll('.cke_notification, .cke_notification_message').forEach((element) => {
+                const message = element.textContent || '';
+                if (!message.includes('This CKEditor 4.22.1') || !message.includes('not secure')) {
+                    return;
+                }
+
+                (element.closest('.cke_notification') || element).remove();
+            });
+        };
+
+        const ckeditorNoticeObserver = new MutationObserver(removeLegacyCkeditorSecurityNotice);
+        ckeditorNoticeObserver.observe(document.documentElement, { childList: true, subtree: true });
+        CKEDITOR.on('instanceReady', removeLegacyCkeditorSecurityNotice);
+        document.addEventListener('DOMContentLoaded', removeLegacyCkeditorSecurityNotice, { once: true });
+
         document.addEventListener('DOMContentLoaded', function () {
             initializeCKEditors();
 
@@ -80,7 +106,7 @@
                 });
 
                 const commonConfig = {
-                    plugins: 'basicstyles,toolbar,wysiwygarea,elementspath,mathjax,sourcearea,clipboard,undo,format,list,indent,blockquote,table,horizontalrule,link',
+                    plugins: 'basicstyles,toolbar,wysiwygarea,elementspath,mathjax,sourcearea,clipboard,undo,format,list,indent,blockquote,table,horizontalrule,link,image',
                     extraPlugins: 'mathjax',
                     mathJaxLib: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_HTML',
                     mathJaxClass: 'math-tex',
@@ -100,7 +126,7 @@
                         { name: 'math', items: ['Mathjax'] },
                         { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
                         { name: 'paragraph', items: ['NumberedList', 'BulletedList'] },
-                        { name: 'insert', items: ['Table', 'Link'] },
+                        { name: 'insert', items: ['Table', 'Link', 'Image'] },
                         { name: 'tools', items: ['Source'] }
                     ]
                 };
@@ -111,6 +137,7 @@
                     toolbar: [
                         { name: 'math', items: ['Mathjax'] },
                         { name: 'basicstyles', items: ['Bold', 'Italic'] },
+                        { name: 'insert', items: ['Image'] },
                         { name: 'tools', items: ['Source'] }
                     ]
                 };
@@ -137,6 +164,130 @@
     @vite('resources/js/app.js')
     @stack('scripts')
     @yield('scripts')
+
+    <script>
+    (function() {
+        let pendingAction = { action: '', method: 'POST' };
+        let currentModalId = null;
+
+        function openConfirmModal(id, action, method, message) {
+            method = method || 'POST';
+            pendingAction = { action, method };
+            currentModalId = id;
+
+            const messageEl = document.getElementById(id + '_message');
+            if (messageEl) messageEl.textContent = message || 'Apakah Anda yakin?';
+
+            const modal = document.getElementById(id);
+            if (!modal) return;
+
+            modal.style.display = 'flex';
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeConfirmModal() {
+            if (currentModalId) {
+                const modal = document.getElementById(currentModalId);
+                if (modal) modal.style.display = 'none';
+            }
+            document.body.classList.remove('overflow-hidden');
+            currentModalId = null;
+        }
+
+        function submitConfirmForm() {
+            closeConfirmModal();
+
+            if (pendingAction.method === 'GET') {
+                window.location.href = pendingAction.action || '#';
+                return;
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = pendingAction.action || '#';
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_token';
+            csrfInput.value = document.querySelector('meta[name=csrf-token]').content;
+            form.appendChild(csrfInput);
+
+            if (pendingAction.method === 'PUT' || pendingAction.method === 'DELETE') {
+                const methodInput = document.createElement('input');
+                methodInput.type = 'hidden';
+                methodInput.name = '_method';
+                methodInput.value = pendingAction.method;
+                form.appendChild(methodInput);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        document.addEventListener('click', function(e) {
+            // Cancel button
+            const cancelBtn = e.target.closest('[data-confirm-cancel]');
+            if (cancelBtn) {
+                closeConfirmModal();
+                return;
+            }
+
+            // Confirm button
+            const confirmBtn = e.target.closest('[data-confirm-action]');
+            if (confirmBtn) {
+                submitConfirmForm();
+                return;
+            }
+
+            // Backdrop click
+            const modal = e.target.closest('[data-modal-confirm]');
+            if (modal && e.target === modal) {
+                closeConfirmModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && currentModalId) {
+                closeConfirmModal();
+            }
+        });
+
+        window.openConfirmModal = openConfirmModal;
+        window.closeConfirmModal = closeConfirmModal;
+    })();
+    </script>
+
+    {{-- Keep sidebar links as normal anchors; only clean stale Alpine bindings on details. --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const detailsElements = document.querySelectorAll('#logo-sidebar details');
+            detailsElements.forEach(function(details) {
+                details.removeAttribute('x-data');
+                details.removeAttribute('x-bind');
+                details.removeAttribute('x-on:click');
+            });
+        });
+        
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+        
+        // Refresh CSRF token periodically to prevent session expiry issues
+        @if(auth()->user()?->canAccessAdminPanel())
+        setInterval(function() {
+            fetch('{{ route("admin.dashboard") }}', {
+                method: 'HEAD',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).catch(function() {});
+        }, 300000); // Every 5 minutes
+        @endif
+    </script>
+    @stack('scripts')
+    <x-website-translator />
 </body>
 
 </html>

@@ -36,6 +36,13 @@ return [
             'label' => 'Import Soal',
             'routes' => ['admin.question-import.'],
         ],
+        'ai_question_generator' => [
+            'label' => 'Generate Soal AI',
+            'routes' => [
+                'admin.question-bank.questions.ai-generator',
+                'admin.question.ai-generator',
+            ],
+        ],
         'question_bank' => [
             'label' => 'Bank Soal',
             'routes' => ['admin.question-bank.'],
@@ -48,13 +55,58 @@ return [
             'label' => 'Manajemen Tryout',
             'routes' => ['admin.tryout.'],
         ],
+        // Keep the more specific material category route before material.
+        // Permission resolution uses the first matching route prefix.
+        'material_category' => [
+            'label' => 'Kategori Subtest',
+            'routes' => ['admin.material.material-category.'],
+        ],
+        'material' => [
+            'label' => 'Manajemen Materi',
+            'routes' => ['admin.material.'],
+        ],
         'feedback' => [
             'label' => 'Feedback Tryout',
             'routes' => ['admin.feedback.'],
         ],
+        'schedule' => [
+            'label' => 'Kelas & Jadwal',
+            'routes' => [
+                'admin.class-schedules.',
+            ],
+        ],
+        'attendance' => [
+            'label' => 'Absensi Kelas',
+            'routes' => [
+                'admin.class-attendance.',
+                'admin.class-schedules.show',
+            ],
+        ],
+        'study_group' => [
+            'label' => 'Rombel',
+            'routes' => [
+                'admin.study-groups.',
+            ],
+        ],
+        'booking' => [
+            'label' => 'Booking Jadwal',
+            'routes' => [
+                'admin.package-booking.',
+            ],
+        ],
         'class' => [
-            'label' => 'Kelas',
-            'routes' => ['admin.class.'],
+            'label' => 'Manajemen Kelas Live',
+            'routes' => [
+                'admin.class.',
+            ],
+        ],
+        'tentor' => [
+            'label' => 'Manajemen Tutor',
+            'routes' => ['admin.tentors.'],
+        ],
+        'tutor_payroll' => [
+            'label' => 'Penggajian Tutor',
+            'routes' => ['admin.tutor-payrolls.'],
         ],
         'certification' => [
             'label' => 'Sertifikasi',
@@ -91,6 +143,42 @@ return [
         'pembayaran' => [
             'label' => 'Pembayaran',
             'routes' => ['admin.pembayaran.'],
+        ],
+        'finance' => [
+            'label' => 'Keuangan',
+            'routes' => ['admin.finance.'],
+        ],
+        'recurring_bill' => [
+            'label' => 'Tagihan Rutin',
+            'routes' => ['admin.recurring-bills.'],
+        ],
+        'discount' => [
+            'label' => 'Diskon',
+            'routes' => ['admin.discounts.'],
+        ],
+        'affiliate' => [
+            'label' => 'Affiliate',
+            'routes' => ['admin.affiliate.'],
+        ],
+        'activity' => [
+            'label' => 'Activity',
+            'routes' => ['admin.activity.'],
+        ],
+        'update_notification' => [
+            'label' => 'Notifikasi Update',
+            'routes' => ['admin.update-notifications.'],
+        ],
+        'tes_koran' => [
+            'label' => 'Tes Koran',
+            'routes' => ['admin.tes-koran.'],
+        ],
+        'artikel' => [
+            'label' => 'Artikel',
+            'routes' => ['admin.artikel.'],
+        ],
+        'general_page' => [
+            'label' => 'General Page',
+            'routes' => ['admin.general-pages.'],
         ],
     ],
 ];

@@ -1,0 +1,113 @@
+# Uji Beban Tryout k6
+
+`k6-tryout-simple.js` adalah uji HTTP end-to-end. Secara default, setiap virtual user memakai satu akun berbeda, login, membuka lobby, memulai tryout, menjawab seluruh soal secara lokal, lalu mengirim satu submit akhir berisi semua jawaban. Ini meniru mode tryout aplikasi `client_side`: klik jawaban disimpan browser terlebih dahulu dan tidak membuat request `/save` per soal.
+
+Set `ANSWER_PERSISTENCE_MODE=per_answer_save` hanya untuk stress test ekstrem endpoint `/save`. Mode tersebut sengaja lebih berat daripada perilaku peserta normal.
+
+> Peringatan: skrip ini membuat data `UserAnswer` dan `UserAnswerDetail` sungguhan serta menandai tryout selesai jika `FINISH_TRYOUT` tidak diubah. Jalankan hanya pada tryout dan akun khusus pengujian. Pastikan limit attempt cukup atau tidak dibatasi.
+
+## Menyiapkan akun
+
+Jangan membuat akun satu per satu. Setelah code ini dideploy ke VPS, buat batch peserta dari terminal VPS:
+
+```bash
+php artisan test:create-tryout-users \
+  --count=324 \
+  --tryout=8 \
+  --package=free \
+  --batch=loadtest-t8-20260811 \
+  --force
+```
+
+Command tersebut membuat 324 akun ber-email `loadtest-t8-20260811-...@loadtest.invalid`, memberi akses langsung ke tryout free, dan mencetak lokasi CSV pada VPS, misalnya `storage/app/load-tests/loadtest-t8-20260811/users.csv`.
+
+Salin CSV itu secara aman ke komputer yang menjalankan k6:
+
+```bash
+scp user@ip-vps:/var/www/copoit-bimbel/storage/app/load-tests/loadtest-t8-20260811/users.csv \
+  tests/load/users.csv
+```
+
+File asli sengaja diabaikan Git agar password tidak masuk repository. Formatnya `email,password`, satu akun unik per baris. Jumlah akun harus minimal sama dengan `VUS`.
+
+Setelah pengujian, hapus seluruh akun dan data batch itu saja:
+
+```bash
+php artisan test:delete-tryout-users \
+  --batch=loadtest-t8-20260811 \
+  --force
+```
+
+## Simulasi normal 324 peserta dan 40 soal
+
+Ini profil yang disarankan untuk memperkirakan ujian besok. Semua peserta hadir dalam jendela 5 menit, membaca lobby 10–45 detik sebelum mulai, lalu waktu menjawab disimulasikan rata-rata setiap 3,5 detik (2–5 detik). Tidak ada request server saat memilih jawaban; server menerima beban utama saat halaman tryout pertama dibuka dan saat submit akhir. Test selesai sekitar 10–12 menit, bukan berjam-jam.
+
+```bash
+k6 run \
+  -e BASE_URL=http://127.0.0.1:8000 \
+  -e PACKAGE_ID=free \
+  -e TRYOUT_ID=8 \
+  -e VUS=324 \
+  -e QUESTION_COUNT=40 \
+  -e ARRIVAL_WINDOW_SECONDS=300 \
+  -e START_DELAY_MIN_SECONDS=10 \
+  -e START_DELAY_MAX_SECONDS=45 \
+  -e ANSWER_INTERVAL_SECONDS=2 \
+  -e ANSWER_INTERVAL_JITTER_SECONDS=3 \
+  -e ANSWER_PERSISTENCE_MODE=client_side \
+  -e MAX_DURATION=12m \
+  -e GRACEFUL_STOP=0s \
+  -e USERS_FILE="$PWD/data/users.csv" \
+  tests/load/k6-tryout-simple.js
+```
+
+## Menjalankan burst 324 peserta dan 40 soal
+
+Perintah berikut melepas 324 peserta bersamaan dengan batas keras 30 detik. Ini menguji burst halaman awal dan submit akhir sesuai mode aplikasi `client_side`. `QUESTION_COUNT=40` adalah penjaga supaya pengujian langsung gagal jika ternyata halaman tidak memuat tepat 40 soal.
+
+```bash
+k6 run \
+  -e BASE_URL=http://127.0.0.1:8000 \
+  -e PACKAGE_ID=free \
+  -e TRYOUT_ID=8 \
+  -e VUS=324 \
+  -e QUESTION_COUNT=40 \
+  -e ANSWER_PERSISTENCE_MODE=client_side \
+  -e ANSWER_INTERVAL_SECONDS=0 \
+  -e MAX_DURATION=30s \
+  tests/load/k6-tryout-simple.js
+```
+
+Jumlah VU dinamis: ubah `-e VUS=324`. Bila `VUS` tidak diisi, skrip memakai seluruh baris akun pada `users.csv`. Jika jumlah akun kurang, skrip berhenti sebelum mengirim request apa pun.
+
+Durasi 30 detik adalah deadline, bukan jeda tambahan. Jika seluruh peserta belum menyimpan semua jawaban dan submit sebelum deadline, test berhenti dan metrik `tryout_answers_saved` serta `tryout_attempts_completed` akan menunjukkan jumlah yang benar-benar berhasil. Itu berarti kapasitas belum cukup untuk skenario burst tersebut.
+
+## Parameter penting
+
+| Parameter | Default | Kegunaan |
+| --- | --- | --- |
+| `BASE_URL` | `http://127.0.0.1:8000` | Server tujuan. |
+| `PACKAGE_ID` | `free` | ID package atau `free`. |
+| `TRYOUT_ID` | wajib | ID tryout yang diuji. |
+| `USERS_FILE` | `./users.csv` | Lokasi CSV akun uji relatif terhadap skrip. |
+| `VUS` | jumlah akun CSV | Jumlah peserta serentak. |
+| `QUESTION_COUNT` | seluruh soal | Jika diisi, harus sama persis dengan jumlah soal yang dirender. |
+| `ARRIVAL_WINDOW_SECONDS` | `0` | Rentang acak kedatangan sebelum login. `300` menyebar peserta selama 5 menit. |
+| `START_DELAY_MIN_SECONDS` | `0` | Jeda minimum setelah lobby sebelum peserta klik mulai. |
+| `START_DELAY_MAX_SECONDS` | `0` | Jeda maksimum setelah lobby sebelum peserta klik mulai. |
+| `ANSWER_INTERVAL_SECONDS` | `0` | Jeda dasar antar jawaban setiap peserta. |
+| `ANSWER_INTERVAL_JITTER_SECONDS` | `0` | Tambahan acak pada jeda jawaban. `2` + `3` berarti 2–5 detik per jawaban. |
+| `ANSWER_PERSISTENCE_MODE` | `client_side` | `client_side` meniru browser asli: jawaban lokal, lalu satu submit akhir. `per_answer_save` mengirim POST `/save` untuk tiap soal sebagai stress test ekstrem. |
+| `FINISH_TRYOUT` | `true` | Set `false` untuk hanya menguji simpan jawaban tanpa proses hasil akhir. |
+| `MAX_DURATION` | `30s` | Batas keras total waktu skenario. Gunakan `20s` bila ingin lebih singkat. |
+| `GRACEFUL_STOP` | `0s` | Tidak menambah waktu tunggu setelah batas durasi tercapai. |
+
+Skrip memilih opsi jawaban pertama yang tersedia; targetnya adalah beban dan alur penyimpanan, bukan nilai yang benar. Soal pilihan ganda, multiple answer, matching, multiple true/false, jawaban singkat, dan essay ditangani. Soal audio sengaja membuat test gagal karena upload audio harus memakai file rekaman yang valid dan tidak boleh dipalsukan sebagai jawaban lengkap.
+
+Untuk stress endpoint simpan satu per satu, gunakan parameter tambahan berikut pada command mana pun:
+
+```bash
+-e ANSWER_PERSISTENCE_MODE=per_answer_save
+```
+
+Untuk tryout yang memiliki essay dengan koreksi AI, menjalankan `FINISH_TRYOUT=true` dapat menambah antrean koreksi. Gunakan tryout tanpa essay untuk baseline platform, atau jadikan antrean AI tersebut bagian dari skenario yang memang ingin diuji.

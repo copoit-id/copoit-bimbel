@@ -7,30 +7,57 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use App\Services\ActivityLogger;
+use App\Models\ParticipantDestinationCategory;
+use App\Rules\SafeName;
+use App\Services\ParticipantDestinationSelectionService;
 
 class ProfileController extends Controller
 {
     public function index()
     {
         $user = Auth::user();
-        return view('user.pages.profile.index', compact('user'));
+        $destinationCategories = ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('user.pages.profile.index', compact('user', 'destinationCategories'));
     }
 
-    public function update(Request $request)
+    public function update(Request $request, ParticipantDestinationSelectionService $destinationSelectionService)
     {
         $user = Auth::user();
 
         $request->validate([
-            'username' => 'required|string|max:255|unique:users,username,' . $user->id,
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'name' => ['required', 'string', 'max:255', new SafeName()],
+            'phone' => ['nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'date_of_birth' => 'nullable|date|before:today',
+            'education_level' => ['nullable', 'string', 'max:100'],
+            'origin_institution' => ['nullable', 'string', 'max:255'],
+            'major_choice_1' => ['nullable', 'string', 'max:255'],
+            'major_choice_2' => ['nullable', 'string', 'max:255'],
         ]);
+        $destinationPayload = $destinationSelectionService->validate(
+            $request,
+            $destinationSelectionService->isRequired()
+        );
 
         $user->update([
-            'username' => $request->username,
-            'email' => $request->email,
+            'name' => $request->name,
+            'phone' => $request->phone,
             'date_of_birth' => $request->date_of_birth,
+            'education_level' => $request->education_level,
+            'origin_institution' => $request->origin_institution,
+            'major_choice_1' => $request->major_choice_1,
+            'major_choice_2' => $request->major_choice_2,
+            ...$destinationPayload,
         ]);
+
+        ActivityLogger::log('profile_updated', 'success', $user, [], $request);
 
         return redirect()->route('user.profile.index')
             ->with('success', 'Profile berhasil diperbarui');
@@ -54,6 +81,8 @@ class ProfileController extends Controller
         $user->update([
             'password' => Hash::make($request->password),
         ]);
+
+        ActivityLogger::log('password_changed', 'success', $user, [], $request);
 
         return redirect()->route('user.profile.index')
             ->with('success', 'Password berhasil diperbarui');

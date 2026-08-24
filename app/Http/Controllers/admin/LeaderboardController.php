@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Package;
+use App\Models\ParticipantDestinationCategory;
 use App\Models\Question;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
@@ -13,20 +14,30 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
 class LeaderboardController extends Controller
 {
+    /** @var array<string, float> */
+    private array $maxPossibleScoreCache = [];
+
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
-        $tryouts = Tryout::with(['tryoutDetails', 'packages', 'directPackage'])
+        $tryouts = Tryout::with([
+            'tryoutDetails' => fn ($query) => $query->withCount('questions'),
+            'packages',
+        ])
             ->get()
             ->map(function ($tryout) {
-                $tryoutDetail = $tryout->tryoutDetails->first();
+                $totalQuestions = (int) $tryout->tryoutDetails->sum('questions_count');
+                $totalDuration = (int) $tryout->tryoutDetails->sum('duration');
 
                 // Count total participants across all packages for this tryout
                 $participantCount = UserAnswer::where('tryout_id', $tryout->tryout_id)
@@ -35,9 +46,7 @@ class LeaderboardController extends Controller
                     ->count();
 
                 // Get all packages that have this tryout
-                $packages = $tryout->packages;
-                $directPackage = $tryout->directPackage ? collect([$tryout->directPackage]) : collect();
-                $allPackages = $packages->isEmpty() ? $directPackage : $packages;
+                $allPackages = $tryout->packages;
 
                 if ($allPackages->isEmpty()) {
                     return null; // Skip if no package
@@ -54,9 +63,8 @@ class LeaderboardController extends Controller
                     'package_id' => $allPackages->first()->package_id, // Use first package for routing
                     'name' => $tryout->name,
                     'description' => $tryout->description,
-                    'total_questions' => $tryoutDetail ? $tryoutDetail->questions()->count() : 0,
-                    'duration' => $tryoutDetail ? $tryoutDetail->duration : 0,
-                    'difficulty' => $this->getDifficultyLevel($tryoutDetail ? $tryoutDetail->duration : 0),
+                    'total_questions' => $totalQuestions,
+                    'duration' => $totalDuration,
                     'participant_count' => $participantCount,
                     'package_name' => $combinedPackageName,
                     'package_count' => count($packageNames),
@@ -78,32 +86,32 @@ class LeaderboardController extends Controller
     public function show($package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with([
+            'tryoutDetails' => fn ($query) => $query->withCount('questions'),
+        ])->findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter(request(), $destinationCategories);
 
         // Get tryout details
-        $tryoutDetail = $tryout->tryoutDetails()->first();
+        $tryoutDetail = $tryout->tryoutDetails->first();
         if (!$tryoutDetail) {
             return redirect()->route('admin.leaderboard.index')
                 ->with('error', 'Tryout belum memiliki detail soal');
         }
 
         // Get leaderboard data - real participants
-        $rankingRows = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankingRows = $this->buildLeaderboardRows(
+            $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get()
+        );
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
-        $totalParticipants = UserAnswer::where('tryout_id', $tryout_id)
-            ->where('status', 'completed')
-            ->distinct('user_id')
-            ->count();
+        $totalParticipants = $rankingRows->count();
 
         $averageScore = $rankingRows->avg('raw_score');
         $highestScore = $rankingRows->max('raw_score');
 
-        $passedCount = UserAnswer::where('tryout_id', $tryout_id)
-            ->where('status', 'completed')
-            ->where('is_passed', true)
-            ->count();
+        $passedCount = $rankingRows->where('is_passed', true)->count();
 
         $passRate = $totalParticipants > 0 ? ($passedCount / $totalParticipants) * 100 : 0;
 
@@ -112,8 +120,8 @@ class LeaderboardController extends Controller
             'average_score' => round($averageScore ?? 0, 1),
             'highest_score' => $highestScore ?? 0,
             'pass_rate' => round($passRate, 1),
-            'total_questions' => $tryoutDetail->questions()->count(),
-            'duration' => $tryoutDetail->duration
+            'total_questions' => (int) $tryout->tryoutDetails->sum('questions_count'),
+            'duration' => (int) $tryout->tryoutDetails->sum('duration')
         ];
 
         return view('admin.pages.leaderboard.show', compact(
@@ -121,25 +129,42 @@ class LeaderboardController extends Controller
             'tryout',
             'tryoutDetail',
             'rankings',
-            'statistics'
+            'statistics',
+            'destinationCategories',
+            'destinationFilter'
         ));
     }
 
-    public function exportExcel($package_id, $tryout_id)
+    public function exportExcel(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
-        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankings = $this->sortLeaderboardRows(
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
+        );
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Peringkat');
+        $subtests = $this->exportSubtests($tryout);
 
         $headers = [
             'Peringkat',
             'Nama Peserta',
             'Email',
-            'Skor',
+            'Tujuan / Instansi',
+        ];
+
+        foreach ($subtests as $subtest) {
+            $headers[] = 'Skor '.$subtest['alias'];
+        }
+
+        $headers = [
+            ...$headers,
+            'Skor Total',
             'Skor Maks',
             'Status',
             'Waktu Selesai',
@@ -148,35 +173,49 @@ class LeaderboardController extends Controller
         ];
 
         $sheet->fromArray($headers, null, 'A1');
-        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
 
         $row = 2;
         foreach ($rankings as $index => $ranking) {
             $rank = $index + 1;
-            $score = round($ranking->raw_score ?? 0);
-            $maxScore = round($ranking->max_score ?? 0);
+            $score = round((float) ($ranking->raw_score ?? 0), 2);
+            $maxScore = round((float) ($ranking->max_score ?? 0), 2);
             $finishedAt = $ranking->finished_at;
             $startedAt = $ranking->started_at;
             $duration = $this->formatDuration($startedAt, $finishedAt);
 
-            $sheet->fromArray([
+            $values = [
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
+                $ranking->user?->participant_destination_display_name ?? '-',
+            ];
+
+            foreach ($subtests as $subtest) {
+                $values[] = $this->formatScore($ranking->subtest_scores[$subtest['id']] ?? 0);
+            }
+
+            $sheet->fromArray([
+                ...$values,
                 $score,
                 $maxScore,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
                 $finishedAt ? $finishedAt->format('H:i') : '-',
                 $duration,
                 $ranking->created_at ? $ranking->created_at->format('d M Y H:i') : '-',
-            ], null, 'A' . $row);
+            ], null, 'A'.$row);
 
             $row++;
         }
 
-        foreach (range('A', 'I') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
+        $lastColumn = $sheet->getHighestColumn();
+        $sheet->getColumnDimension('A')->setWidth(12);
+        $sheet->getColumnDimension('B')->setWidth(28);
+        $sheet->getColumnDimension('C')->setWidth(32);
+        $sheet->getColumnDimension('D')->setWidth(28);
+        for ($column = 5; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column))->setWidth(15);
         }
+        $this->styleExportSheet($sheet, $lastColumn, $row - 1);
 
         $filename = sprintf(
             'leaderboard-%s-%s-%s.xlsx',
@@ -194,17 +233,23 @@ class LeaderboardController extends Controller
         ]);
     }
 
-    public function exportPdf($package_id, $tryout_id)
+    public function exportPdf(Request $request, $package_id, $tryout_id)
     {
         $package = Package::findOrFail($package_id);
-        $tryout = Tryout::findOrFail($tryout_id);
+        $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $destinationCategories = $this->getDestinationCategories();
+        $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
-        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id)->get());
+        $rankings = $this->sortLeaderboardRows(
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
+        );
 
         $html = view('admin.pages.leaderboard.export-pdf', [
             'package' => $package,
             'tryout' => $tryout,
             'rankings' => $rankings,
+            'subtests' => $this->exportSubtests($tryout),
+            'destinationFilter' => $destinationFilter,
         ])->render();
 
         $options = new Options();
@@ -212,7 +257,7 @@ class LeaderboardController extends Controller
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->setPaper('A4', $tryout->tryoutDetails->count() > 1 ? 'landscape' : 'portrait');
         $dompdf->render();
 
         $filename = sprintf(
@@ -229,20 +274,6 @@ class LeaderboardController extends Controller
     }
 
     /**
-     * Determine difficulty level based on duration and question count
-     */
-    private function getDifficultyLevel($duration)
-    {
-        if ($duration <= 30) {
-            return 'Mudah';
-        } elseif ($duration <= 60) {
-            return 'Sedang';
-        } else {
-            return 'Sulit';
-        }
-    }
-
-    /**
      * Get status badge based on score
      */
     private function getStatusFromScore($score)
@@ -256,12 +287,22 @@ class LeaderboardController extends Controller
         }
     }
 
-    private function getLeaderboardRankings($tryoutId)
+    private function getLeaderboardRankings($tryoutId, array $destinationCategoryIds = [])
     {
         return UserAnswer::where('tryout_id', $tryoutId)
             ->where('status', 'completed')
             ->whereNotNull('score')
-            ->with(['user', 'tryoutDetail'])
+            ->when(!empty($destinationCategoryIds), function ($query) use ($destinationCategoryIds) {
+                $query->whereHas('user', function ($userQuery) use ($destinationCategoryIds) {
+                    $userQuery->whereIn('participant_destination_category_id', $destinationCategoryIds);
+                });
+            })
+            ->with([
+                'user.participantDestinationCategory.parent',
+                'tryoutDetail',
+                'userAnswerDetails.question.questionOptions',
+                'userAnswerDetails.questionOption',
+            ])
             ->orderBy('score', 'desc')
             ->orderBy('finished_at', 'asc');
     }
@@ -269,17 +310,67 @@ class LeaderboardController extends Controller
     private function buildLeaderboardPaginator($tryoutId, int $perPage = 15)
     {
         $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryoutId)->get());
-        return $this->paginateLeaderboardRows($rankings, $perPage);
+        return $this->paginateLeaderboardRows($rankings, \App\Support\Pagination::perPage($perPage));
+    }
+
+    private function getDestinationCategories()
+    {
+        return ParticipantDestinationCategory::query()
+            ->root()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function resolveDestinationFilter(Request $request, $destinationCategories): array
+    {
+        $categoryId = $request->integer('destination_category_id') ?: null;
+        $subcategoryId = $request->integer('destination_subcategory_id') ?: null;
+        $selectedCategory = $categoryId
+            ? $destinationCategories->firstWhere('id', $categoryId)
+            : null;
+
+        if (!$selectedCategory) {
+            return [
+                'category_id' => null,
+                'subcategory_id' => null,
+                'ids' => [],
+                'label' => 'Semua tujuan / instansi',
+            ];
+        }
+
+        $selectedSubcategory = $subcategoryId
+            ? $selectedCategory->activeChildren->firstWhere('id', $subcategoryId)
+            : null;
+
+        if ($selectedSubcategory) {
+            return [
+                'category_id' => $selectedCategory->id,
+                'subcategory_id' => $selectedSubcategory->id,
+                'ids' => [$selectedSubcategory->id],
+                'label' => $selectedCategory->name . ' - ' . $selectedSubcategory->name,
+            ];
+        }
+
+        $ids = $selectedCategory->activeChildren->pluck('id')
+            ->prepend($selectedCategory->id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'category_id' => $selectedCategory->id,
+            'subcategory_id' => null,
+            'ids' => $ids,
+            'label' => $selectedCategory->name,
+        ];
     }
 
     private function paginateLeaderboardRows(Collection $rankings, int $perPage = 15)
     {
-        $sorted = $rankings
-            ->sortBy([
-                ['raw_score', 'desc'],
-                ['finished_at', 'asc'],
-            ])
-            ->values();
+        $sorted = $this->sortLeaderboardRows($rankings);
 
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $items = $sorted->slice(($currentPage - 1) * $perPage, $perPage)->values();
@@ -296,39 +387,73 @@ class LeaderboardController extends Controller
         );
     }
 
-    private function buildLeaderboardRows(Collection $rankings): Collection
+    private function sortLeaderboardRows(Collection $rankings): Collection
     {
-        return $rankings->map(function (UserAnswer $ranking) {
-            $ranking->loadMissing([
-                'tryoutDetail',
-                'userAnswerDetails.question',
-                'userAnswerDetails.questionOption',
-                'userAnswerDetails.question.questionOptions',
-            ]);
+        return $rankings
+            ->sortBy([
+                ['raw_score', 'desc'],
+                ['finished_at', 'asc'],
+            ])
+            ->values();
+    }
 
-            $type = $ranking->tryoutDetail->type_subtest ?? null;
-            $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
-            $maxScore = $type
-                ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type)
-                : 0;
-            $detail = $ranking->tryoutDetail;
-            $passingScore = $detail->passing_score ?? $this->getDefaultPassingScore($type);
+    private function buildLeaderboardRows(Collection $allAnswers): Collection
+    {
+        return $allAnswers->groupBy('user_id')->map(function ($userAnswers) {
+            $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-            $ranking->raw_score = $rawScore;
-            $ranking->max_score = $maxScore;
-            $ranking->is_passed = $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
+            $bestAttempt = $attemptGroups->map(function ($attempt) {
+                $totalScore = 0.0;
+                $totalMaxScore = 0.0;
+                $allSubtestsPassed = true;
+                $subtestScores = [];
 
-            return $ranking;
-        });
+                foreach ($attempt as $ranking) {
+                    $ranking->loadMissing([
+                        'tryoutDetail',
+                        'userAnswerDetails.question',
+                        'userAnswerDetails.questionOption',
+                        'userAnswerDetails.question.questionOptions',
+                    ]);
+
+                    $type = $ranking->tryoutDetail->type_subtest ?? null;
+                    $rawScore = $type ? $this->calculateTotalScore($ranking, $type) : (float) ($ranking->score ?? 0);
+                    $maxScore = $type ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type) : 0;
+                    $detail = $ranking->tryoutDetail;
+
+                    if (!$this->isSubtestPassed($detail, $rawScore, $maxScore, $type)) {
+                        $allSubtestsPassed = false;
+                    }
+
+                    $totalScore += $rawScore;
+                    $totalMaxScore += $maxScore;
+                    $subtestScores[$ranking->tryout_detail_id] = $rawScore;
+                }
+
+                $representative = $attempt->first();
+                $representative->raw_score = $totalScore;
+                $representative->max_score = $totalMaxScore;
+                $representative->is_passed = $allSubtestsPassed;
+                $representative->subtest_scores = $subtestScores;
+                $representative->started_at = $attempt->min('started_at');
+                $representative->finished_at = $attempt->max('finished_at');
+
+                return $representative;
+            })->filter()->sortByDesc('raw_score')->values()->first();
+
+            return $bestAttempt;
+        })->filter()->values();
     }
 
     private function calculateTotalScore(UserAnswer $userAnswer, string $type_subtest): float
     {
         $totalScore = 0.0;
 
-        $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
-            ->get();
+        $details = $userAnswer->relationLoaded('userAnswerDetails')
+            ? $userAnswer->userAnswerDetails
+            : UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                ->with(['questionOption', 'question'])
+                ->get();
 
         foreach ($details as $detail) {
             $question = $detail->question;
@@ -341,15 +466,16 @@ class LeaderboardController extends Controller
             $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
-                    }
-                    $totalScore += $detail->is_correct ? $weight : 0;
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
+                    break;
+
+                case 'multiple_true_false':
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -357,8 +483,15 @@ class LeaderboardController extends Controller
                     if ($pendingReview) {
                         continue 2;
                     }
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    // Gunakan score_obtained dari answer_json (hasil koreksi AI/manual)
+                    $scoreObtained = isset($answerMeta['score_obtained']) ? (float) $answerMeta['score_obtained'] : null;
+                    if ($scoreObtained !== null) {
+                        $totalScore += $scoreObtained;
+                    } else {
+                        // Fallback: gunakan essay_score_correct atau default_weight
+                        $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
+                        $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    }
                     break;
 
                 case 'audio':
@@ -395,14 +528,148 @@ class LeaderboardController extends Controller
         return $totalScore;
     }
 
+    private function resolveMultipleAnswerAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $correctIds = $question->questionOptions()
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                ? $multipleAnswerMeta['scoring_mode']
+                : 'fullscore';
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $isExactCorrect = ($selectedIds === $correctIds);
+            $fullScore = $scoreCorrect;
+            $score = 0.0;
+
+            if ($scoringMode === 'partial') {
+                $score = $matchedCorrect > 0
+                    ? ($matchedCorrect / $totalCorrectCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $scoreCorrect : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
+    }
+
+    private function resolveMatchingAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $correctCount > 0
+                    ? ($correctCount / $totalCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
+    private function resolveMultipleTrueFalseAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = $correctCount === $totalCount;
+            if ($scoringMode === 'partial') {
+                return max(0, $correctCount > 0 ? ($correctCount / $totalCount) * $fullScore : $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, ?string $type_subtest): float
     {
+        $cacheKey = $tryoutDetailId.'|'.($type_subtest ?? '');
+        if (isset($this->maxPossibleScoreCache[$cacheKey])) {
+            return $this->maxPossibleScoreCache[$cacheKey];
+        }
+
         $questions = Question::where('tryout_detail_id', $tryoutDetailId)
             ->with('questionOptions')
             ->get();
 
         if ($questions->isEmpty()) {
-            return 0;
+            return $this->maxPossibleScoreCache[$cacheKey] = 0;
         }
 
         $total = 0.0;
@@ -411,20 +678,33 @@ class LeaderboardController extends Controller
             $questionType = $question->question_type ?? 'multiple_choice';
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
+                    }
+                    $total += $weight;
+                    break;
+
+                case 'multiple_true_false':
+                    $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                    $weight = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 0));
+                    if ($weight <= 0) {
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;
 
                 case 'short_answer':
                 case 'essay':
-                    $weight = (float) ($question->default_weight ?? 1);
+                    // Gunakan essay_score_correct (field "Benar") untuk max score
+                    $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
                     $total += $weight > 0 ? $weight : 1;
                     break;
 
@@ -461,7 +741,7 @@ class LeaderboardController extends Controller
             }
         }
 
-        return $total;
+        return $this->maxPossibleScoreCache[$cacheKey] = $total;
     }
 
     private function getDefaultPassingScore(?string $type_subtest): int
@@ -487,6 +767,60 @@ class LeaderboardController extends Controller
         }
 
         return $rawScore >= $passingScore;
+    }
+
+    private function exportSubtests(Tryout $tryout): Collection
+    {
+        $aliases = [
+            'twk' => 'TWK',
+            'tiu' => 'TIU',
+            'tkp' => 'TKP',
+            'penalaran_umum' => 'PU',
+            'pengetahuan_umum' => 'PPU',
+            'pengetahuan_kuantitatif' => 'PK',
+            'pemahaman_bacaan_menulis' => 'PBM',
+            'literasi_bahasa_indonesia' => 'LBI',
+            'literasi_bahasa_inggris' => 'LBE',
+            'penalaran_matematika' => 'PM',
+            'writing' => 'WT',
+            'reading' => 'RD',
+            'listening' => 'LS',
+        ];
+
+        return $tryout->tryoutDetails
+            ->sortBy('tryout_detail_id')
+            ->values()
+            ->map(function (TryoutDetail $detail) use ($aliases) {
+                $type = Str::lower((string) ($detail->type_subtest ?? ''));
+
+                return [
+                    'id' => (int) $detail->tryout_detail_id,
+                    'alias' => $aliases[$type] ?? Str::upper(Str::limit($type ?: 'Subtest', 6, '')),
+                    'name' => Str::headline(str_replace('_', ' ', $type ?: 'Subtest')),
+                ];
+            });
+    }
+
+    private function formatScore(float|int|null $score): string
+    {
+        return rtrim(rtrim(number_format((float) $score, 2, '.', ''), '0'), '.');
+    }
+
+    private function styleExportSheet($sheet, string $lastColumn, int $lastRow): void
+    {
+        $sheet->getStyle('A1:'.$lastColumn.'1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1D4ED8']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+        ]);
+        if ($lastRow >= 2) {
+            $sheet->getStyle('A2:'.$lastColumn.$lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        }
+        $sheet->getRowDimension(1)->setRowHeight(32);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:'.$lastColumn.max(1, $lastRow));
+        $sheet->getPageSetup()->setOrientation('landscape')->setFitToWidth(1)->setFitToHeight(0);
+        $sheet->getPageMargins()->setTop(0.4)->setBottom(0.4)->setLeft(0.25)->setRight(0.25);
     }
 
     private function formatDuration(?Carbon $startedAt, ?Carbon $finishedAt): string

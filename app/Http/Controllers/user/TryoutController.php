@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessEssayCorrection;
+use App\Models\EssayCorrectionJob;
 use App\Models\Package;
+use App\Models\ProctoringSnapshot;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\Question;
@@ -13,7 +16,9 @@ use App\Models\TryoutUserTimeAdjustment;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
+use App\Models\UserTryoutAccess;
 use App\Models\QuestionOption;
+use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
+use App\Services\ActivityLogger;
 
 class TryoutController extends Controller
 {
@@ -31,6 +37,40 @@ class TryoutController extends Controller
         // Set timezone untuk semua method dalam controller ini
         Carbon::setLocale('id');
         date_default_timezone_set('Asia/Jakarta');
+    }
+
+    private function tryoutAvailabilityError(Tryout $tryout, Carbon $now): ?string
+    {
+        if (! $tryout->is_active) {
+            return 'Tryout tidak aktif.';
+        }
+
+        if ($tryout->start_date && $tryout->start_date->gt($now)) {
+            return 'Tryout belum dimulai.';
+        }
+
+        if ($tryout->end_date && $tryout->end_date->lt($now)) {
+            return 'Tryout sudah berakhir.';
+        }
+
+        return null;
+    }
+
+    private function lobbyTokenSessionKey(Tryout $tryout): string
+    {
+        return 'tryout_lobby_token.'.$tryout->tryout_id.'.'.Auth::id();
+    }
+
+    private function hasVerifiedLobbyToken(Tryout $tryout): bool
+    {
+        if (! $tryout->requiresLobbyToken()) {
+            return true;
+        }
+
+        return hash_equals(
+            hash('sha256', (string) $tryout->lobby_token_hash),
+            (string) session($this->lobbyTokenSessionKey($tryout))
+        );
     }
 
     private function getSubtestIndex(array $subtests, array $currentSubtest): int
@@ -42,6 +82,12 @@ class TryoutController extends Controller
         }
 
         return 0;
+    }
+
+    private function normalizeQuestionType(?string $type): string
+    {
+        $resolved = $type ?: 'multiple_choice';
+        return $resolved === 'multiple_select' ? 'multiple_answer' : $resolved;
     }
 
     private function maybeShowSubtestBreak(
@@ -108,13 +154,17 @@ class TryoutController extends Controller
 
     private function processAnswerByType(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
     {
-        $type = $question->question_type ?? 'multiple_choice';
+        $type = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
 
         if ($type === 'true_false') {
             $type = 'multiple_choice';
         }
 
         switch ($type) {
+            case 'multiple_answer':
+                return $this->handleMultipleAnswer($data, $question);
+            case 'multiple_true_false':
+                return $this->handleMultipleTrueFalseAnswer($data, $question);
             case 'matching':
                 return $this->handleMatchingAnswer($data, $question);
             case 'short_answer':
@@ -125,6 +175,149 @@ class TryoutController extends Controller
             default:
                 return $this->handleMultipleChoiceAnswer($data, $question);
         }
+    }
+
+    private function handleMultipleAnswer(array $data, Question $question): array
+    {
+        Validator::make($data, [
+            'option_ids' => 'required|array|min:1',
+            'option_ids.*' => 'required|exists:question_options,question_option_id'
+        ])->validate();
+
+        $selectedIds = collect($data['option_ids'])
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $validIds = $question->questionOptions()
+            ->whereIn('question_option_id', $selectedIds)
+            ->pluck('question_option_id')
+            ->map(fn($id) => (int) $id)
+            ->values()
+            ->all();
+
+        sort($selectedIds);
+        sort($validIds);
+        if ($selectedIds !== $validIds) {
+            throw ValidationException::withMessages([
+                'option_ids' => 'Pilihan jawaban tidak valid untuk soal ini.'
+            ]);
+        }
+
+        $correctIds = $question->questionOptions()
+            ->where('is_correct', true)
+            ->pluck('question_option_id')
+            ->map(fn($id) => (int) $id)
+            ->values()
+            ->all();
+        sort($correctIds);
+
+        $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+        $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $multipleAnswerMeta['scoring_mode']
+            : 'fullscore';
+
+        $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+        $isCorrect = $selectedIds === $correctIds;
+        $totalCorrect = max(1, count($correctIds));
+        $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+        $missedCorrect = max(0, $totalCorrect - $matchedCorrect);
+        $wrongCount = $missedCorrect + $wrongSelected;
+        $fullScore = $scoreCorrect;
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $matchedCorrect > 0
+                ? ($matchedCorrect / $totalCorrect) * $fullScore
+                : $scoreWrong;
+        } else {
+            $scoreObtained = $isCorrect ? $scoreCorrect : $scoreWrong;
+        }
+        $scoreObtained = max(0, $scoreObtained);
+        $ratio = $totalCorrect > 0 ? ($matchedCorrect / $totalCorrect) : 0;
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => [
+                    'selected_option_ids' => $selectedIds,
+                    'correct_matched' => $matchedCorrect,
+                    'correct_total' => $totalCorrect,
+                    'wrong_selected' => $wrongSelected,
+                    'wrong_count' => $wrongCount,
+                    'scoring_mode' => $scoringMode,
+                    'score_ratio' => $ratio,
+                    'score_obtained' => $scoreObtained,
+                ],
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'option_ids' => $selectedIds,
+                'is_correct' => $isCorrect,
+                'score_obtained' => $scoreObtained,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function resolveMultipleAnswerAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $correctIds = $question->questionOptions()
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                ? $multipleAnswerMeta['scoring_mode']
+                : 'fullscore';
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $isExactCorrect = ($selectedIds === $correctIds);
+            $fullScore = $scoreCorrect;
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $matchedCorrect > 0
+                    ? ($matchedCorrect / $totalCorrectCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $scoreCorrect : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
     }
 
     private function handleMultipleChoiceAnswer(array $data, Question $question): array
@@ -178,25 +371,24 @@ class TryoutController extends Controller
 
         $isCorrect = false;
 
-        if ($question->question_type === 'essay' || empty($expectedAnswers)) {
-            if (!$evaluationMode) {
-                $evaluationMode = $manualReview ? 'manual' : 'auto';
-            }
-
-            $manualReview = $evaluationMode !== 'auto' || empty($expectedAnswers);
+        // Untuk essay, SELALU pending review (baik mode auto maupun manual)
+        // Mode auto = AI yang akan koreksi via webhook
+        // Mode manual = Admin yang akan koreksi
+        if ($question->question_type === 'essay') {
+            $manualReview = true; // Essay selalu pending review
+        } elseif (empty($expectedAnswers)) {
+            // Short answer tanpa expected answers = manual review
+            $manualReview = true;
         }
 
-        if (!$manualReview && !empty($expectedAnswers)) {
+        // Hanya evaluate otomatis untuk short answer (bukan essay)
+        // Essay selalu pending untuk AI atau manual review
+        if (!$manualReview && !empty($expectedAnswers) && $question->question_type !== 'essay') {
             foreach ($expectedAnswers as $expected) {
                 $expectedValue = trim((string) $expected);
-
-                if ($question->question_type === 'essay') {
-                    $isCorrect = $this->matchesEssayAnswer($answerText, $expectedValue);
-                } else {
-                    $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
-                    $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
-                    $isCorrect = $userComparable === $expectedComparable;
-                }
+                $expectedComparable = $caseSensitive ? $expectedValue : mb_strtolower($expectedValue);
+                $userComparable = $caseSensitive ? $answerText : mb_strtolower($answerText);
+                $isCorrect = $userComparable === $expectedComparable;
 
                 if ($isCorrect) {
                     break;
@@ -204,6 +396,16 @@ class TryoutController extends Controller
             }
         }
 
+        // Untuk essay, SELALU pending_review = true dan is_correct = false (placeholder)
+        // Karena essay akan dikoreksi oleh AI (mode auto) atau admin (mode manual)
+        if ($question->question_type === 'essay') {
+            $finalIsCorrect = false; // Placeholder, akan diupdate oleh AI/admin
+            $manualReview = true;    // Selalu pending untuk essay
+            $isCorrect = false;      // Jangan tampilkan sebagai benar sebelum dikoreksi
+        } else {
+            $finalIsCorrect = $isCorrect;
+        }
+        
         $answerJson = [
             'pending_review' => $manualReview,
             'case_sensitive' => $caseSensitive,
@@ -211,13 +413,23 @@ class TryoutController extends Controller
             'expected_answers' => $expectedAnswers,
         ];
 
+        // DEBUG LOG
+        \Log::info('Essay answer saved', [
+            'question_id' => $question->question_id,
+            'question_type' => $question->question_type,
+            'manual_review' => $manualReview,
+            'evaluation_mode' => $evaluationMode,
+            'expected_answers_count' => count($expectedAnswers),
+            'answer_json' => $answerJson,
+        ]);
+
         return [
             'detail' => [
                 'question_option_id' => null,
                 'answer_text' => $answerText,
                 'answer_json' => $answerJson,
                 'answer_file_path' => null,
-                'is_correct' => $isCorrect,
+                'is_correct' => $finalIsCorrect,
             ],
             'response' => [
                 'is_correct' => $isCorrect,
@@ -303,6 +515,25 @@ class TryoutController extends Controller
 
         $total = count($correctMap);
         $isCorrect = $total > 0 ? $correctCount === $total : false;
+        $wrongCount = max(0, $total - $correctCount);
+
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+        $fullScore = max(0, $scoreCorrect);
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $correctCount > 0
+                ? ($correctCount / max(1, $total)) * $fullScore
+                : $scoreWrong;
+        } else {
+            $scoreObtained = $isCorrect ? $fullScore : $scoreWrong;
+        }
+        $scoreObtained = max(0, $scoreObtained);
 
         return [
             'detail' => [
@@ -313,7 +544,10 @@ class TryoutController extends Controller
                     'summary' => [
                         'correct' => $correctCount,
                         'total' => $total,
+                        'wrong' => $wrongCount,
                     ],
+                    'scoring_mode' => $scoringMode,
+                    'score_obtained' => $scoreObtained,
                 ],
                 'answer_file_path' => null,
                 'is_correct' => $isCorrect,
@@ -322,9 +556,182 @@ class TryoutController extends Controller
                 'is_correct' => $isCorrect,
                 'correct' => $correctCount,
                 'total' => $total,
+                'score_obtained' => $scoreObtained,
             ],
             'delete_file' => false,
         ];
+    }
+
+    private function resolveMatchingAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $correctCount > 0
+                    ? ($correctCount / $totalCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
+    private function handleMultipleTrueFalseAnswer(array $data, Question $question): array
+    {
+        $input = $data['mtf_answers'] ?? null;
+
+        if (is_string($input)) {
+            $decoded = json_decode($input, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $input = $decoded;
+            }
+        }
+
+        if (!is_array($input)) {
+            $input = [];
+        }
+
+        $meta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $statements = isset($meta['statements']) && is_array($meta['statements']) ? $meta['statements'] : [];
+        if (empty($statements)) {
+            throw ValidationException::withMessages([
+                'mtf_answers' => 'Soal multiple true/false belum memiliki daftar pernyataan.',
+            ]);
+        }
+
+        $normalizedAnswers = [];
+        $correctCount = 0;
+        $total = 0;
+
+        foreach ($statements as $index => $statement) {
+            $statementId = trim((string) ($statement['id'] ?? 'stmt_' . ($index + 1)));
+            $correct = in_array(($statement['correct'] ?? null), ['true', 'false'], true)
+                ? (string) $statement['correct']
+                : 'true';
+
+            if (!array_key_exists($statementId, $input)) {
+                $normalizedAnswers[$statementId] = '';
+                $total++;
+                continue;
+            }
+
+            $selected = strtolower(trim((string) $input[$statementId]));
+            if (!in_array($selected, ['true', 'false'], true)) {
+                $normalizedAnswers[$statementId] = '';
+                $total++;
+                continue;
+            }
+
+            $normalizedAnswers[$statementId] = $selected;
+            $total++;
+            if ($selected === $correct) {
+                $correctCount++;
+            }
+        }
+
+        $isCorrect = $total > 0 ? $correctCount === $total : false;
+        $wrongCount = max(0, $total - $correctCount);
+        $scoreCorrect = (float) ($meta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($meta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($meta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $meta['scoring_mode']
+            : 'fullscore';
+
+        $fullScore = max(0, $scoreCorrect);
+        $scoreObtained = 0.0;
+        if ($scoringMode === 'partial') {
+            $scoreObtained = $correctCount > 0
+                ? ($correctCount / max(1, $total)) * $fullScore
+                : $scoreWrong;
+        } else {
+            $scoreObtained = $isCorrect ? $fullScore : $scoreWrong;
+        }
+        $scoreObtained = max(0, $scoreObtained);
+
+        return [
+            'detail' => [
+                'question_option_id' => null,
+                'answer_text' => null,
+                'answer_json' => [
+                    'answers' => $normalizedAnswers,
+                    'summary' => [
+                        'correct' => $correctCount,
+                        'total' => $total,
+                        'wrong' => $wrongCount,
+                    ],
+                    'scoring_mode' => $scoringMode,
+                    'score_obtained' => $scoreObtained,
+                ],
+                'answer_file_path' => null,
+                'is_correct' => $isCorrect,
+            ],
+            'response' => [
+                'is_correct' => $isCorrect,
+                'correct' => $correctCount,
+                'total' => $total,
+                'score_obtained' => $scoreObtained,
+            ],
+            'delete_file' => false,
+        ];
+    }
+
+    private function resolveMultipleTrueFalseAwardedScore(Question $question, UserAnswerDetail $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = $correctCount === $totalCount;
+            if ($scoringMode === 'partial') {
+                return max(0, $correctCount > 0 ? ($correctCount / $totalCount) * $fullScore : $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
     }
 
     private function handleAudioAnswer(array $data, Question $question, ?UserAnswerDetail $existingDetail): array
@@ -433,16 +840,35 @@ class TryoutController extends Controller
 
     public function indexLobby($id_package, $id_tryout)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses tryout.');
+        }
+        
         if ($id_package === 'free') {
-            // Free tryout access dengan timezone Jakarta
+            // Free route also handles direct tryout access granted by admin.
             $now = Carbon::now('Asia/Jakarta');
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
+            $hasDirectAccess = $this->hasDirectTryoutAccess((int) $id_tryout, Auth::id());
+            $tryoutQuery = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true);
+
+            if (!$hasDirectAccess) {
+                $tryoutQuery
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('start_date')
+                            ->orWhere('start_date', '<=', $now);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $now);
+                    });
+            }
+
+            $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
+            $hasDirectAccess = false;
             $package = Package::findOrFail($id_package);
             $tryout = Tryout::findOrFail($id_tryout);
 
@@ -463,10 +889,10 @@ class TryoutController extends Controller
             }
         }
 
-        // Check if tryout is still active dengan timezone Jakarta
+        // Tanggal yang kosong berarti tryout tidak dibatasi pada sisi tersebut.
         $now = Carbon::now('Asia/Jakarta');
-        if (Carbon::parse($tryout->end_date)->lt($now)) {
-            return redirect()->back()->with('error', 'Tryout sudah berakhir');
+        if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
+            return redirect()->back()->with('error', $availabilityError);
         }
 
         // Get tryout details untuk menampilkan info di lobby
@@ -475,15 +901,37 @@ class TryoutController extends Controller
         // Calculate total duration dan questions untuk SKD Full
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
-        $totalQuestions = 0;
-        foreach ($tryoutDetails as $detail) {
-            $totalQuestions += Question::where('tryout_detail_id', $detail->tryout_detail_id)->count();
-        }
+        $totalQuestions = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )->count();
 
-        // Get user's previous attempts
-        $attempts = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->count();
+        // Ringkas status percobaan dalam satu query. Sebelumnya lobby menjalankan
+        // query hitung percobaan yang sama hingga tiga kali untuk setiap peserta.
+        $attemptsByStatus = $tryout->userAnswers()
+            ->where('user_id', Auth::id())
+            ->whereIn('status', ['completed', 'pending_release', 'in_progress'])
+            ->selectRaw('status, COUNT(DISTINCT attempt_token) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $attempts = (int) ($attemptsByStatus['completed'] ?? 0)
+            + (int) ($attemptsByStatus['pending_release'] ?? 0);
+        $hasInProgressAttempt = (int) ($attemptsByStatus['in_progress'] ?? 0) > 0;
+        $maxAttempts = (int) ($tryout->max_attempts ?? 0);
+        $remainingAttempts = $maxAttempts > 0 ? max(0, $maxAttempts - $attempts) : null;
+        $isAttemptLimitReached = $maxAttempts > 0
+            && $attempts >= $maxAttempts
+            && ! $hasInProgressAttempt;
+
+        ActivityLogger::log('tryout_lobby_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempts' => $attempts,
+        ]);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+
+        $hasVerifiedLobbyToken = $this->hasVerifiedLobbyToken($tryout);
 
         return view('user.pages.tryout.lobby', compact(
             'package',
@@ -491,23 +939,84 @@ class TryoutController extends Controller
             'attempts',
             'tryoutDetails',
             'totalDuration',
-            'totalQuestions'
+            'totalQuestions',
+            'effectiveProctoringSettings',
+            'remainingAttempts',
+            'hasInProgressAttempt',
+            'isAttemptLimitReached',
+            'hasVerifiedLobbyToken'
         ));
+    }
+
+    public function verifyLobbyToken(Request $request, $id_package, $id_tryout)
+    {
+        $request->validate(['lobby_token' => 'required|string|max:100']);
+
+        $tryout = Tryout::findOrFail($id_tryout);
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($id_package !== 'free') {
+            $package = Package::findOrFail($id_package);
+            $hasPackageAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            abort_unless($hasPackageAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        if (! $tryout->requiresLobbyToken()) {
+            return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id]);
+        }
+
+        if (! $tryout->lobbyTokenIsValid((string) $request->input('lobby_token'))) {
+            return back()->withErrors(['lobby_token' => 'Token lobby tidak sesuai.'])->withInput();
+        }
+
+        session([
+            $this->lobbyTokenSessionKey($tryout) => hash('sha256', (string) $tryout->lobby_token_hash),
+        ]);
+
+        return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id])
+            ->with('success', 'Token lobby berhasil diverifikasi.');
     }
 
     public function indexTryout($id_package, $id_tryout, $number)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengerjakan tryout.');
+        }
+        
         $now = Carbon::now('Asia/Jakarta');
 
         // Handle free tryouts or package tryouts
         if ($id_package === 'free') {
-            $tryout = Tryout::where('tryout_id', $id_tryout)
-                ->where('is_active', true)
-                ->where('start_date', '<=', $now)
-                ->where('end_date', '>=', $now)
-                ->firstOrFail();
+            $hasDirectAccess = $this->hasDirectTryoutAccess((int) $id_tryout, Auth::id());
+            $tryoutQuery = Tryout::where('tryout_id', $id_tryout)
+                ->where('is_active', true);
+
+            if (!$hasDirectAccess) {
+                $tryoutQuery
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('start_date')
+                            ->orWhere('start_date', '<=', $now);
+                    })
+                    ->where(function ($query) use ($now) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $now);
+                    });
+            }
+
+            $tryout = $tryoutQuery->firstOrFail();
             $package = null;
         } else {
+            $hasDirectAccess = false;
             $package = Package::findOrFail($id_package);
             $tryout = Tryout::findOrFail($id_tryout);
 
@@ -527,6 +1036,16 @@ class TryoutController extends Controller
             }
         }
 
+        if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
+            return redirect()->back()->with('error', $availabilityError);
+        }
+
+        if (! $this->hasVerifiedLobbyToken($tryout)) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package?->package_id ?? 'free', $tryout->tryout_id])
+                ->with('error', 'Masukkan token lobby terlebih dahulu untuk memulai tryout.');
+        }
+
         // Get all tryout details dalam urutan yang benar
         $tryoutDetails = $tryout->tryoutDetails()->get(); // ambil semua dulu
 
@@ -544,11 +1063,21 @@ class TryoutController extends Controller
         $allQuestions = collect();
         $subtestInfo = [];
 
+        // The navigation only needs IDs and subtest order. Loading question text,
+        // options, metadata, and media for every subtest here made the first page
+        // unnecessarily large. Full question data is loaded below for the active
+        // subtest only (or for all questions in deliberate combined-view mode).
+        $questionSummariesByDetail = Question::whereIn(
+            'tryout_detail_id',
+            $tryoutDetails->pluck('tryout_detail_id')
+        )
+            ->select(['question_id', 'tryout_detail_id'])
+            ->orderBy('question_id')
+            ->get()
+            ->groupBy('tryout_detail_id');
+
         foreach ($tryoutDetails as $detail) {
-            $questions = Question::where('tryout_detail_id', $detail->tryout_detail_id)
-                ->with('questionOptions')
-                ->orderBy('question_id')
-                ->get();
+            $questions = $questionSummariesByDetail->get($detail->tryout_detail_id, collect());
 
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
@@ -570,15 +1099,44 @@ class TryoutController extends Controller
             ];
         }
 
+        $allQuestions = $allQuestions->values();
+        $allQuestions->each(function (Question $question, int $index): void {
+            $question->setAttribute('tryout_number', $index + 1);
+        });
+
+        $isCombinedSubtestView = count($subtestInfo) > 1
+            && ($tryout->subtest_display_mode ?? 'per_subtest') === 'combined';
+
         if ($allQuestions->isEmpty()) {
             return redirect()->back()->with('error', 'Tryout belum memiliki soal');
+        }
+
+        // Load all in-progress subtest attempts once. The previous implementation
+        // queried the same table once for every subtest, then queried it again for
+        // the current subtest and the navigation state.
+        $inProgressAnswersByDetail = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('status', 'in_progress')
+            ->get()
+            ->keyBy('tryout_detail_id');
+        $existingUserAnswer = $inProgressAnswersByDetail->first();
+
+        if ($existingUserAnswer) {
+            $inProgressAnswersByDetail = $inProgressAnswersByDetail
+                ->where('attempt_token', $existingUserAnswer->attempt_token)
+                ->keyBy('tryout_detail_id');
+        }
+
+        if (! $existingUserAnswer && $tryout->hasReachedAttemptLimitForUser(Auth::id())) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package ? $package->package_id : 'free', $tryout->tryout_id])
+                ->with('error', 'Batas pengerjaan tryout ini sudah habis.');
         }
 
         if ($number > $allQuestions->count()) {
             return $this->finishTryout(request(), $id_package, $id_tryout);
         }
 
-        $currentQuestion = $allQuestions[$number - 1];
         $totalQuestions = $allQuestions->count();
 
         // Tentukan subtest saat ini
@@ -598,51 +1156,79 @@ class TryoutController extends Controller
             return redirect()->back()->with('error', 'Subtest tryout tidak ditemukan');
         }
 
-        // Get or create user answer sessions untuk SKD Full
-        // Cek apakah sudah ada attempt_token untuk tryout ini
-        $existingUserAnswer = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('status', 'in_progress')
-            ->first();
+        // Per-subtest tryouts navigate to the next subtest as a separate page.
+        // Rendering only the active subtest keeps the initial response small,
+        // while combined mode intentionally preserves its all-question SPA view.
+        $renderedDetailIds = $isCombinedSubtestView
+            ? $tryoutDetails->pluck('tryout_detail_id')
+            : collect([$currentSubtest['tryout_detail_id']]);
+        $renderedQuestionsByDetail = Question::whereIn('tryout_detail_id', $renderedDetailIds)
+            ->with('questionOptions')
+            ->orderBy('question_id')
+            ->get()
+            ->groupBy('tryout_detail_id');
+        $questionNumbersById = $allQuestions->pluck('tryout_number', 'question_id');
+        $renderedQuestions = collect();
 
-        $attemptToken = $existingUserAnswer ? $existingUserAnswer->attempt_token : Str::uuid()->toString();
-
-        // Untuk SKD Full: buat UserAnswer terpisah untuk setiap subtest dengan token yang sama
-        if ($tryoutDetails->count() > 1) {
-            foreach ($tryoutDetails as $detail) {
-                $userAnswerForSubtest = UserAnswer::where('user_id', Auth::id())
-                    ->where('tryout_id', $id_tryout)
-                    ->where('tryout_detail_id', $detail->tryout_detail_id)
-                    ->where('status', 'in_progress')
-                    ->first();
-
-                if (!$userAnswerForSubtest) {
-                    UserAnswer::create([
-                        'user_id' => Auth::id(),
-                        'tryout_id' => $id_tryout,
-                        'tryout_detail_id' => $detail->tryout_detail_id,
-                        'attempt_token' => $attemptToken,
-                        'started_at' => $now,
-                        'status' => 'in_progress'
-                    ]);
-                }
+        foreach ($tryoutDetails as $detail) {
+            if (! $renderedDetailIds->contains($detail->tryout_detail_id)) {
+                continue;
             }
-        } else {
-            // Single subtest: buat satu UserAnswer saja
-            if (!$existingUserAnswer) {
-                UserAnswer::create([
-                    'user_id' => Auth::id(),
-                    'tryout_id' => $id_tryout,
-                    'tryout_detail_id' => $tryoutDetails->first()->tryout_detail_id,
-                    'attempt_token' => $attemptToken,
-                    'started_at' => $now,
-                    'status' => 'in_progress'
-                ]);
+
+            $questions = $renderedQuestionsByDetail->get($detail->tryout_detail_id, collect());
+            foreach ($questions as $question) {
+                $question->subtest_type = $detail->type_subtest;
+                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->tryout_detail = $detail;
+                $question->setAttribute('tryout_number', $questionNumbersById->get($question->question_id));
             }
+
+            $renderedQuestions = $renderedQuestions->concat($questions);
         }
 
+        $renderedQuestions = $renderedQuestions->values();
+        $currentQuestion = $renderedQuestions->firstWhere('tryout_number', $number);
+
+        if (! $currentQuestion) {
+            return redirect()->back()->with('error', 'Soal tryout tidak ditemukan');
+        }
+
+        // Get or create every subtest attempt in one read and (when needed) one
+        // bulk insert. This runs when participants first enter a tryout, so it
+        // avoids multiplying small queries during a concurrent start burst.
+        $attemptWasStarted = ! $existingUserAnswer;
+        $attemptToken = $existingUserAnswer ? $existingUserAnswer->attempt_token : Str::uuid()->toString();
+
+        $missingAttemptRows = $tryoutDetails
+            ->reject(fn (TryoutDetail $detail): bool => $inProgressAnswersByDetail->has($detail->tryout_detail_id))
+            ->map(fn (TryoutDetail $detail): array => [
+                'user_id' => Auth::id(),
+                'tryout_id' => $id_tryout,
+                'tryout_detail_id' => $detail->tryout_detail_id,
+                'attempt_token' => $attemptToken,
+                'started_at' => $now,
+                'status' => 'in_progress',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->values()
+            ->all();
+
+        if ($missingAttemptRows !== []) {
+            UserAnswer::insert($missingAttemptRows);
+
+            $inProgressAnswersByDetail = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('attempt_token', $attemptToken)
+                ->where('status', 'in_progress')
+                ->get()
+                ->keyBy('tryout_detail_id');
+        }
+
+        $allUserAnswers = $inProgressAnswersByDetail->values();
+
         $currentSubtestIndex = $this->getSubtestIndex($subtestInfo, $currentSubtest ?? []);
-        if (count($subtestInfo) > 1) {
+        if (count($subtestInfo) > 1 && !$isCombinedSubtestView) {
             $progressKey = sprintf('tryout_subtest_progress_%s', $attemptToken);
             $maxVisitedIndex = (int) session($progressKey, 0);
 
@@ -662,36 +1248,36 @@ class TryoutController extends Controller
             }
         }
 
-        if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
-            return $response;
+        if (!$isCombinedSubtestView) {
+            if ($response = $this->maybeShowSubtestBreak($tryout, $package, $currentSubtest, $currentSubtestIndex, $attemptToken, $number, $subtestInfo)) {
+                return $response;
+            }
         }
 
-        // Get current subtest's UserAnswer untuk menyimpan jawaban
-        $currentUserAnswer = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('tryout_detail_id', $currentSubtest['tryout_detail_id'])
-            ->where('status', 'in_progress')
-            ->first();
+        // Get current subtest's UserAnswer dari hasil query awal.
+        $currentUserAnswer = $inProgressAnswersByDetail->get($currentSubtest['tryout_detail_id']);
 
         if (!$currentUserAnswer) {
             return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
         }
 
-        // Calculate total time untuk SKD Full
+        // Calculate total time for the ENTIRE tryout based on the very first subtest started
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
         $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
-        $startTime = Carbon::parse($currentUserAnswer->started_at, 'Asia/Jakarta');
+
+        // Find the earliest started_at from the already loaded attempt rows.
+        $firstStartTime = $allUserAnswers->min('started_at');
+        $startTime = Carbon::parse($firstStartTime, 'Asia/Jakarta');
         $endTime = $startTime->copy()->addMinutes($totalDuration);
 
-        // Check if time is up - auto finish jika waktu habis
-        if ($now->gte($endTime)) {
-            return $this->finishTryout(request(), $id_package, $id_tryout);
-        }
-
-        $remainingSeconds = $endTime->diffInSeconds($now);
+        // Jangan langsung redirect ke hasil saat peserta membuka kembali attempt yang waktunya habis.
+        // Halaman tryout akan menampilkan modal timeout yang sudah ada, lalu mengirim jawaban secara
+        // terkontrol dari browser agar peserta mendapat informasi sebelum melihat hasil.
+        $timeExpiredOnLoad = $now->gte($endTime);
+        $remainingSeconds = $timeExpiredOnLoad ? 0 : (int) $now->diffInSeconds($endTime, false);
 
         // Hitung timer per subtest untuk tampilan
-        $subtestDurationMinutes = max(1, (int) ($currentSubtest['duration'] ?? 60));
+        $subtestDurationMinutes = max(0.01, (float) ($currentSubtest['duration'] ?? 60));
         $subtestTimerKey = sprintf('tryout_subtest_timer_%s_%s', $attemptToken, $currentSubtest['tryout_detail_id']);
         $subtestStartIso = session($subtestTimerKey);
         if (!$subtestStartIso) {
@@ -704,34 +1290,42 @@ class TryoutController extends Controller
         $subtestRemainingSeconds = $subtestEnd->greaterThan($now)
             ? $now->diffInSeconds($subtestEnd)
             : 0;
+        $displayRemainingSeconds = $timeExpiredOnLoad
+            ? 0
+            : ($isCombinedSubtestView ? $remainingSeconds : max(1, (int) $subtestRemainingSeconds));
 
-        // Get user's answer for current question dari subtest yang sesuai
-        $userAnswerDetail = UserAnswerDetail::where('user_answer_id', $currentUserAnswer->user_answer_id)
-            ->where('question_id', $currentQuestion->question_id)
+        // Get all user's answer details for this attempt
+        $allAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
             ->with('questionOption')
-            ->first();
+            ->get()
+            ->keyBy('question_id');
 
-        // Get all user answers untuk navigation status dari semua subtest
-        $allUserAnswers = UserAnswer::where('user_id', Auth::id())
-            ->where('tryout_id', $id_tryout)
-            ->where('attempt_token', $attemptToken)
-            ->where('status', 'in_progress')
-            ->get();
+        $userAnswerDetail = $allAnswerDetails->get($currentQuestion->question_id);
 
-        $userAnswerDetails = UserAnswerDetail::whereIn('user_answer_id', $allUserAnswers->pluck('user_answer_id'))
-            ->pluck('question_id')
-            ->toArray();
+        $userAnswerDetails = $allAnswerDetails->pluck('question_id')->toArray();
 
         // Get flagged questions dari session dengan attempt_token
         $flaggedQuestions = session('flagged_questions_' . $attemptToken, []);
 
         $totalSubtests = count($subtestInfo);
         $hasNextSubtest = $currentSubtestIndex < ($totalSubtests - 1);
-        $currentSubtestRange = [
-            $currentSubtest['start_number'] ?? 1,
-            $currentSubtest['end_number'] ?? $number,
-        ];
+        $currentSubtestRange = $isCombinedSubtestView
+            ? [1, $totalQuestions]
+            : [
+                $currentSubtest['start_number'] ?? 1,
+                $currentSubtest['end_number'] ?? $number,
+            ];
         $isLastQuestionOfSubtest = $number === ($currentSubtest['end_number'] ?? $number);
+
+        if ($attemptWasStarted) {
+            ActivityLogger::log('tryout_started', 'success', Auth::user(), [
+                'package_id' => $id_package,
+                'tryout_id' => $id_tryout,
+                'question_number' => $number,
+                'attempt_token' => $attemptToken,
+            ]);
+        }
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
         return view('user.pages.tryout.index', compact(
             'package',
@@ -743,20 +1337,38 @@ class TryoutController extends Controller
             'number',
             'totalQuestions',
             'allQuestions',
+            'renderedQuestions',
             'userAnswerDetails',
+            'allAnswerDetails',
             'flaggedQuestions',
             'subtestInfo',
             'currentSubtest',
             'currentSubtestIndex',
             'totalSubtests',
             'hasNextSubtest',
+            'isCombinedSubtestView',
             'currentSubtestRange',
             'isLastQuestionOfSubtest',
             'remainingSeconds',
+            'timeExpiredOnLoad',
             'subtestRemainingSeconds',
+            'displayRemainingSeconds',
             'attemptToken',
-            'extraMinutes'
+            'extraMinutes',
+            'effectiveProctoringSettings'
         ));
+    }
+
+    private function effectiveProctoringSettings(Tryout $tryout): array
+    {
+        $globalSettings = PlanQuotaService::getDefaultProctoringSettings();
+
+        return [
+            'enable_anti_copy' => (bool) $tryout->enable_anti_copy && (bool) ($globalSettings['enable_anti_copy'] ?? true),
+            'enable_tab_switch_detection' => (bool) $tryout->enable_tab_switch_detection && (bool) ($globalSettings['enable_tab_switch_detection'] ?? true),
+            'enable_webcam_check' => (bool) $tryout->enable_webcam_check && (bool) ($globalSettings['enable_webcam_check'] ?? false),
+            'enable_screen_check' => (bool) $tryout->enable_screen_check && (bool) ($globalSettings['enable_screen_check'] ?? false),
+        ];
     }
 
 
@@ -769,6 +1381,12 @@ class TryoutController extends Controller
                 return 'Tes Intelegensi Umum';
             case 'tkp':
                 return 'Tes Karakteristik Pribadi';
+            case 'tpa':
+                return 'TPA';
+            case 'tbi':
+                return 'TBI';
+            case 'tob':
+                return 'TOB';
             case 'writing':
                 return 'Writing Test';
             case 'reading':
@@ -820,6 +1438,14 @@ class TryoutController extends Controller
             'literasi_bahasa_indonesia' => 'LBI',
             'literasi_bahasa_inggris' => 'LBE',
             'penalaran_matematika' => 'PM',
+            'twk' => 'TWK',
+            'tiu' => 'TIU',
+            'tkp' => 'TKP',
+            'tpa' => 'TPA',
+            'tbi' => 'TBI',
+            'writing' => 'WT',
+            'reading' => 'RD',
+            'listening' => 'LS',
         ];
 
         return $map[$type] ?? strtoupper((string) $type);
@@ -858,9 +1484,14 @@ class TryoutController extends Controller
 
             $tryout = Tryout::findOrFail($id_tryout);
             $tryoutDetails = $tryout->tryoutDetails()->get();
-            $totalDuration = $tryoutDetails->sum('duration');
+            $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
+            $totalDuration = $tryoutDetails->sum('duration') + $extraMinutes;
 
-            $startTime = Carbon::parse($userAnswer->started_at, 'Asia/Jakarta');
+            $firstStartTime = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('attempt_token', $userAnswer->attempt_token)
+                ->min('started_at');
+            $startTime = Carbon::parse($firstStartTime ?: $userAnswer->started_at, 'Asia/Jakarta');
             $endTime = $startTime->copy()->addMinutes($totalDuration);
 
             if ($now->gte($endTime)) {
@@ -902,6 +1533,11 @@ class TryoutController extends Controller
             }
 
             $this->updateSingleSubtestStats($userAnswer);
+            
+            // Trigger AI correction untuk essay mode auto
+            if ($question->question_type === 'essay') {
+                $this->triggerAiCorrectionIfNeeded($userAnswerDetail, $question);
+            }
 
             $responsePayload = array_merge([
                 'success' => true,
@@ -927,6 +1563,329 @@ class TryoutController extends Controller
 
             return redirect()->back()->with('error', 'Gagal menyimpan jawaban');
         }
+    }
+
+    private function decodeAnswersPayload(?string $answersPayload): array
+    {
+        if (empty($answersPayload)) {
+            return [];
+        }
+
+        $decoded = json_decode($answersPayload, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return array_values($decoded);
+    }
+
+    private function persistAnswersPayload(
+        int $tryoutId,
+        string $attemptToken,
+        array $answers,
+        Carbon $now,
+        ?int $onlyTryoutDetailId = null
+    ): array {
+        if (empty($answers)) {
+            return [];
+        }
+
+        $updatedDetailIds = [];
+
+        DB::transaction(function () use ($tryoutId, $attemptToken, $answers, $now, $onlyTryoutDetailId, &$updatedDetailIds) {
+            foreach ($answers as $answer) {
+                if (!is_array($answer) || empty($answer['question_id'])) {
+                    continue;
+                }
+
+                $question = Question::with('tryoutDetail')->find($answer['question_id']);
+                if (!$question) {
+                    continue;
+                }
+
+                if ($onlyTryoutDetailId && (int) $question->tryout_detail_id !== $onlyTryoutDetailId) {
+                    continue;
+                }
+
+                $userAnswer = UserAnswer::where('user_id', Auth::id())
+                    ->where('tryout_id', $tryoutId)
+                    ->where('tryout_detail_id', $question->tryout_detail_id)
+                    ->where('attempt_token', $attemptToken)
+                    ->where('status', 'in_progress')
+                    ->first();
+
+                if (!$userAnswer) {
+                    $userAnswer = UserAnswer::create([
+                        'user_id' => Auth::id(),
+                        'tryout_id' => $tryoutId,
+                        'tryout_detail_id' => $question->tryout_detail_id,
+                        'attempt_token' => $attemptToken,
+                        'started_at' => $now,
+                        'status' => 'in_progress'
+                    ]);
+                }
+
+                $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                    ->where('question_id', $question->question_id)
+                    ->first();
+
+                $result = $this->processAnswerByType($answer, $question, $existingDetail);
+                $detailPayload = $result['detail'];
+                $detailPayload['answered_at'] = $now;
+
+                $userAnswerDetail = UserAnswerDetail::updateOrCreate(
+                    [
+                        'user_answer_id' => $userAnswer->user_answer_id,
+                        'question_id' => $question->question_id
+                    ],
+                    $detailPayload
+                );
+
+                // Trigger AI correction untuk essay mode auto saat finish/submit
+                if ($question->question_type === 'essay') {
+                    $this->triggerAiCorrectionIfNeeded($userAnswerDetail, $question);
+                }
+
+                if (
+                    !empty($result['delete_file'])
+                    && $existingDetail
+                    && $existingDetail->answer_file_path
+                    && Storage::disk('public')->exists($existingDetail->answer_file_path)
+                ) {
+                    Storage::disk('public')->delete($existingDetail->answer_file_path);
+                }
+
+                $updatedDetailIds[$question->tryout_detail_id] = true;
+            }
+        });
+
+        return array_map('intval', array_keys($updatedDetailIds));
+    }
+
+    public function flushSubtestAnswers(Request $request, $id_package, $id_tryout)
+    {
+        try {
+            $validated = $request->validate([
+                'tryout_detail_id' => 'required|integer|exists:tryout_details,tryout_detail_id',
+                'attempt_token' => 'required|string',
+                'answers_payload' => 'nullable|string',
+            ]);
+
+            $tryout = Tryout::findOrFail($id_tryout);
+            if (($tryout->answer_persistence_mode ?? 'client_side') !== 'hybrid_subtest') {
+                return response()->json([
+                    'success' => true,
+                    'flushed' => false,
+                    'message' => 'Mode tryout bukan hybrid.',
+                ]);
+            }
+
+            $tryoutDetailId = (int) $validated['tryout_detail_id'];
+            $attemptToken = (string) $validated['attempt_token'];
+            $answers = $this->decodeAnswersPayload($validated['answers_payload'] ?? null);
+            $now = Carbon::now('Asia/Jakarta');
+
+            $updatedDetailIds = $this->persistAnswersPayload(
+                (int) $id_tryout,
+                $attemptToken,
+                $answers,
+                $now,
+                $tryoutDetailId
+            );
+
+            $userAnswer = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('tryout_detail_id', $tryoutDetailId)
+                ->where('attempt_token', $attemptToken)
+                ->where('status', 'in_progress')
+                ->with('tryoutDetail')
+                ->first();
+
+            if (!$userAnswer) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Session subtest tidak ditemukan.',
+                ], 404);
+            }
+
+            if (in_array($tryoutDetailId, $updatedDetailIds, true)) {
+                $this->updateSingleSubtestStats($userAnswer);
+                $userAnswer->refresh();
+            }
+
+            $userAnswer->update([
+                'subtest_submitted_at' => $now,
+            ]);
+
+            $rawScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+            $maxScore = $this->getMaxPossibleScoreForDetail(
+                $userAnswer->tryout_detail_id,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+            $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+            $isPassed = $this->isSubtestPassed(
+                $userAnswer->tryoutDetail,
+                $rawScore,
+                $maxScore,
+                $userAnswer->tryoutDetail->type_subtest
+            );
+
+            return response()->json([
+                'success' => true,
+                'flushed' => true,
+                'live_score' => [
+                    'tryout_detail_id' => $tryoutDetailId,
+                    'type' => $userAnswer->tryoutDetail->type_subtest,
+                    'name' => $this->getSubtestName($userAnswer->tryoutDetail->type_subtest),
+                    'raw_score' => $rawScore,
+                    'max_score' => $maxScore,
+                    'percentage' => round($percentage, 2),
+                    'is_passed' => $isPassed,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal flush jawaban subtest',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function trackTabSwitch(Request $request, $id_package, $id_tryout)
+    {
+        $tryout = Tryout::findOrFail($id_tryout);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+
+        if (!$effectiveProctoringSettings['enable_tab_switch_detection']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Deteksi pindah tab tidak aktif.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'attempt_token' => 'required|string',
+            'question_id' => 'nullable|integer|exists:questions,question_id',
+        ]);
+
+        $query = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $validated['attempt_token'])
+            ->where('status', 'in_progress');
+
+        if (!empty($validated['question_id'])) {
+            $question = Question::find($validated['question_id']);
+            if ($question) {
+                $query->where('tryout_detail_id', $question->tryout_detail_id);
+            }
+        }
+
+        $userAnswer = $query->first();
+
+        if (!$userAnswer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session tryout tidak ditemukan.',
+            ], 404);
+        }
+
+        $userAnswer->increment('tab_switch_count');
+        $userAnswer->refresh();
+
+        ActivityLogger::log('tryout_tab_switch_detected', 'warning', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => $validated['attempt_token'],
+            'question_id' => $validated['question_id'] ?? null,
+            'tab_switch_count' => $userAnswer->tab_switch_count,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pelanggaran tab tercatat.',
+            'count' => $userAnswer->tab_switch_count,
+        ]);
+    }
+
+    public function storeProctoringSnapshot(Request $request, $id_package, $id_tryout)
+    {
+        $tryout = Tryout::findOrFail($id_tryout);
+        $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+
+        $validated = $request->validate([
+            'attempt_token' => 'required|string',
+            'type' => 'required|in:webcam,screen',
+            'image' => 'required|string',
+        ]);
+
+        if (
+            ($validated['type'] === 'webcam' && !$effectiveProctoringSettings['enable_webcam_check'])
+            || ($validated['type'] === 'screen' && !$effectiveProctoringSettings['enable_screen_check'])
+        ) {
+            return response()->json([
+                'success' => true,
+                'stored' => false,
+                'message' => 'Snapshot tidak aktif untuk tryout ini.',
+            ]);
+        }
+
+        if (!preg_match('/^data:image\/(jpeg|webp);base64,([A-Za-z0-9+\/=]+)$/', $validated['image'], $matches)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format snapshot tidak valid.',
+            ], 422);
+        }
+
+        $extension = $matches[1] === 'webp' ? 'webp' : 'jpg';
+        $binary = base64_decode($matches[2], true);
+        if ($binary === false || strlen($binary) > 180 * 1024) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ukuran snapshot terlalu besar.',
+            ], 422);
+        }
+
+        $userAnswer = UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $validated['attempt_token'])
+            ->where('status', 'in_progress')
+            ->first();
+
+        if (!$userAnswer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session tryout tidak ditemukan.',
+            ], 404);
+        }
+
+        $path = sprintf(
+            'proctoring/%s/%s/%s_%s.%s',
+            $id_tryout,
+            $validated['attempt_token'],
+            $validated['type'],
+            now('Asia/Jakarta')->format('Ymd_His'),
+            $extension
+        );
+
+        Storage::disk('public')->put($path, $binary);
+
+        ProctoringSnapshot::create([
+            'user_id' => Auth::id(),
+            'tryout_id' => $id_tryout,
+            'user_answer_id' => $userAnswer->user_answer_id,
+            'attempt_token' => $validated['attempt_token'],
+            'type' => $validated['type'],
+            'file_path' => $path,
+            'mime_type' => 'image/' . ($extension === 'jpg' ? 'jpeg' : 'webp'),
+            'file_size' => strlen($binary),
+            'captured_at' => now('Asia/Jakarta'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'stored' => true,
+        ]);
     }
 
 
@@ -972,31 +1931,34 @@ class TryoutController extends Controller
                 continue;
             }
 
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
             $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
             $pendingReview = $answerMeta['pending_review'] ?? false;
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+                case 'multiple_true_false':
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
                 case 'matching':
-                    if ($detail->is_correct) {
-                        $weight = (float) ($question->default_weight ?? 1);
-                        if ($weight <= 0) {
-                            $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                            $weight = max(1, $pairs);
-                        }
-                        $totalScore += $weight;
-                    }
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
                 case 'essay':
                     if ($pendingReview) {
+                        // Essay masih menunggu koreksi, skip penambahan skor
                         break;
                     }
 
-                    if ($detail->is_correct) {
-                        $weight = (float) ($question->default_weight ?? 1);
-                        $totalScore += $weight > 0 ? $weight : 1;
+                    // Gunakan score_obtained dari answer_json (dari AI atau admin)
+                    if (isset($answerMeta['score_obtained'])) {
+                        $totalScore += (float) $answerMeta['score_obtained'];
+                    } elseif ($detail->is_correct) {
+                        // Fallback: kalau benar tapi belum ada score_obtained, gunakan essay_score_correct
+                        $totalScore += $question->getEssayScoreCorrect();
                     }
                     break;
 
@@ -1015,7 +1977,7 @@ class TryoutController extends Controller
 
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                $totalScore += $w > 0 ? $w : 1;
                                 break;
 
                             case 'writing':
@@ -1090,72 +2052,25 @@ class TryoutController extends Controller
             ->get();
 
         if ($userAnswers->isEmpty()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'redirect' => route('user.tryout.result', [$id_package, $id_tryout]),
+                ]);
+            }
+
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
-        $answersPayload = $request->input('answers_payload');
-        $answers = [];
-        if (!empty($answersPayload)) {
-            $decoded = json_decode($answersPayload, true);
-            if (is_array($decoded)) {
-                $answers = array_values($decoded);
-            }
-        }
+        $answers = $this->decodeAnswersPayload($request->input('answers_payload'));
 
         if (!empty($answers)) {
-            DB::beginTransaction();
             try {
-                foreach ($answers as $answer) {
-                    if (!is_array($answer) || empty($answer['question_id'])) {
-                        continue;
-                    }
-
-                    $question = Question::with('tryoutDetail')->find($answer['question_id']);
-                    if (!$question) {
-                        continue;
-                    }
-
-                    $userAnswer = UserAnswer::where('user_id', Auth::id())
-                        ->where('tryout_id', $id_tryout)
-                        ->where('tryout_detail_id', $question->tryout_detail_id)
-                        ->where('status', 'in_progress')
-                        ->first();
-
-                    if (!$userAnswer) {
-                        $userAnswer = UserAnswer::create([
-                            'user_id' => Auth::id(),
-                            'tryout_id' => $id_tryout,
-                            'tryout_detail_id' => $question->tryout_detail_id,
-                            'attempt_token' => $userAnswers->first()->attempt_token,
-                            'started_at' => $now,
-                            'status' => 'in_progress'
-                        ]);
-                    }
-
-                    $existingDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-                        ->where('question_id', $question->question_id)
-                        ->first();
-
-                    $result = $this->processAnswerByType($answer, $question, $existingDetail);
-                    $detailPayload = $result['detail'];
-                    $detailPayload['answered_at'] = $now;
-
-                    $userAnswerDetail = UserAnswerDetail::updateOrCreate(
-                        [
-                            'user_answer_id' => $userAnswer->user_answer_id,
-                            'question_id' => $question->question_id
-                        ],
-                        $detailPayload
-                    );
-
-                    if (!empty($result['delete_file']) && $existingDetail && $existingDetail->answer_file_path && Storage::disk('public')->exists($existingDetail->answer_file_path)) {
-                        Storage::disk('public')->delete($existingDetail->answer_file_path);
-                    }
+                $attemptToken = (string) ($request->input('attempt_token') ?: ($userAnswers->first()->attempt_token ?? ''));
+                if ($attemptToken !== '') {
+                    $this->persistAnswersPayload((int) $id_tryout, $attemptToken, $answers, $now);
                 }
-
-                DB::commit();
             } catch (\Throwable $e) {
-                DB::rollBack();
                 if ($request->expectsJson()) {
                     return response()->json([
                         'error' => 'Gagal menyimpan jawaban akhir',
@@ -1170,7 +2085,6 @@ class TryoutController extends Controller
                 ->where('status', 'in_progress')
                 ->with(['tryoutDetail'])
                 ->get();
-
         }
 
         if ($userAnswers->isEmpty()) {
@@ -1187,6 +2101,12 @@ class TryoutController extends Controller
             // Use regular scoring system
             $this->processRegularScoring($userAnswers, $now);
         }
+
+        ActivityLogger::log('tryout_finished', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => (string) ($request->input('attempt_token') ?: ($userAnswers->first()->attempt_token ?? '')),
+        ]);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -1216,6 +2136,7 @@ class TryoutController extends Controller
             if (isset($toeflResults[$sectionKey])) {
                 $userAnswer->update([
                     'finished_at'       => $now,
+                    'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                     'raw_score'         => $toeflResults[$sectionKey]['raw_score'],
                     'scaled_score'      => $toeflResults[$sectionKey]['scaled_score'],
                     'toefl_total_score' => $toeflResults['total_score'],
@@ -1253,6 +2174,7 @@ class TryoutController extends Controller
             // Update user answer
             $userAnswer->update([
                 'finished_at' => $now,
+                'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                 'is_passed' => $isPassed,
                 'status' => 'completed'
             ]);
@@ -1266,6 +2188,7 @@ class TryoutController extends Controller
 
             $userAnswer->update([
                 'finished_at' => $now,
+                'subtest_submitted_at' => $userAnswer->subtest_submitted_at ?? $now,
                 'status' => 'pending_release',
                 'utbk_total_score' => null,
                 'is_passed' => false,
@@ -1273,7 +2196,8 @@ class TryoutController extends Controller
         }
 
         $tryout->update([
-            'results_release_at' => $tryout->end_date ?? $now,
+            // Tanpa tanggal selesai, hasil IRT menunggu rilis manual admin.
+            'results_release_at' => $tryout->end_date,
         ]);
     }
 
@@ -1333,6 +2257,17 @@ class TryoutController extends Controller
             ->value('extra_minutes') ?? 0);
     }
 
+    private function hasDirectTryoutAccess(int $tryoutId, int $userId): bool
+    {
+        return UserTryoutAccess::where('tryout_id', $tryoutId)
+            ->where('user_id', $userId)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+    }
+
     public function indexResult($id_package, $id_tryout)
     {
         $now = Carbon::now('Asia/Jakarta');
@@ -1363,9 +2298,11 @@ class TryoutController extends Controller
         $tryout = Tryout::findOrFail($id_tryout);
 
         // Get all completed/pending user answers untuk tryout ini dengan attempt_token yang sama
+        $requestedAttemptToken = trim((string) request('attempt', ''));
         $userAnswers = UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->whereIn('status', ['completed', 'pending_release'])
+            ->when($requestedAttemptToken !== '', fn ($query) => $query->where('attempt_token', $requestedAttemptToken))
             ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -1382,6 +2319,13 @@ class TryoutController extends Controller
         $tryoutDetails = $tryout->tryoutDetails;
 
         $latestStatus = $latestUserAnswers->first()->status ?? 'completed';
+
+        ActivityLogger::log('tryout_result_viewed', 'success', Auth::user(), [
+            'package_id' => $id_package,
+            'tryout_id' => $id_tryout,
+            'attempt_token' => $latestAttemptToken,
+            'status' => $latestStatus,
+        ]);
 
         if ($tryout->requiresIrtScoring()) {
             if ($latestStatus === 'pending_release') {
@@ -1575,7 +2519,7 @@ class TryoutController extends Controller
             $singleUserAnswer = $latestUserAnswers->first();
             $rawScore = $this->calculateTotalScore($singleUserAnswer, $singleUserAnswer->tryoutDetail->type_subtest);
             $maxScore = $this->getMaxPossibleScoreForDetail($singleUserAnswer->tryout_detail_id, $singleUserAnswer->tryoutDetail->type_subtest);
-            $subtestResults = null;
+            $subtestResults = $this->calculateSubtestResultsFromUserAnswers($latestUserAnswers);
             $singleIsPassed = $this->isSubtestPassed(
                 $singleUserAnswer->tryoutDetail,
                 $rawScore,
@@ -1654,13 +2598,19 @@ class TryoutController extends Controller
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
                 return empty($meta['pending_review']) && !$detail->is_correct;
             })->count();
+            $pendingCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
+                $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                return !empty($meta['pending_review']);
+            })->count();
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
                 'name' => $this->getSubtestName($detail->type_subtest),
+                'alias' => $this->getSubtestAlias($detail->type_subtest),
                 'total_questions' => $totalQuestions,
                 'correct_answers' => $correctCount,
                 'wrong_answers' => $wrongCount,
+                'pending_count' => $pendingCount,
                 'unanswered' => max(0, $totalQuestions - $answeredCount),
                 'raw_score' => $subtestScore,
                 'max_score' => $maxSubtestScore,
@@ -1778,7 +2728,7 @@ class TryoutController extends Controller
                 continue;
             }
 
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
             $pendingReview = false;
             $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
             if (isset($answerMeta['pending_review'])) {
@@ -1786,6 +2736,25 @@ class TryoutController extends Controller
             }
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+                case 'multiple_true_false':
+                    if ($detail->is_correct) {
+                        $correctAnswers++;
+                    } else {
+                        $wrongAnswers++;
+                    }
+
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
+
                 case 'matching':
                     if ($detail->is_correct) {
                         $correctAnswers++;
@@ -1793,12 +2762,7 @@ class TryoutController extends Controller
                         $wrongAnswers++;
                     }
 
-                    $weight = (float) ($question->default_weight ?? 1);
-                    if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                        $weight = max(1, $pairs);
-                    }
-                    $totalScore += $detail->is_correct ? $weight : 0;
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -1886,22 +2850,32 @@ class TryoutController extends Controller
         $total = 0;
 
         foreach ($questions as $question) {
-            $questionType = $question->question_type ?? 'multiple_choice';
+            $questionType = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+                case 'multiple_true_false':
+                    $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                    $weight = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 0));
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs']) ? count($question->metadata['matching_pairs']) : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     $total += $weight;
                     break;
 
                 case 'short_answer':
                 case 'essay':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    // Untuk essay, gunakan essay_score_correct dari model
+                    $total += $question->getEssayScoreCorrect();
                     break;
 
                 case 'audio':
@@ -1916,7 +2890,7 @@ class TryoutController extends Controller
                                 return (float) ($opt->weight ?? 0);
                             });
                             $maxWeight = (float) ($maxWeight ?? 0);
-                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
 
                         case 'twk':
@@ -1970,5 +2944,131 @@ class TryoutController extends Controller
         $answerDetail->save();
 
         return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Trigger AI correction untuk essay dengan mode auto
+     * PER ATTEMPT TOKEN - setiap submit membuat job terpisah
+     * Dipanggil setelah essay disimpan
+     */
+    private function triggerAiCorrectionIfNeeded(UserAnswerDetail $detail, Question $question): void
+    {
+        // Cek apakah essay mode auto dan ada expected answers
+        $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $evaluationMode = $answerMeta['evaluation_mode'] ?? 'manual';
+        $expectedAnswers = $answerMeta['expected_answers'] ?? [];
+        
+        \Log::info("AI Correction: Checking trigger", [
+            'detail_id' => $detail->user_answer_detail_id,
+            'evaluation_mode' => $evaluationMode,
+            'expected_answers_count' => count($expectedAnswers),
+            'question_type' => $question->question_type,
+        ]);
+        
+        if ($evaluationMode !== 'auto' || empty($expectedAnswers)) {
+            \Log::info("AI Correction: Skipping - mode={$evaluationMode}, has_answers=" . (empty($expectedAnswers) ? 'no' : 'yes'));
+            return; // Hanya proses yang auto dan ada kunci jawaban
+        }
+        
+        // Cek quota Essay AI - backend validation
+        $quotaCheck = PlanQuotaService::canUseEssayAI();
+        if (!$quotaCheck['allowed']) {
+            \Log::info("AI Correction: Skipping - quota exceeded or feature disabled");
+            return; // Skip AI correction jika quota habis atau fitur tidak tersedia
+        }
+        
+        try {
+            $userAnswer = $detail->userAnswer;
+            if (!$userAnswer) {
+                return;
+            }
+            
+            $tryoutId = $userAnswer->tryout_id;
+            $userId = $userAnswer->user_id;
+            
+            // PER ATTEMPT: Selalu buat job baru untuk setiap attempt
+            // Tidak digabung dengan job yang sudah ada
+            $job = EssayCorrectionJob::create([
+                'tryout_id' => $tryoutId,
+                'user_id' => $userId,
+                'user_answer_id' => $userAnswer->user_answer_id, // Link ke attempt spesifik
+                'job_type' => 'single', // Per attempt/token
+                'status' => 'pending',
+                'total_essays' => 1, // Selalu 1 essay per job untuk clarity
+                'method' => 'semantic',
+                'threshold' => config('services.ai_similarity.threshold', 0.6),
+                'callback_url' => config('services.ai_similarity.callback_url'),
+            ]);
+            
+            // Dispatch ke queue
+            ProcessEssayCorrection::dispatch($job->id);
+            
+            \Log::info("AI Correction: Created job {$job->id} for attempt {$userAnswer->user_answer_id}, detail {$detail->user_answer_detail_id}");
+            
+        } catch (\Exception $e) {
+            \Log::error("AI Correction: Failed to trigger for detail {$detail->user_answer_detail_id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Check essay correction status for real-time updates
+     */
+    public function checkEssayStatus(Request $request)
+    {
+        $questionIds = $request->get('question_ids', []);
+        $attemptToken = $request->get('attempt_token');
+        $countOnly = $request->get('count_only', false);
+        
+        if (is_string($questionIds)) {
+            $questionIds = explode(',', $questionIds);
+        }
+        
+        $questionIds = array_filter(array_map('intval', (array) $questionIds));
+        
+        if (empty($attemptToken)) {
+            return response()->json([]);
+        }
+        
+        // Get user answer by attempt token
+        $userAnswer = UserAnswer::where('attempt_token', $attemptToken)
+            ->where('user_id', Auth::id())
+            ->first();
+        
+        if (!$userAnswer) {
+            return response()->json([]);
+        }
+        
+        // Build query
+        $query = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+            ->whereHas('question', fn($q) => $q->where('question_type', 'essay'));
+        
+        // Filter by question IDs if provided
+        if (!empty($questionIds)) {
+            $query->whereIn('question_id', $questionIds);
+        }
+        
+        // If count only, return pending count
+        if ($countOnly) {
+            $pendingCount = $query->whereRaw("JSON_EXTRACT(answer_json, '$.pending_review') = true")
+                ->count();
+            return response()->json(['pending_count' => $pendingCount]);
+        }
+        
+        // Get answer details for the questions
+        $results = $query->get()
+            ->map(function ($detail) {
+                $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
+                
+                return [
+                    'question_id' => $detail->question_id,
+                    'pending_review' => $answerMeta['pending_review'] ?? false,
+                    'is_correct' => $detail->is_correct,
+                    'score_obtained' => $answerMeta['score_obtained'] ?? 0,
+                    'ai_similarity' => $answerMeta['ai_similarity'] ?? 0,
+                    'evaluation_mode' => $answerMeta['evaluation_mode'] ?? 'manual',
+                ];
+            });
+        
+        return response()->json($results);
     }
 }

@@ -1,0 +1,29 @@
+/* ==========================================================================
+   Light Theme (Default)
+   ========================================================================== */
+
+:root,
+[data-theme="light"] {
+    /* Background */
+    --theme-bg-primary: #ffffff;
+    --theme-bg-secondary: #f9fafb;
+    --theme-bg-tertiary: #f3f4f6;
+    --theme-bg-elevated: #ffffff;
+
+    /* Text */
+    --theme-text-primary: #111827;
+    --theme-text-secondary: #4b5563;
+    --theme-text-tertiary: #6b7280;
+    --theme-text-muted: #9ca3af;
+    --theme-text-inverse: #ffffff;
+
+    /* Border */
+    --theme-border-default: #e5e7eb;
+    --theme-border-light: #f3f4f6;
+    --theme-border-dark: #d1d5db;
+
+    /* Shadow */
+    --theme-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --theme-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --theme-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}

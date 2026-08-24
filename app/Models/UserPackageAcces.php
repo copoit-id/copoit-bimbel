@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserPackageAcces extends Model
 {
@@ -18,6 +19,7 @@ class UserPackageAcces extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'payment_amount' => 'decimal:0',
+        'requirement_proof_paths' => 'array',
     ];
 
     // Relationships
@@ -36,10 +38,20 @@ class UserPackageAcces extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function bookingRequests(): HasMany
+    {
+        return $this->hasMany(
+            ScheduleBookingRequest::class,
+            'user_package_access_id',
+            'user_package_access_id'
+        );
+    }
+
     // Accessors
     public function getIsActiveAttribute()
     {
-        return $this->status === 'active' && $this->end_date && $this->end_date->isFuture();
+        return $this->status === 'active'
+            && (is_null($this->end_date) || $this->end_date->isFuture());
     }
 
     public function getIsExpiredAttribute()
@@ -52,6 +64,9 @@ class UserPackageAcces extends Model
         if ($this->is_expired) {
             return 0;
         }
+        if (is_null($this->end_date)) {
+            return null;
+        }
         return Carbon::now()->diffInDays($this->end_date);
     }
 
@@ -61,7 +76,7 @@ class UserPackageAcces extends Model
             case 'active':
                 if ($this->is_expired) {
                     return '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Expired</span>';
-                } elseif ($this->days_remaining <= 7) {
+                } elseif ($this->days_remaining !== null && $this->days_remaining <= 7) {
                     return '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Expired</span>';
                 } else {
                     return '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>';
@@ -103,7 +118,10 @@ class UserPackageAcces extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('status', 'active')->where('end_date', '>', Carbon::now());
+        return $query->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+            });
     }
 
     public function scopeExpired($query)

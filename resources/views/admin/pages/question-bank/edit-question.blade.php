@@ -6,12 +6,24 @@
     $metadata = is_array($question->metadata) ? $question->metadata : [];
     $shortMeta = $metadata['short_answer'] ?? [];
     $audioMeta = $metadata['audio_answer'] ?? [];
+    $matchingScores = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+    $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
+    $mtfStatements = old('mtf_statements', $mtfMeta['statements'] ?? [
+        ['id' => 'stmt_1', 'text' => '', 'correct' => 'true'],
+        ['id' => 'stmt_2', 'text' => '', 'correct' => 'false'],
+    ]);
+    if (is_array($mtfStatements) && count($mtfStatements) < 2) {
+        $mtfStatements = array_pad($mtfStatements, 2, ['id' => '', 'text' => '', 'correct' => 'true']);
+    }
     $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers'])
         ? implode("\n", $shortMeta['expected_answers'])
         : '';
     $caseSensitive = (bool) ($shortMeta['case_sensitive'] ?? false);
     $essayMode = $shortMeta['evaluation_mode'] ?? 'manual';
     $options = $question->options ?? collect();
+    
+    // Essay AI Quota Check
+    $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
 
     $optionMap = [];
     foreach ($options as $index => $option) {
@@ -20,6 +32,13 @@
     }
     $correctOption = collect($optionMap)->first(fn($opt) => $opt && $opt->is_correct);
     $correctKey = $correctOption ? array_search($correctOption, $optionMap, true) : 'A';
+    $multiCorrectKeys = collect($optionMap)
+        ->filter(fn($opt) => $opt && $opt->is_correct)
+        ->map(function ($opt, $key) {
+            return $key;
+        })
+        ->values()
+        ->all();
 @endphp
 <div class="space-y-6">
     <div class="flex justify-between items-center">
@@ -61,7 +80,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected($questionType === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -76,8 +95,8 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Teks Soal <span class="text-red-500">*</span></label>
-                    <textarea name="question_text" rows="4" required data-summernote data-height="260"
-                        class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    <textarea name="question_text" rows="4" required
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Masukkan teks soal...">{{ old('question_text', $question->question_text) }}</textarea>
                 </div>
 
@@ -90,8 +109,8 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pembahasan / Catatan</label>
-                    <textarea name="explanation" rows="3" data-summernote data-height="220"
-                        class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    <textarea name="explanation" rows="4"
+                        class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Opsional, isi jika ingin menambahkan pembahasan.">{{ old('explanation', $question->explanation) }}</textarea>
                 </div>
 
@@ -105,6 +124,45 @@
                             Gunakan custom skor
                         </label>
                     </div>
+                    <div id="multipleAnswerScoringContainer" class="@if($questionType !== 'multiple_answer') hidden @endif">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Skor Multiple Answer</label>
+                        @php
+                            $existingMultiMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+                            $selectedScoreCorrect = old('multiple_answer_score_correct', $existingMultiMeta['score_correct'] ?? 1);
+                            $selectedScoreWrong = old('multiple_answer_score_wrong', $existingMultiMeta['score_wrong'] ?? 0);
+                            $selectedScoringMode = old('multiple_answer_scoring_mode', $existingMultiMeta['scoring_mode'] ?? 'fullscore');
+                        @endphp
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                            <div>
+                                <div class="flex items-center gap-1 mb-1">
+                                    <label class="block text-xs font-medium text-gray-600">Mode Penilaian</label>
+                                    <div class="relative group">
+                                        <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                        <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                            Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                        </div>
+                                    </div>
+                                </div>
+                                <select name="multiple_answer_scoring_mode"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="fullscore" @selected($selectedScoringMode === 'fullscore')>Benar/Salah Fullscore</option>
+                                    <option value="partial" @selected($selectedScoringMode === 'partial')>Partial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Skor Benar</label>
+                                <input type="number" name="multiple_answer_score_correct" step="0.1"
+                                    value="{{ $selectedScoreCorrect }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Skor Salah</label>
+                                <input type="number" name="multiple_answer_score_wrong" step="0.1"
+                                    value="{{ $selectedScoreWrong }}"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            </div>
+                        </div>
+                    </div>
                     @foreach (['A','B','C','D','E'] as $optionKey)
                     @php
                         $currentOption = $optionMap[$optionKey] ?? null;
@@ -115,13 +173,16 @@
                         <div class="flex items-center gap-2">
                             <input type="radio" name="correct_answer" value="{{ $optionKey }}" id="correct_{{ strtolower($optionKey) }}"
                                 @checked(old('correct_answer', $correctKey) === $optionKey)
-                                class="text-primary focus:ring-primary">
+                                class="single-correct text-primary focus:ring-primary">
+                            <input type="checkbox" name="correct_answers[]" value="{{ $optionKey }}" id="correct_multi_{{ strtolower($optionKey) }}"
+                                @checked(in_array($optionKey, old('correct_answers', $multiCorrectKeys), true))
+                                class="multi-correct hidden rounded border-gray-300 text-primary focus:ring-primary">
                             <label class="font-semibold text-gray-800" for="correct_{{ strtolower($optionKey) }}">
                                 Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
                             </label>
                         </div>
-                        <textarea name="option_{{ strtolower($optionKey) }}" rows="2" data-summernote data-height="160"
-                            class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        <textarea name="option_{{ strtolower($optionKey) }}" rows="2"
+                            class="ckeditor-option w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="Teks pilihan">{{ $optionText }}</textarea>
                         <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores', ($question->custom_score ?? 'no') === 'yes')) hidden @endif">
                             <label class="text-sm text-gray-600">Skor</label>
@@ -139,6 +200,36 @@
                         <button type="button" id="addMatchingPair"
                             class="text-sm font-semibold text-primary hover:underline">Tambah Pasangan</button>
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
+                        <div>
+                            <div class="flex items-center gap-1 mb-1">
+                                <label class="block text-sm font-medium text-gray-700">Mode Penilaian</label>
+                                <div class="relative group">
+                                    <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
+                                    <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
+                                        Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
+                                    </div>
+                                </div>
+                            </div>
+                            <select name="matching_scoring_mode"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="fullscore" @selected(old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore') === 'fullscore')>Benar/Salah Fullscore</option>
+                                <option value="partial" @selected(old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'partial') === 'partial')>Partial (seperti multiple)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Benar</label>
+                            <input type="number" name="matching_score_correct" step="0.1"
+                                value="{{ old('matching_score_correct', $matchingScores['score_correct'] ?? 1) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                            <input type="number" name="matching_score_wrong" step="0.1"
+                                value="{{ old('matching_score_wrong', $matchingScores['score_wrong'] ?? 0) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
                     <div id="matchingPairsContainer" class="space-y-3">
                         @foreach ($matchingPairs as $index => $pair)
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 matching-row">
@@ -148,6 +239,61 @@
                             <input type="text" name="matching_pairs[{{ $index }}][right]" value="{{ old("matching_pairs.$index.right", $pair['right'] ?? '') }}"
                                 class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                 placeholder="Kolom kanan">
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="space-y-4 question-section hidden" data-type="multiple_true_false">
+                    <h3 class="text-lg font-semibold text-gray-900">Multiple True / False</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 1</label>
+                            <input type="text" name="mtf_true_label" value="{{ old('mtf_true_label', $mtfMeta['true_label'] ?? 'Benar') }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 2</label>
+                            <input type="text" name="mtf_false_label" value="{{ old('mtf_false_label', $mtfMeta['false_label'] ?? 'Salah') }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Mode Penilaian</label>
+                            <select name="mtf_scoring_mode"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="fullscore" @selected(old('mtf_scoring_mode', $mtfMeta['scoring_mode'] ?? 'fullscore') === 'fullscore')>Benar/Salah Fullscore</option>
+                                <option value="partial" @selected(old('mtf_scoring_mode', $mtfMeta['scoring_mode'] ?? 'fullscore') === 'partial')>Partial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Benar (Total)</label>
+                            <input type="number" name="mtf_score_correct" step="0.1" value="{{ old('mtf_score_correct', $mtfMeta['score_correct'] ?? 1) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Skor Salah</label>
+                            <input type="number" name="mtf_score_wrong" step="0.1" value="{{ old('mtf_score_wrong', $mtfMeta['score_wrong'] ?? 0) }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-600">Isi daftar pernyataan dan tentukan kunci per baris.</p>
+                        <button type="button" id="addMtfRow" class="text-sm font-semibold text-primary hover:underline">Tambah Pernyataan</button>
+                    </div>
+                    <div id="mtfStatementsContainer" class="space-y-3">
+                        @foreach($mtfStatements as $idx => $stmt)
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mtf-row">
+                            <input type="hidden" name="mtf_statements[{{ $idx }}][id]" value="{{ $stmt['id'] ?? ('stmt_' . ($idx + 1)) }}">
+                            <textarea name="mtf_statements[{{ $idx }}][text]" rows="2"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                placeholder="Pernyataan">{{ $stmt['text'] ?? '' }}</textarea>
+                            <select name="mtf_statements[{{ $idx }}][correct]"
+                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="true" @selected(($stmt['correct'] ?? 'true') === 'true')>Kolom 1</option>
+                                <option value="false" @selected(($stmt['correct'] ?? 'true') === 'false')>Kolom 2</option>
+                            </select>
                         </div>
                         @endforeach
                     </div>
@@ -178,16 +324,31 @@
                     </div>
                     <div class="space-y-2">
                         <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
+                        @if(!$essayAI['enabled'])
+                            <div class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                                <i class="ri-information-line mr-1"></i>
+                                Essay AI tidak tersedia di plan Anda. Koreksi otomatis tidak bisa digunakan.
+                            </div>
+                        @elseif(!$essayAI['allowed'])
+                            <div class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+                                <i class="ri-information-line mr-1"></i>
+                                Kuota Essay AI habis. Koreksi otomatis tidak bisa digunakan.
+                            </div>
+                        @endif
                         <div class="flex flex-wrap gap-4">
-                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <label class="inline-flex items-center gap-2 text-sm {{ $essayAI['allowed'] ? 'text-gray-700' : 'text-gray-400 cursor-not-allowed' }}">
                                 <input type="radio" name="essay_scoring_mode" value="auto"
                                     @checked(old('essay_scoring_mode', $essayMode) === 'auto')
-                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
+                                    class="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
+                                    {{ !$essayAI['allowed'] ? 'disabled' : '' }}>
                                 Otomatis (berdasarkan jawaban referensi)
+                                @if(!$essayAI['allowed'])
+                                    <i class="ri-lock-line text-gray-400" title="{{ $essayAI['reason'] ?? 'Fitur tidak tersedia' }}"></i>
+                                @endif
                             </label>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                 <input type="radio" name="essay_scoring_mode" value="manual"
-                                    @checked(old('essay_scoring_mode', $essayMode) !== 'auto')
+                                    @checked(old('essay_scoring_mode', $essayMode) !== 'auto' || !$essayAI['allowed'])
                                     class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
                                 Manual (belum dikoreksi)
                             </label>
@@ -242,27 +403,106 @@
         const addMatchingBtn = document.getElementById('addMatchingPair');
         const customScoreFields = document.querySelectorAll('.custom-score-field');
         const customScoreToggle = document.querySelector('input[name="use_custom_scores"]');
+        const optionRows = document.querySelectorAll('.question-section[data-type="multiple_choice"] .flex.flex-col.gap-2.border');
+        const multipleAnswerScoringContainer = document.getElementById('multipleAnswerScoringContainer');
+        const mtfContainer = document.getElementById('mtfStatementsContainer');
+        const addMtfBtn = document.getElementById('addMtfRow');
 
         function toggleSections() {
             const type = typeSelect.value;
+            const isMultipleAnswer = type === 'multiple_answer';
             sections.forEach(section => {
                 if (section.dataset.type === 'multiple_choice') {
-                    section.classList.toggle('hidden', !['multiple_choice', 'true_false'].includes(type));
+                    section.classList.toggle('hidden', !['multiple_choice', 'multiple_answer', 'true_false'].includes(type));
                 } else if (section.dataset.type === 'short_answer') {
                     section.classList.toggle('hidden', type !== 'short_answer');
                 } else if (section.dataset.type === 'essay') {
                     section.classList.toggle('hidden', type !== 'essay');
                 } else if (section.dataset.type === 'matching') {
                     section.classList.toggle('hidden', type !== 'matching');
+                } else if (section.dataset.type === 'multiple_true_false') {
+                    section.classList.toggle('hidden', type !== 'multiple_true_false');
                 } else if (section.dataset.type === 'audio') {
                     section.classList.toggle('hidden', type !== 'audio');
                 }
             });
+
+            configureOptionRows(type);
+            if (multipleAnswerScoringContainer) {
+                multipleAnswerScoringContainer.classList.toggle('hidden', type !== 'multiple_answer');
+            }
+            if (customScoreToggle) {
+                const toggleWrapper = customScoreToggle.closest('label');
+                if (toggleWrapper) {
+                    toggleWrapper.classList.toggle('hidden', isMultipleAnswer);
+                }
+            }
         }
 
         function toggleCustomScores() {
+            if (typeSelect?.value === 'multiple_answer') {
+                customScoreFields.forEach(field => field.classList.add('hidden'));
+                return;
+            }
             customScoreFields.forEach(field => {
                 field.classList.toggle('hidden', !customScoreToggle.checked);
+            });
+        }
+
+        function configureOptionRows(type) {
+            const isTrueFalse = type === 'true_false';
+            const isMultipleAnswer = type === 'multiple_answer';
+
+            optionRows.forEach((row, index) => {
+                const optionKey = String.fromCharCode(65 + index);
+                const radio = row.querySelector('.single-correct');
+                const checkbox = row.querySelector('.multi-correct');
+                const textarea = row.querySelector('textarea');
+                const scoreField = row.querySelector('.custom-score-field');
+
+                if (isTrueFalse) {
+                    if (optionKey === 'A' || optionKey === 'B') {
+                        row.classList.remove('hidden');
+                        if (textarea && !textarea.value.trim()) {
+                            textarea.value = optionKey === 'A' ? 'Benar' : 'Salah';
+                        }
+                    } else {
+                        row.classList.add('hidden');
+                        if (textarea) {
+                            textarea.value = '';
+                        }
+                        if (radio) {
+                            radio.checked = false;
+                        }
+                        if (checkbox) {
+                            checkbox.checked = false;
+                        }
+                    }
+                } else {
+                    row.classList.remove('hidden');
+                }
+
+                if (radio) {
+                    radio.classList.toggle('hidden', isMultipleAnswer);
+                    if (isMultipleAnswer) {
+                        radio.checked = false;
+                    }
+                }
+
+                if (checkbox) {
+                    checkbox.classList.toggle('hidden', !isMultipleAnswer);
+                    if (!isMultipleAnswer) {
+                        checkbox.checked = false;
+                    }
+                }
+
+                if (scoreField) {
+                    if (isMultipleAnswer) {
+                        scoreField.classList.add('hidden');
+                    } else {
+                        scoreField.classList.toggle('hidden', !customScoreToggle?.checked);
+                    }
+                }
             });
         }
 
@@ -280,6 +520,25 @@
                     placeholder="Kolom kanan">
             `;
             matchingContainer.appendChild(row);
+        });
+
+        addMtfBtn?.addEventListener('click', () => {
+            if (!mtfContainer) return;
+            const index = mtfContainer.querySelectorAll('.mtf-row').length;
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mtf-row';
+            row.innerHTML = `
+                <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
+                <textarea name="mtf_statements[${index}][text]" rows="2"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Pernyataan"></textarea>
+                <select name="mtf_statements[${index}][correct]"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="true">Kolom 1</option>
+                    <option value="false">Kolom 2</option>
+                </select>
+            `;
+            mtfContainer.appendChild(row);
         });
 
         typeSelect?.addEventListener('change', toggleSections);

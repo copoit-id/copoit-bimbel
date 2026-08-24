@@ -1,4 +1,4 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Preview Sertifikat')
 
 @section('content')
@@ -39,7 +39,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Paket:</span>
-                        <span class="font-medium">{{ $package->name }}</span>
+                        <span class="font-medium">{{ $package?->name ?? 'Tryout Gratis' }}</span>
                     </div>
                 </div>
             </div>
@@ -111,7 +111,7 @@
             </a>
 
             <!-- Download Certificate Button -->
-            <a href="{{ route('user.certificate.download', ['certificate_id' => $existingCertificate->certificate_id,'token' => $token]) }}"
+            <a href="{{ route('user.certificate.download.file', ['certificate_id' => $existingCertificate->certificate_id,'token' => $token]) }}"
                 class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
                 <i class="ri-download-line mr-2"></i>Download Sertifikat
             </a>

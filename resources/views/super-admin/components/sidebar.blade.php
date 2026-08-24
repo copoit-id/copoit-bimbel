@@ -17,10 +17,60 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('super-admin.activity.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.activity.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-history-line text-[20px]"></i>
+                    <span class="ms-3">Activity</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('super-admin.roles.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.roles.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-shield-keyhole-line text-[20px]"></i>
                     <span class="ms-3">Role & Akses</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.general-settings.edit') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.general-settings.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-global-line text-[20px]"></i>
+                    <span class="ms-3">General Settings</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.ai-usage.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-usage.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-cpu-line text-[20px]"></i>
+                    <span class="ms-3">AI Usage</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.ai-gateway-usage.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-gateway-usage.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-radar-line text-[20px]"></i>
+                    <span class="ms-3">Gateway Monitoring</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.ai-gateway-payments.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-gateway-payments.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-bank-card-line text-[20px]"></i>
+                    <span class="ms-3">Pembayaran AI</span>
+                </a>
+            </li>
+            <li><a href="{{ route('super-admin.ai-gateway-plans.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.ai-gateway-plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg"><i class="ri-price-tag-3-line text-[20px]"></i><span class="ms-3">Paket AI Gateway</span></a></li>
+            <li>
+                <a href="{{ route('super-admin.plans.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plans.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-vip-crown-line text-[20px]"></i>
+                    <span class="ms-3">Manajemen Plan</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('super-admin.plan-management.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.plan-management.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-dashboard-3-line text-[20px]"></i>
+                    <span class="ms-3">Plan & Quota</span>
                 </a>
             </li>
         </ul>

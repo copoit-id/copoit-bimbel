@@ -40,7 +40,9 @@ class CertificateController extends Controller
             $query->whereDate('issued_date', '<=', $request->date_to);
         }
 
-        $certificates = $query->orderBy('issued_date', 'desc')->paginate(15);
+        $certificates = $query->orderBy('issued_date', 'desc')
+            ->paginate(\App\Support\Pagination::perPage(15))
+            ->withQueryString();
 
         return view('admin.pages.certificate.index', compact('certificates'));
     }
@@ -196,7 +198,7 @@ class CertificateController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('d F Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->filename(asset('/fonts/Poppins-Semibold.ttf'));
             } else {
@@ -318,7 +320,7 @@ class CertificateController extends Controller
         });
 
         // Add date of birth
-        $image->text($dateOfBirth->format('d F Y'), 1390, 1045, function ($font) {
+        $image->text($dateOfBirth->locale('id')->translatedFormat('d F Y'), 1390, 1045, function ($font) {
             if (env('APP_ENV') == 'local') {
                 $font->filename(asset('/fonts/Poppins-Semibold.ttf'));
             } else {

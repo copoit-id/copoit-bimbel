@@ -3,28 +3,30 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Package extends Model
 {
     use HasFactory;
 
     protected $guarded = ['package_id'];
+
     protected $primaryKey = 'package_id';
+
     protected $casts = [
-        'is_active' => 'boolean',
-        'price' => 'decimal:0'
+        'is_displayed' => 'boolean',
+        'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
     ];
 
-    // Direct relationships (dari manajemen package lama)
-    public function directTryouts()
+    public function freeClaimTryout(): BelongsTo
     {
-        return $this->hasMany(Tryout::class, 'package_id', 'package_id');
-    }
-
-    public function directClasses()
-    {
-        return $this->hasMany(ClassModel::class, 'package_id', 'package_id');
+        return $this->belongsTo(Tryout::class, 'free_claim_tryout_id', 'tryout_id');
     }
 
     // Detail package relationships (sistem baru dengan checklist)
@@ -58,10 +60,51 @@ class Package extends Model
         )->where('detail_packages.detailable_type', ClassModel::class);
     }
 
+    public function schedules(): BelongsToMany
+    {
+        $schedule = new ClassSchedule;
+
+        return $this->belongsToMany(
+            ClassSchedule::class,
+            'detail_packages',
+            'package_id',
+            'detailable_id',
+            'package_id',
+            'id'
+        )->wherePivot('detailable_type', $schedule->getMorphClass());
+    }
+
+    public function bookingRule(): HasOne
+    {
+        return $this->hasOne(PackageBookingRule::class, 'package_id', 'package_id');
+    }
+
+    public function bookingRequests(): HasMany
+    {
+        return $this->hasMany(ScheduleBookingRequest::class, 'package_id', 'package_id');
+    }
+
+    public function studyGroups(): HasMany
+    {
+        return $this->hasMany(StudyGroup::class, 'package_id', 'package_id');
+    }
+
     // Other relationships
     public function userAccess()
     {
         return $this->hasMany(UserPackageAcces::class, 'package_id', 'package_id');
+    }
+
+    public function tesKorans()
+    {
+        return $this->hasManyThrough(
+            TesKoran::class,
+            DetailPackage::class,
+            'package_id',
+            'id',
+            'package_id',
+            'detailable_id'
+        )->where('detail_packages.detailable_type', TesKoran::class);
     }
 
     public function payments()
@@ -72,18 +115,30 @@ class Package extends Model
     // Accessors
     public function getFormattedPriceAttribute()
     {
-        return 'Rp ' . number_format($this->price, 0, ',', '.');
+        return 'Rp '.number_format($this->price, 0, ',', '.');
     }
 
     public function getDurationTextAttribute()
     {
-        return $this->duration . ' Hari';
+        if (($this->access_duration_unit ?? 'forever') === 'forever') {
+            return 'Selamanya';
+        }
+
+        $unitLabel = match ($this->access_duration_unit) {
+            'day' => 'Hari',
+            'week' => 'Minggu',
+            'month' => 'Bulan',
+            'year' => 'Tahun',
+            default => 'Hari',
+        };
+
+        return ((int) $this->access_duration_value).' '.$unitLabel;
     }
 
     // Scopes
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
-        return $query->where('is_active', true);
+        return $query->where('status', 'active');
     }
 
     // Stats methods
@@ -115,5 +170,36 @@ class Package extends Model
     public function getTotalRevenueAttribute()
     {
         return $this->payments()->where('status', 'success')->sum('total_amount');
+    }
+
+    // Materials relationships
+    public function materials()
+    {
+        return $this->belongsToMany(Material::class, 'package_materials', 'package_id', 'material_id')
+            ->withPivot(['section_name', 'order_number', 'is_required', 'unlock_condition'])
+            ->orderBy('package_materials.order_number');
+    }
+
+    public function packageMaterials()
+    {
+        return $this->hasMany(PackageMaterial::class, 'package_id', 'package_id');
+    }
+
+    // Polymorphic materials through detail_packages
+    public function materialsThroughDetail()
+    {
+        return $this->hasManyThrough(
+            Material::class,
+            DetailPackage::class,
+            'package_id',
+            'material_id',
+            'package_id',
+            'detailable_id'
+        )->where('detail_packages.detailable_type', Material::class);
+    }
+
+    public function getTotalMaterialsAttribute()
+    {
+        return $this->materials()->count();
     }
 }

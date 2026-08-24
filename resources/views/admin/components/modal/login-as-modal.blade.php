@@ -102,6 +102,8 @@
                 return;
             }
 
+            const loginAsUrlTemplate = @json(route('admin.user.login-as', ['user' => '__USER_ID__']));
+
             userListContainer.innerHTML = users.map(user => `
                 <div class="p-4 hover:bg-gray-50 transition-colors">
                     <div class="flex items-center justify-between">
@@ -118,7 +120,7 @@
                                 </div>
                             </div>
                         </div>
-                        <form action="/admin/user/${user.id}/login-as" method="POST" onsubmit="return confirm('Anda akan login sebagai ${user.name}. Lanjutkan?')">
+                        <form action="${loginAsUrlTemplate.replace('__USER_ID__', user.id)}" method="POST" onsubmit="return confirm('Anda akan login sebagai ${user.name}. Lanjutkan?')">
                             <input type="hidden" name="_token" value="{{ csrf_token() }}">
                             <button type="submit"
                                 class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap">

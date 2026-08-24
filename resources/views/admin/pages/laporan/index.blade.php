@@ -8,46 +8,42 @@
             <x-breadcrumb-item href="" title="Laporan Tryout" />
         </x-slot>
     </x-breadcrumb>
-    <div class="flex gap-2">
-        <a href="{{ route('admin.laporan.export-excel') }}"
-            class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
-            <i class="ri-file-excel-line"></i>
-            Export Excel
-        </a>
-        <a href="{{ route('admin.laporan.export-pdf') }}"
-            class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
-            <i class="ri-file-pdf-line"></i>
-            Export PDF
-        </a>
-    </div>
 </div>
 <x-page-desc title="Monitor performa setiap tryout dan akses detail jawaban peserta"></x-page-desc>
 
 <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6 mb-6">
+    <form method="GET" action="{{ route('admin.laporan.index') }}" class="mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
             <div class="relative w-full sm:w-auto">
-                <input type="text" id="report-search" placeholder="Cari tryout..."
+                <input type="search" name="search" value="{{ $search }}" placeholder="Cari tryout..."
                     class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <select id="report-status-filter"
+                <select name="status"
                     class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Semua Status</option>
-                    <option value="active">Aktif</option>
-                    <option value="inactive">Tidak Aktif</option>
+                    <option value="active" @selected($status === 'active')>Aktif</option>
+                    <option value="inactive" @selected($status === 'inactive')>Tidak Aktif</option>
+                </select>
+                <select name="score_display"
+                    class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <option value="score" @selected($scoreDisplay === 'score')>Tampilkan Skor</option>
+                    <option value="percentage" @selected($scoreDisplay === 'percentage')>Tampilkan Persentase</option>
                 </select>
             </div>
-            <button id="reset-report-filters"
+            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
+                <i class="ri-search-line"></i> Cari
+            </button>
+            <a href="{{ route('admin.laporan.index') }}"
                 class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
                 <i class="ri-refresh-line"></i> Reset
-            </button>
+            </a>
         </div>
-        <div id="report-count" class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
+        <div class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
             Total: <span class="font-medium text-gray-700">{{ $tryouts->total() }} Tryout</span>
         </div>
-    </div>
+    </form>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
@@ -71,8 +67,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Total Pengerjaan</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_attempts']) }}</p>
+                    <p class="text-sm text-primary">Total Peserta</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['total_participants']) }}</p>
                 </div>
                 <i class="ri-user-voice-line text-3xl text-primary"></i>
             </div>
@@ -80,8 +76,8 @@
         <div class="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-primary">Selesai</p>
-                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_attempts']) }}</p>
+                    <p class="text-sm text-primary">Peserta Selesai</p>
+                    <p class="text-2xl font-bold text-primary">{{ number_format($summary['completed_participants']) }}</p>
                 </div>
                 <i class="ri-check-double-line text-3xl text-primary"></i>
             </div>
@@ -97,7 +93,9 @@
                     <th scope="col" class="px-6 py-3 text-center">Total Soal</th>
                     <th scope="col" class="px-6 py-3 text-center">Peserta</th>
                     <th scope="col" class="px-6 py-3 text-center">Completion</th>
-                    <th scope="col" class="px-6 py-3 text-center">Rata-rata</th>
+                    <th scope="col" class="px-6 py-3 text-center">
+                        Rata-rata {{ $scoreDisplay === 'percentage' ? 'Persentase' : 'Skor' }}
+                    </th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                     <th scope="col" class="px-6 py-3 text-center">Action</th>
                 </tr>
@@ -108,12 +106,7 @@
                     <td class="py-3 px-4">
                         <div class="flex flex-col">
                             <p class="font-semibold text-gray-800 tryout-name">{{ $tryout->name }}</p>
-                            <div class="flex items-center gap-2">
-                                <p class="text-sm text-gray-500">{{ $tryout->type_tryout === 'utbk_full' ? 'UTBK' : ucfirst($tryout->type_tryout) }}</p>
-                                @if($tryout->is_irt)
-                                <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">IRT</span>
-                                @endif
-                            </div>
+                            <p class="text-sm text-gray-500">{{ $tryout->type_tryout === 'utbk_full' ? 'UTBK' : ucfirst($tryout->type_tryout) }}</p>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
@@ -124,20 +117,22 @@
                         <p class="text-xs text-gray-500">{{ $tryout->total_duration }} menit</p>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <span class="text-gray-800 font-medium">{{ $tryout->total_attempts }}</span>
+                        <span class="text-gray-800 font-medium">{{ $tryout->total_participants }}</span>
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="inline-flex flex-col items-center">
                             <span class="font-semibold text-gray-800">{{ $tryout->completion_rate }}%</span>
-                            <span class="text-xs text-gray-500">{{ $tryout->completed_attempts }} selesai</span>
+                            <span class="text-xs text-gray-500">{{ $tryout->completed_participants }} selesai</span>
                         </div>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @if($tryout->is_irt)
-                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}</span>
-                        <p class="text-xs text-gray-500">skala 0–1000</p>
+                            <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}</span>
+                            <p class="text-xs text-gray-500">skala 0–1000</p>
                         @else
-                        <span class="text-gray-800 font-medium">{{ $tryout->avg_score }}%</span>
+                        <span class="text-gray-800 font-medium">
+                            {{ $scoreDisplay === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
+                        </span>
                         @endif
                     </td>
                     <td class="px-6 py-4 text-center">
@@ -173,6 +168,13 @@
                                     <i class="ri-eye-line text-sm"></i>
                                     Preview
                                 </a>
+                                @if($tryout->has_snapshot_proctoring)
+                                    <a href="{{ route('admin.laporan.proctoring-snapshots', $tryout->tryout_id) }}"
+                                        class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
+                                        <i class="ri-camera-line text-sm"></i>
+                                        Snapshot
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     </td>
@@ -207,53 +209,4 @@
     @endif
 </div>
 
-@endsection
-
-@section('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('report-search');
-        const statusFilter = document.getElementById('report-status-filter');
-        const resetButton = document.getElementById('reset-report-filters');
-        const reportCount = document.getElementById('report-count');
-        const tableRows = document.querySelectorAll('tbody tr');
-
-        function filterReports() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const selectedStatus = statusFilter.value;
-
-            let visibleCount = 0;
-
-            tableRows.forEach(row => {
-                if (row.querySelector('td[colspan]')) return;
-
-                const tryoutName = row.querySelector('.tryout-name').textContent.toLowerCase();
-                const statusBadge = row.querySelector('.status-badge');
-                const tryoutStatus = statusBadge ? statusBadge.dataset.status : '';
-
-                const matchesSearch = tryoutName.includes(searchTerm);
-                const matchesStatus = !selectedStatus || selectedStatus === tryoutStatus;
-
-                if (matchesSearch && matchesStatus) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            reportCount.innerHTML = `Total: <span class="font-medium text-gray-700">${visibleCount} Tryout</span>`;
-        }
-
-        function resetFilters() {
-            searchInput.value = '';
-            statusFilter.value = '';
-            filterReports();
-        }
-
-        searchInput.addEventListener('input', filterReports);
-        statusFilter.addEventListener('change', filterReports);
-        resetButton.addEventListener('click', resetFilters);
-    });
-</script>
 @endsection

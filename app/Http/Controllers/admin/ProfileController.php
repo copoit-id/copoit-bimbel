@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use App\Rules\SafeName;
+use App\Services\ActivityLogger;
 
 class ProfileController extends Controller
 {
@@ -21,7 +23,7 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255', new SafeName()],
             'username' => 'required|string|max:255|unique:users,username,' . $user->id,
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'date_of_birth' => 'nullable|date|before:today',
@@ -33,6 +35,8 @@ class ProfileController extends Controller
             'email' => $request->email,
             'date_of_birth' => $request->date_of_birth,
         ]);
+
+        ActivityLogger::log('profile_updated', 'success', $user, ['scope' => 'admin'], $request);
 
         return redirect()->route('admin.profile.index')
             ->with('success', 'Profile berhasil diperbarui');
@@ -56,6 +60,8 @@ class ProfileController extends Controller
         $user->update([
             'password' => Hash::make($request->password),
         ]);
+
+        ActivityLogger::log('password_changed', 'success', $user, ['scope' => 'admin'], $request);
 
         return redirect()->route('admin.profile.index')
             ->with('success', 'Password berhasil diperbarui');

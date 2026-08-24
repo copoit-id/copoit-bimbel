@@ -34,7 +34,11 @@ class UserImportController extends Controller
             'username',
             'password',
             'date_of_birth',
-            'status'
+            'status',
+            'education_level',
+            'origin_institution',
+            'major_choice_1',
+            'major_choice_2',
         ];
 
         $callback = function () use ($columns) {
@@ -50,7 +54,11 @@ class UserImportController extends Controller
                 'johndoe',
                 'password123',
                 '01/01/1990',
-                'active'
+                'active',
+                '12',
+                'SMA Contoh',
+                'Teknik Informatika',
+                'Sistem Informasi',
             ], ';');
 
             fputcsv($file, [
@@ -59,7 +67,11 @@ class UserImportController extends Controller
                 'janesmith',
                 'password123',
                 '15/05/1985',
-                'active'
+                'active',
+                '',
+                '',
+                '',
+                '',
             ], ';');
 
             fclose($file);
@@ -139,12 +151,18 @@ class UserImportController extends Controller
                     $passwordValue = trim($data['password'] ?? $data['Password'] ?? '');
                     $dobStr   = trim($data['date_of_birth'] ?? $data['birth_date'] ?? $data['tanggal_lahir'] ?? '');
                     $status   = trim($data['status'] ?? $data['Status'] ?? 'active');
+                    $educationLevel = trim($data['education_level'] ?? $data['kelas'] ?? $data['level'] ?? '');
+                    $originInstitution = trim($data['origin_institution'] ?? $data['asal_sekolah'] ?? $data['asal_instansi'] ?? '');
+                    $majorChoice1 = trim($data['major_choice_1'] ?? $data['pilihan_jurusan_1'] ?? '');
+                    $majorChoice2 = trim($data['major_choice_2'] ?? $data['pilihan_jurusan_2'] ?? '');
 
                     // (Baru) created_at & updated_at dari CSV jika ada
                     $createdCsv = $data['created_at'] ?? null;
                     $updatedCsv = $data['updated_at'] ?? null;
 
                     // Validasi minimal
+                    $name = User::sanitizeName($name);
+
                     if ($email === '' || $name === '') {
                         $skipped++;
                         $processed++;
@@ -165,6 +183,10 @@ class UserImportController extends Controller
 
                         // PENTING: tabel pakai 'birthday', isi dari 'birth_date' (atau alias lain) CSV
                         'birthday'          => $this->parseBirthDate($dobStr),
+                        'education_level'   => $educationLevel !== '' ? $educationLevel : null,
+                        'origin_institution' => $originInstitution !== '' ? $originInstitution : null,
+                        'major_choice_1'    => $majorChoice1 !== '' ? $majorChoice1 : null,
+                        'major_choice_2'    => $majorChoice2 !== '' ? $majorChoice2 : null,
 
                         'role'              => 'user',
                         'status'            => $this->mapStatus($status),

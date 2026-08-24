@@ -20,7 +20,7 @@
         @if($class->schedule_time)
         <div class="text-sm text-gray-600">
             <span class="font-medium">Jadwal:</span>
-            {{ \Carbon\Carbon::parse($class->schedule_time)->translatedFormat('l, d F Y \pukul H:i') }} WIB
+            {{ \Carbon\Carbon::parse($class->schedule_time)->locale('id')->translatedFormat('l, d F Y') }} pukul {{ \Carbon\Carbon::parse($class->schedule_time)->format('H:i') }} WIB
         </div>
         @endif
     </div>

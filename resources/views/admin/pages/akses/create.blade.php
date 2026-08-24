@@ -6,13 +6,11 @@
     <x-breadcrumb>
         <x-slot name="items">
             <x-breadcrumb-item href="{{ route('admin.akses.index') }}" title="Akses User" />
-            <x-breadcrumb-item href="{{ route('admin.akses.show', ['package_id' => $package->package_id]) }}"
-                title="{{ $package->name }}" />
             <x-breadcrumb-item href="" title="Tambah Akses" />
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="Tambah Akses Manual - {{ $package->name }}"></x-page-desc>
+<x-page-desc title="Tambah Akses Manual"></x-page-desc>
 
 @if($errors->any())
 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -24,9 +22,50 @@
 </div>
 @endif
 
-<div class="bg-white rounded-lg border border-border p-8 mt-6">
-    <form action="{{ route('admin.akses.store', $package->package_id) }}" class="space-y-6" method="post">
+<!-- Tipe Akses Tabs -->
+<div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex">
+    <a href="{{ route('admin.akses.create') }}?type=package" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $type === 'package' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-folder-3-line mr-1"></i>Paket
+    </a>
+    <a href="{{ route('admin.akses.create') }}?type=material" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $type === 'material' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-book-open-line mr-1"></i>Materi/Video
+    </a>
+    <a href="{{ route('admin.akses.create') }}?type=tryout" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $type === 'tryout' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-list-3-line mr-1"></i>Tryout
+    </a>
+</div>
+
+<div class="bg-white rounded-lg border border-border p-8">
+    <form action="{{ route('admin.akses.store') }}?type={{ $type }}" class="space-y-6" method="post">
         @csrf
+
+        <!-- Pilihan Item (Paket/Materi/Tryout) -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Pilih {{ ucfirst($type) }} <span class="text-red-500">*</span>
+            </label>
+            <select name="item_id" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                <option value="">-- Pilih {{ ucfirst($type) }} --</option>
+                @foreach($items as $item)
+                @php
+                $itemName = $item->name ?? $item->title ?? 'Unknown';
+                $itemId = $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id;
+                @endphp
+                <option value="{{ $itemId }}" {{ old('item_id') == $itemId ? 'selected' : '' }}>
+                    {{ $itemName }}
+                    @if($type === 'package' && $item->price > 0)
+                        - Rp {{ number_format($item->price, 0, ',', '.') }}
+                    @elseif($type === 'package')
+                        - Gratis
+                    @endif
+                </option>
+                @endforeach
+            </select>
+        </div>
 
         <!-- User Selection -->
         <div>
@@ -64,13 +103,12 @@
                         <p class="font-medium text-gray-900 user-name">{{ $user->name }}</p>
                         <p class="text-sm text-gray-500 user-email">{{ $user->email }}</p>
                     </div>
-                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{{ ucfirst($user->status)
-                        }}</span>
+                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{{ ucfirst($user->status) }}</span>
                 </label>
                 @empty
                 <div class="p-8 text-center text-gray-500">
                     <i class="ri-user-line text-4xl text-gray-300 mb-2"></i>
-                    <p>Semua user sudah memiliki akses ke paket ini</p>
+                    <p>Tidak ada user yang tersedia</p>
                 </div>
                 @endforelse
             </div>
@@ -103,16 +141,14 @@
                 <select id="payment_status" name="payment_status" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <option value="">Pilih Status</option>
-                    <option value="paid" {{ old('payment_status')=='paid' ? 'selected' : '' }}>Lunas</option>
-                    <option value="pending" {{ old('payment_status')=='pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="paid" {{ old('payment_status')=='paid' ? 'selected' : '' }}>Lunas (Berbayar)</option>
                     <option value="free" {{ old('payment_status')=='free' ? 'selected' : '' }}>Gratis</option>
-                    <option value="failed" {{ old('payment_status')=='failed' ? 'selected' : '' }}>Gagal</option>
+                    <option value="pending" {{ old('payment_status')=='pending' ? 'selected' : '' }}>Pending</option>
                 </select>
             </div>
 
             <div>
-                <label for="payment_amount" class="block text-sm font-medium text-gray-700 mb-2">Jumlah
-                    Pembayaran</label>
+                <label for="payment_amount" class="block text-sm font-medium text-gray-700 mb-2">Jumlah Pembayaran (Rp)</label>
                 <input type="number" id="payment_amount" name="payment_amount" value="{{ old('payment_amount', 0) }}"
                     min="0"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -130,7 +166,7 @@
 
         <!-- Submit Button -->
         <div class="flex items-center justify-end space-x-2">
-            <a href="{{ route('admin.akses.show', $package->package_id) }}"
+            <a href="{{ route('admin.akses.index') }}"
                 class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
                 Batal
             </a>
@@ -199,22 +235,20 @@
 
             selectedCount.textContent = `${selectedCheckboxes.length} user dipilih`;
 
-            // Update select all checkbox state
             if (selectedCheckboxes.length === 0) {
                 selectAll.indeterminate = false;
                 selectAll.checked = false;
-                submitBtn.disabled = true; // ❌ tidak ada user -> tombol mati
+                submitBtn.disabled = true;
             } else if (selectedCheckboxes.length === visibleCheckboxes.length) {
                 selectAll.indeterminate = false;
                 selectAll.checked = true;
-                submitBtn.disabled = false; // ✅ ada user -> tombol nyala
+                submitBtn.disabled = false;
             } else {
                 selectAll.indeterminate = true;
-                submitBtn.disabled = false; // ✅ ada user -> tombol nyala
+                submitBtn.disabled = false;
             }
         }
 
-        // Initial count
         updateSelectedCount();
     });
 </script>

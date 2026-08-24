@@ -3,77 +3,210 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndividualPurchase;
+use App\Models\Material;
 use App\Models\Package;
 use App\Models\Payment;
+use App\Models\Discount;
+use App\Models\AffiliateSetting;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
+use App\Models\MaterialProgressLog;
+use App\Models\TesKoranResult;
+use App\Models\TesKoran;
+use App\Models\Tryout;
+use App\Models\AiDiscussionUsageLog;
+use App\Models\AiGatewayTransaction;
+use App\Models\UserAnswer;
+use App\Models\UserClassAccess;
+use App\Models\UserMaterialAccess;
 use Carbon\Carbon;
+use App\Models\UserTryoutAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\ActivityLogger;
+use App\Services\AiDiscussionService;
+use App\Services\AiGatewaySubscriptionService;
+use App\Services\AffiliateService;
+use App\Services\Payments\IpaymuGateway;
+use App\Services\Payments\InteractiveQrisGateway;
+use App\Services\PurchaseAccessDuration;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Symfony\Component\Process\Process;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class PackageController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $kelasPackages = Package::where('type_package', 'bimbel')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->get();
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
+        $tab = 'all';
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
+        
+        // Get user's owned package IDs (cast to int for consistent comparison)
+        $userOwnedPackageIds = [];
+        $pendingConditionalPackageIds = [];
+        if (Auth::check()) {
+            $userOwnedPackageIds = UserPackageAcces::where('user_id', Auth::id())
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->pluck('package_id')
+                ->map(fn($id) => (int) $id)
+                ->toArray();
 
-        $tryoutPackages = Package::where('type_package', 'tryout')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->get();
+            $pendingConditionalPackageIds = UserPackageAcces::where('user_id', Auth::id())
+                ->where('requirement_status', 'pending')
+                ->pluck('package_id')
+                ->map(fn($id) => (int) $id)
+                ->toArray();
+        }
+        
+        $packagesQuery = Package::where('status', 'active')
+            ->where('is_displayed', true)
+            ->with(['detailPackages', 'freeClaimTryout:tryout_id,name'])
+            ->withCount(['materials', 'tryouts', 'tesKorans']);
 
-        $sertifikasiPackages = Package::where('type_package', 'sertifikasi')
-            ->where('status', 'active')
-            ->where('type_price', 'paid')
-            ->withCount(['userAccess' => function ($query) {
-                $query->where('user_id', Auth::id())
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now());
-            }])
-            ->get();
+        if ($search !== '') {
+            $packagesQuery->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
 
-        return view('user.pages.package.index', compact(
-            'kelasPackages',
-            'tryoutPackages',
-            'sertifikasiPackages'
+        match ($sort) {
+            'oldest' => $packagesQuery->orderBy('created_at', 'asc'),
+            'name_asc' => $packagesQuery->orderBy('name', 'asc'),
+            'name_desc' => $packagesQuery->orderBy('name', 'desc'),
+            default => $packagesQuery->orderBy('created_at', 'desc'),
+        };
+
+        $packages = $packagesQuery->get();
+
+        $pendingPackagePaymentsByPackage = collect();
+        if (Auth::check()) {
+            $pendingPackagePaymentsByPackage = $this->pendingPackagePaymentsForPackages($packages->pluck('package_id')->all());
+        }
+
+        $manualPaymentUniqueCodes = [];
+        $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
+        $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
+
+        if (Auth::check() && $paymentMode === 'manual' && $paymentUniqueCodeEnabled) {
+            $reservedCodes = [];
+
+            foreach ($packages->where('type_price', 'paid') as $package) {
+                $uniqueCode = Payment::generateManualUniqueCode($reservedCodes);
+                $reservedCodes[] = $uniqueCode;
+                $manualPaymentUniqueCodes[$package->package_id] = $uniqueCode;
+            }
+        }
+
+        $publicDiscounts = Discount::query()
+            ->publicAvailable()
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->filter(fn (Discount $discount) => $discount->appliesToPurchaseType('package')
+                && $packages->contains(fn (Package $package) => $discount->appliesToPackage($package->package_id))
+            )
+            ->values();
+        $automaticDiscounts = Discount::query()
+            ->automaticAvailable()
+            ->with('tryout:tryout_id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $packageAutomaticDiscounts = $this->automaticDiscountsForPackages($packages, $automaticDiscounts);
+        $affiliateDiscountPreview = $this->affiliateDiscountPreview();
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = Auth::check() ? $this->activeCombinedAiPayment($request) : null;
+        
+        return view('user.pages.package.new-index', compact(
+            'packages',
+            'tab',
+            'userOwnedPackageIds',
+            'pendingConditionalPackageIds',
+            'pendingPackagePaymentsByPackage',
+            'manualPaymentUniqueCodes',
+            'publicDiscounts',
+            'packageAutomaticDiscounts',
+            'affiliateDiscountPreview',
+            'aiGatewayPlans',
+            'combinedAiPayment',
+            'search',
+            'sort'
         ));
+    }
+
+    private function availableAiGatewayPlans(): array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return [];
+        }
+
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl === '' || blank(config('services.ai_gateway.key'))) {
+            return [];
+        }
+
+        try {
+            $plans = Http::acceptJson()
+                ->timeout(3)
+                ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')])
+                ->get("{$gatewayBaseUrl}/plans")
+                ->json();
+
+            return is_array($plans) ? $plans : [];
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public function buyPackage(Request $request, $package_id)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Silakan login terlebih dahulu untuk membeli paket.'
+            ], 401);
+        }
+        
         try {
-            $package = Package::findOrFail($package_id);
+            $package = Package::where('status', 'active')
+                ->where('is_displayed', true)
+                ->findOrFail($package_id);
 
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->first();
 
-            if ($existingAccess && $existingAccess->status === 'active' && $existingAccess->end_date && Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now())) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah memiliki akses aktif ke paket ini'
-                ], 400);
+            if (
+                $existingAccess
+                && $existingAccess->status === 'active'
+                && (is_null($existingAccess->end_date) || Carbon::parse($existingAccess->end_date)->greaterThan(Carbon::now()))
+            ) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Anda sudah memiliki akses aktif ke paket ini'
+                    ], 400);
+                }
+                return redirect()->route('user.package.my')->with('error', 'Anda sudah memiliki akses aktif ke paket ini.');
             }
 
             switch ($package->type_price) {
                 case 'free_unconditional':
-                    $this->grantFreeAccess($package_id);
+                    $this->grantFreeAccess($package);
 
                     return response()->json([
                         'success' => true,
@@ -81,15 +214,54 @@ class PackageController extends Controller
                     ]);
 
                 case 'free_conditional':
+                    if ($package->free_claim_requirement_type === 'completed_tryout') {
+                        $requiredTryout = $package->freeClaimTryout;
+
+                        if (! $requiredTryout) {
+                            return $this->freeClaimError($request, 'Tryout syarat klaim belum diatur oleh admin.');
+                        }
+
+                        $hasCompletedTryout = UserAnswer::query()
+                            ->where('user_id', Auth::id())
+                            ->where('tryout_id', $requiredTryout->tryout_id)
+                            ->where('status', 'completed')
+                            ->exists();
+
+                        if (! $hasCompletedTryout) {
+                            return $this->freeClaimError(
+                                $request,
+                                'Selesaikan Tryout "'.$requiredTryout->name.'" terlebih dahulu untuk mengklaim paket ini.'
+                            );
+                        }
+
+                        $this->grantFreeAccess($package);
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => 'Syarat Tryout sudah terpenuhi. Paket gratis berhasil diaktifkan!',
+                        ]);
+                    }
+
                     $validated = $request->validate([
-                        'requirement_proof' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:20480',
+                        'requirement_proofs' => 'required|array|min:1',
+                        'requirement_proofs.*' => 'required|file|mimes:jpg,jpeg,png,pdf,mp4,webm|max:2048',
+                        'requirement_user_notes' => 'nullable|string|max:1000',
                     ], [
-                        'requirement_proof.required' => 'Bukti pemenuhan syarat wajib diunggah.',
-                        'requirement_proof.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
-                        'requirement_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                        'requirement_proofs.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                        'requirement_proofs.array' => 'Bukti pemenuhan syarat tidak valid.',
+                        'requirement_proofs.min' => 'Minimal unggah 1 bukti syarat.',
+                        'requirement_proofs.*.required' => 'Bukti pemenuhan syarat wajib diunggah.',
+                        'requirement_proofs.*.mimes' => 'Format bukti harus berupa JPG, PNG, PDF, MP4, atau WEBM.',
+                        'requirement_proofs.*.max' => 'Ukuran setiap file maksimal 2MB.',
+                        'requirement_user_notes.max' => 'Catatan maksimal 1000 karakter.',
                     ]);
 
-                    $this->saveConditionalRequest($package, $existingAccess, $request->file('requirement_proof'));
+                    $this->saveConditionalRequest(
+                        $package,
+                        $existingAccess,
+                        $request->file('requirement_proofs', []),
+                        $validated['requirement_user_notes'] ?? null
+                    );
 
                     return response()->json([
                         'success' => true,
@@ -105,33 +277,128 @@ class PackageController extends Controller
                         ], 400);
                     }
 
+                    $discountData = $this->resolveDiscount($request, $package);
+                    if ($discountData['error']) {
+                        if ($request->expectsJson()) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => $discountData['error'],
+                            ], 422);
+                        }
+
+                        return redirect()->back()->with('error', $discountData['error']);
+                    }
+
+                    $payableAmount = $discountData['payable_amount'];
+                    if ($payableAmount <= 0) {
+                        $payment = Payment::create([
+                            'transaction_id' => 'DISC-' . $package->package_id . '-' . Auth::id() . '-' . time(),
+                            'user_id' => Auth::id(),
+                            'package_id' => $package->package_id,
+                            'discount_id' => $discountData['discount']?->id,
+                            'discount_code' => $discountData['discount_code'],
+                            'original_amount' => (int) $package->price,
+                            'discount_amount' => $discountData['discount_amount'],
+                            'amount' => 0,
+                            'admin_fee' => 0,
+                            'total_amount' => 0,
+                            'status' => Payment::STATUS_SUCCESS,
+                            'payment_method' => 'discount',
+                            'paid_at' => Carbon::now(),
+                            'payment_details' => json_encode([
+                                'base_amount' => (int) $package->price,
+                                'discount_code' => $discountData['discount_code'],
+                                'discount_amount' => $discountData['discount_amount'],
+                            ]),
+                        ]);
+
+                        $this->recordDiscountUsage($discountData['discount']);
+                        $this->ensureUserPackageAccess($payment, 'Access activated by full discount');
+
+                        return response()->json([
+                            'success' => true,
+                            'message' => ($discountData['source'] === 'voucher' ? 'Kode diskon berhasil digunakan.' : 'Diskon berhasil diterapkan.') . ' Paket sudah aktif.',
+                            'redirect_url' => route('user.package.my'),
+                        ]);
+                    }
+
                     $paymentMode = strtolower((string) config('client.branding.payment_mode', 'gateway'));
                     if ($paymentMode === 'manual') {
-                        $validated = $request->validate([
+                        $pendingManualPayment = $this->pendingPackagePayment($package, ['manual']);
+                        if ($pendingManualPayment) {
+                            $message = 'Bukti pembayaran untuk paket ini masih menunggu verifikasi admin.';
+
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => $message,
+                                    'redirect_url' => route('user.package.riwayatPembelian'),
+                                ]);
+                            }
+
+                            return redirect()
+                                ->route('user.package.riwayatPembelian')
+                                ->with('info', $message);
+                        }
+
+                        $paymentUniqueCodeEnabled = (bool) config('client.branding.payment_unique_code_enabled', true);
+                        $rules = [
                             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:20480',
-                        ], [
+                        ];
+
+                        if ($paymentUniqueCodeEnabled) {
+                            $rules['payment_unique_code'] = 'required|integer|min:1|max:999';
+                        }
+
+                        $validated = $request->validate($rules, [
                             'payment_proof.required' => 'Bukti pembayaran wajib diunggah.',
                             'payment_proof.mimes' => 'Format bukti harus berupa JPG, PNG, atau PDF.',
                             'payment_proof.max' => 'Ukuran bukti maksimal 20MB.',
+                            'payment_unique_code.required' => 'Kode unik pembayaran tidak valid. Silakan buka ulang modal pembayaran.',
                         ]);
+
+                        $uniqueCode = $paymentUniqueCodeEnabled
+                            ? (int) $validated['payment_unique_code']
+                            : 0;
+
+                        if ($paymentUniqueCodeEnabled && !Payment::isManualUniqueCodeAvailable($uniqueCode)) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Kode unik pembayaran sudah dipakai. Silakan buka ulang modal pembayaran.'
+                            ], 409);
+                        }
 
                         $proofPath = $validated['payment_proof']->store('payment-proofs', 'public');
                         $transactionId = 'MANUAL-' . $package->package_id . '-' . Auth::id() . '-' . time();
+                        $totalAmount = $payableAmount + $uniqueCode;
 
                         Payment::create([
                             'transaction_id' => $transactionId,
                             'user_id' => Auth::id(),
                             'package_id' => $package->package_id,
-                            'amount' => $package->price,
+                            'discount_id' => $discountData['discount']?->id,
+                            'discount_code' => $discountData['discount_code'],
+                            'original_amount' => (int) $package->price,
+                            'discount_amount' => $discountData['discount_amount'],
+                            'amount' => $payableAmount,
                             'admin_fee' => 0,
-                            'total_amount' => $package->price,
+                            'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
+                            'unique_code_date' => $paymentUniqueCodeEnabled ? now()->toDateString() : null,
+                            'total_amount' => $totalAmount,
                             'status' => Payment::STATUS_PENDING,
                             'payment_method' => 'manual',
                             'payment_details' => json_encode([
                                 'proof_path' => $proofPath,
                                 'proof_name' => $validated['payment_proof']->getClientOriginalName(),
+                                'base_amount' => (int) $package->price,
+                                'discount_code' => $discountData['discount_code'],
+                                'discount_amount' => $discountData['discount_amount'],
+                                'payable_amount' => $payableAmount,
+                                'unique_code' => $paymentUniqueCodeEnabled ? $uniqueCode : null,
                             ]),
                         ]);
+
+                        $this->recordDiscountUsage($discountData['discount']);
 
                         return response()->json([
                             'success' => true,
@@ -139,19 +406,66 @@ class PackageController extends Controller
                         ]);
                     }
 
-                    $paymentResponse = $this->createPayment($package);
+                    $pendingGatewayPayment = $this->reusablePendingPackageGatewayPayment($package);
+                    if ($pendingGatewayPayment) {
+                        $this->rememberCombinedAiCheckout($request, $pendingGatewayPayment, 'package');
 
-                    if ($paymentResponse['success']) {
-                        return response()->json([
-                            'success' => true,
-                            'redirect_url' => $paymentResponse['redirect_url']
-                        ]);
+                        if ($pendingGatewayPayment->status === Payment::STATUS_SUCCESS) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Pembayaran sudah berhasil. Akses paket sudah aktif.',
+                                    'redirect_url' => route('user.package.my'),
+                                ]);
+                            }
+
+                            return $this->redirectAfterSuccessfulProductPayment(
+                                $request,
+                                'Pembayaran sudah berhasil. Akses paket sudah aktif.'
+                            );
+                        }
+
+                        $redirectUrl = $this->pendingGatewayPaymentRedirectUrl($pendingGatewayPayment);
+
+                        if ($redirectUrl) {
+                            if ($request->expectsJson()) {
+                                return response()->json([
+                                    'success' => true,
+                                    'message' => 'Anda masih memiliki tagihan pending untuk paket ini. Silakan lanjutkan pembayaran sebelumnya.',
+                                    'redirect_url' => $redirectUrl,
+                                ]);
+                            }
+
+                            return redirect()->away($redirectUrl);
+                        }
                     }
 
-                    return response()->json([
-                        'success' => false,
-                        'message' => $paymentResponse['message']
-                    ], 500);
+                    $paymentResponse = $this->createPayment($package, $discountData);
+
+                    if ($paymentResponse['success']) {
+                        $this->rememberCombinedAiCheckout(
+                            $request,
+                            $paymentResponse['payment'] ?? null,
+                            'package'
+                        );
+
+                        // For AJAX requests, return JSON; for native form submit, redirect directly
+                        if ($request->expectsJson()) {
+                            return response()->json([
+                                'success' => true,
+                                'redirect_url' => $paymentResponse['redirect_url']
+                            ]);
+                        }
+                        return redirect()->away($paymentResponse['redirect_url']);
+                    }
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => $paymentResponse['message']
+                        ], 500);
+                    }
+                    return redirect()->back()->with('error', $paymentResponse['message']);
             }
         } catch (\Exception $e) {
             return response()->json([
@@ -161,18 +475,526 @@ class PackageController extends Controller
         }
     }
 
-    private function createPayment(Package $package)
+    public function previewDiscount(Request $request, $package_id)
+    {
+        $package = Package::where('status', 'active')
+            ->where('is_displayed', true)
+            ->findOrFail($package_id);
+
+        if ($package->type_price !== 'paid' || $package->price <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Diskon hanya berlaku untuk paket berbayar.',
+            ], 422);
+        }
+
+        $discountData = $this->resolveDiscount($request, $package);
+        if ($discountData['error']) {
+            return response()->json([
+                'success' => false,
+                'message' => $discountData['error'],
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'code' => $discountData['discount_code'],
+            'source' => $discountData['source'],
+            'label' => $discountData['label'],
+            'original_amount' => (int) $package->price,
+            'discount_amount' => $discountData['discount_amount'],
+            'payable_amount' => $discountData['payable_amount'],
+        ]);
+    }
+
+    private function createPayment(Package $package, array $discountData)
     {
         $gateway = strtolower((string) config('services.payment_gateway', 'xendit'));
 
         if ($gateway === 'midtrans') {
-            return $this->createMidtransPayment($package);
+            return $this->createMidtransPayment($package, $discountData);
         }
 
-        return $this->createXenditPayment($package);
+        $handler = config("payment_gateways.gateways.{$gateway}.handler");
+        if ($handler && method_exists($handler, 'createPackagePayment')) {
+            $paymentResponse = app($handler)->createPackagePayment($package, $discountData);
+
+            if ($paymentResponse['success'] ?? false) {
+                $this->recordDiscountUsage($discountData['discount']);
+            }
+
+            return $paymentResponse;
+        }
+
+        return $this->createXenditPayment($package, $discountData);
     }
 
-    private function createXenditPayment(Package $package)
+    private function syncPendingIpaymuPayment(Payment $payment): Payment
+    {
+        if ($payment->payment_method !== 'ipaymu' || $payment->status !== Payment::STATUS_PENDING) {
+            return $payment;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkTransaction($payment);
+            $payment->refresh();
+
+            if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $payment;
+    }
+
+    private function syncPendingIpaymuIndividualPurchase(IndividualPurchase $purchase): IndividualPurchase
+    {
+        if ($purchase->payment_method !== 'ipaymu' || $purchase->status !== IndividualPurchase::STATUS_PENDING) {
+            return $purchase;
+        }
+
+        try {
+            $result = app(IpaymuGateway::class)->checkIndividualTransaction($purchase);
+            $purchase->refresh();
+
+            if (($result['paid'] ?? false) && $purchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via iPaymu sync');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $purchase;
+    }
+
+    private function pendingIpaymuPaymentUsesCurrentGateway(Payment $payment): bool
+    {
+        if ($payment->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $payment->paymentDetailsArray();
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function expireStaleIpaymuPayment(Payment $payment): void
+    {
+        $details = $payment->paymentDetailsArray();
+        $details['auto_expired_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_expired_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $payment->update([
+            'status' => Payment::STATUS_EXPIRED,
+            'payment_details' => json_encode($details),
+        ]);
+    }
+
+    private function pendingIpaymuIndividualPurchaseUsesCurrentGateway(IndividualPurchase $purchase): bool
+    {
+        if ($purchase->payment_method !== 'ipaymu') {
+            return true;
+        }
+
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $paymentBaseUrl = rtrim((string) ($details['gateway_base_url'] ?? ''), '/');
+        $currentBaseUrl = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        return $paymentBaseUrl !== '' && $paymentBaseUrl === $currentBaseUrl;
+    }
+
+    private function rejectStaleIpaymuIndividualPurchase(IndividualPurchase $purchase): void
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $details['auto_rejected_reason'] = 'Gateway iPaymu configuration changed before payment completion.';
+        $details['auto_rejected_at'] = now()->toDateTimeString();
+        $details['current_gateway_base_url'] = rtrim((string) config('services.ipaymu.base_url'), '/');
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_REJECTED,
+            'payment_details' => $details,
+        ]);
+    }
+
+    private function pendingPackagePayment(Package $package, array $methods): ?Payment
+    {
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', $methods)
+            ->latest()
+            ->first();
+    }
+
+    private function pendingPackagePaymentsForPackages(array $packageIds)
+    {
+        if (empty($packageIds)) {
+            return collect();
+        }
+
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('package_id', $packageIds)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', ['manual', 'xendit', 'midtrans', 'ipaymu', 'interactive_qris'])
+            ->latest()
+            ->get()
+            ->filter(function (Payment $payment) {
+                if ($payment->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+
+                        if ($payment->status !== Payment::STATUS_PENDING) {
+                            return false;
+                        }
+
+                        $this->expireStaleIpaymuPayment($payment);
+                        return false;
+                    }
+
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status !== Payment::STATUS_PENDING) {
+                        return false;
+                    }
+                }
+
+                if ($payment->payment_method === 'manual') {
+                    return true;
+                }
+
+                if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                    $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                    return false;
+                }
+
+                return (bool) $this->pendingGatewayPaymentRedirectUrl($payment);
+            })
+            ->unique('package_id')
+            ->keyBy('package_id');
+    }
+
+    private function reusablePendingPackageGatewayPayment(Package $package): ?Payment
+    {
+        $pendingPayments = Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('package_id', $package->package_id)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('payment_method', ['xendit', 'midtrans', 'ipaymu', 'interactive_qris'])
+            ->latest()
+            ->get();
+
+        foreach ($pendingPayments as $payment) {
+            if ($payment->payment_method === 'ipaymu') {
+                if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                    $payment = $this->syncPendingIpaymuPayment($payment);
+
+                    if ($payment->status === Payment::STATUS_SUCCESS) {
+                        return $payment;
+                    }
+
+                    if ($payment->status === Payment::STATUS_PENDING) {
+                        $this->expireStaleIpaymuPayment($payment);
+                    }
+
+                    continue;
+                }
+
+                $payment = $this->syncPendingIpaymuPayment($payment);
+
+                if ($payment->status === Payment::STATUS_SUCCESS) {
+                    return $payment;
+                }
+
+                if ($payment->status !== Payment::STATUS_PENDING) {
+                    continue;
+                }
+            }
+
+            if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                continue;
+            }
+
+            if ($this->pendingGatewayPaymentRedirectUrl($payment)) {
+                return $payment;
+            }
+        }
+
+        return null;
+    }
+
+    private function pendingGatewayPaymentRedirectUrl(Payment $payment): ?string
+    {
+        $details = $payment->paymentDetailsArray();
+
+        return match ($payment->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $payment->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function pendingGatewayPaymentIsExpired(Payment $payment): bool
+    {
+        $details = $payment->paymentDetailsArray();
+        $expiresAt = $details['expires_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        $createdAt = $payment->created_at ?: Carbon::now();
+
+        if ($payment->payment_method === 'interactive_qris') {
+            return $createdAt->copy()->addMinutes(30)->isPast();
+        }
+
+        return $createdAt->copy()->addDay()->isPast();
+    }
+
+    private function resolveDiscount(Request $request, Package $package): array
+    {
+        $amount = (int) $package->price;
+        $code = Discount::normalizeCode($request->input('discount_code'));
+
+        if (!$code) {
+            $automaticDiscount = $this->automaticDiscountForPackage($package);
+            $automaticDiscountAmount = $automaticDiscount?->calculateDiscountAmount($amount) ?? 0;
+            $user = Auth::user();
+            $setting = AffiliateSetting::current();
+            $hasPackagePayment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS])
+                ->exists();
+
+            $affiliateDiscountAmount = 0;
+            if ($user?->referred_by_user_id && !$hasPackagePayment && $setting->invitee_discount_enabled) {
+                $affiliateDiscountAmount = $setting->calculateInviteeDiscount($amount);
+            }
+
+            if ($automaticDiscount && $automaticDiscountAmount >= $affiliateDiscountAmount && $automaticDiscountAmount > 0) {
+                return [
+                    'discount' => $automaticDiscount,
+                    'discount_code' => null,
+                    'discount_amount' => $automaticDiscountAmount,
+                    'payable_amount' => max(0, $amount - $automaticDiscountAmount),
+                    'source' => 'automatic',
+                    'label' => $automaticDiscount->name ?: 'Diskon otomatis',
+                    'error' => null,
+                ];
+            }
+
+            if ($affiliateDiscountAmount > 0) {
+                return [
+                    'discount' => null,
+                    'discount_code' => 'REFERRAL',
+                    'discount_amount' => $affiliateDiscountAmount,
+                    'payable_amount' => max(0, $amount - $affiliateDiscountAmount),
+                    'source' => 'referral',
+                    'label' => 'Diskon referral',
+                    'error' => null,
+                ];
+            }
+
+            return [
+                'discount' => null,
+                'discount_code' => null,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
+                'error' => null,
+            ];
+        }
+
+        $discount = Discount::query()->voucher()->where('code', $code)->first();
+        if (!$discount) {
+            return [
+                'discount' => null,
+                'discount_code' => null,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
+                'error' => 'Kode diskon tidak ditemukan.',
+            ];
+        }
+
+        $error = $discount->validationErrorFor($amount, Auth::id(), $package->package_id, 'package');
+        if ($error) {
+            return [
+                'discount' => $discount,
+                'discount_code' => null,
+                'discount_amount' => 0,
+                'payable_amount' => $amount,
+                'source' => null,
+                'label' => null,
+                'error' => $error,
+            ];
+        }
+
+        $discountAmount = $discount->calculateDiscountAmount($amount);
+
+        return [
+            'discount' => $discount,
+            'discount_code' => $discount->code,
+            'discount_amount' => $discountAmount,
+            'payable_amount' => max(0, $amount - $discountAmount),
+            'source' => 'voucher',
+            'label' => $discount->name ?: $discount->code,
+            'error' => null,
+        ];
+    }
+
+    private function automaticDiscountForPackage(Package $package): ?Discount
+    {
+        $tryoutIds = $this->packageTryoutIds($package);
+
+        if (empty($tryoutIds)) {
+            return null;
+        }
+
+        $discounts = Discount::query()
+            ->automaticAvailable()
+            ->whereIn('tryout_id', $tryoutIds)
+            ->with('tryout:tryout_id,name')
+            ->get();
+
+        return $this->bestAutomaticDiscount($package, $discounts);
+    }
+
+    private function automaticDiscountsForPackages($packages, $automaticDiscounts): array
+    {
+        $result = [];
+
+        foreach ($packages as $package) {
+            $discount = $this->bestAutomaticDiscount(
+                $package,
+                $automaticDiscounts->whereIn('tryout_id', $this->packageTryoutIds($package))->values()
+            );
+
+            if (!$discount) {
+                continue;
+            }
+
+            $discountAmount = $discount->calculateDiscountAmount((int) $package->price);
+            if ($discountAmount <= 0) {
+                continue;
+            }
+
+            $result[$package->package_id] = [
+                'id' => $discount->id,
+                'name' => $discount->name ?: 'Diskon otomatis',
+                'description' => $discount->description,
+                'tryout_title' => $discount->tryout?->name,
+                'formatted_value' => $discount->formatted_value,
+                'discount_type' => $discount->discount_type,
+                'discount_value' => (float) $discount->discount_value,
+                'max_discount_amount' => $discount->max_discount_amount !== null ? (float) $discount->max_discount_amount : null,
+                'discount_amount' => $discountAmount,
+                'final_price' => max(0, (int) $package->price - $discountAmount),
+                'ends_at' => $discount->ends_at ? $discount->ends_at->toIso8601String() : null,
+            ];
+        }
+
+        return $result;
+    }
+
+    private function bestAutomaticDiscount(Package $package, $discounts): ?Discount
+    {
+        $amount = (int) $package->price;
+        $userId = (int) (Auth::id() ?? 0);
+
+        return $discounts
+            ->filter(fn (Discount $discount) => $discount->validationErrorFor($amount, $userId, $package->package_id, 'package') === null)
+            ->sortByDesc(fn (Discount $discount) => $discount->calculateDiscountAmount($amount))
+            ->first();
+    }
+
+    private function packageTryoutIds(Package $package): array
+    {
+        $tryoutIds = collect();
+
+        if ($package->relationLoaded('detailPackages')) {
+            $tryoutIds = $tryoutIds->merge(
+                $package->detailPackages
+                    ->where('detailable_type', Tryout::class)
+                    ->pluck('detailable_id')
+            );
+        } else {
+            $tryoutIds = $tryoutIds->merge(
+                $package->detailPackages()
+                    ->where('detailable_type', Tryout::class)
+                    ->pluck('detailable_id')
+            );
+        }
+
+        return $tryoutIds->map(fn ($id) => (int) $id)->filter()->unique()->values()->all();
+    }
+
+    private function affiliateDiscountPreview(?int $amount = null): ?array
+    {
+        if (!config('client.branding.affiliate_menu_enabled', false)) {
+            return null;
+        }
+
+        if (!Auth::check()) {
+            return null;
+        }
+
+        $user = Auth::user();
+        if (!$user?->referred_by_user_id) {
+            return null;
+        }
+
+        $hasPackagePayment = Payment::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUCCESS])
+            ->exists();
+
+        if ($hasPackagePayment) {
+            return null;
+        }
+
+        $setting = AffiliateSetting::current();
+        if (!$setting->is_active || !$setting->invitee_discount_enabled || (float) $setting->invitee_discount_value <= 0) {
+            return null;
+        }
+
+        $discountLabel = $setting->invitee_discount_type === 'fixed'
+            ? 'Rp ' . number_format((float) $setting->invitee_discount_value, 0, ',', '.')
+            : rtrim(rtrim(number_format((float) $setting->invitee_discount_value, 2, ',', '.'), '0'), ',') . '%';
+
+        return [
+            'code' => 'REFERRAL',
+            'label' => $discountLabel,
+            'amount' => $amount !== null ? $setting->calculateInviteeDiscount($amount) : null,
+            'payable_amount' => $amount !== null ? max(0, $amount - $setting->calculateInviteeDiscount($amount)) : null,
+            'max_discount_amount' => $setting->invitee_max_discount_amount,
+        ];
+    }
+
+    private function recordDiscountUsage(?Discount $discount): void
+    {
+        if (!$discount) {
+            return;
+        }
+
+        $discount->increment('used_count');
+    }
+
+    private function createXenditPayment(Package $package, array $discountData)
     {
         $secretKey = config('services.xendit.secret_key');
 
@@ -185,52 +1007,69 @@ class PackageController extends Controller
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
         $baseUrl = rtrim(config('services.xendit.base_url', 'https://api.xendit.co'), '/');
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Basic ' . base64_encode($secretKey . ':'),
                 'Content-Type' => 'application/json',
             ])->post($baseUrl . '/v2/invoices', [
-                'external_id' => $transactionId,
-                'amount' => $package->price,
-                'description' => 'Pembelian ' . $package->name,
-                'invoice_duration' => 86400, // 24 hours
-                'customer' => [
-                    'given_names' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'customer_notification_preference' => [
-                    'invoice_created' => ['email'],
-                    'invoice_reminder' => ['email'],
-                    'invoice_paid' => ['email'],
-                ],
-                'success_redirect_url' => route('user.package.payment.success'),
-                'failure_redirect_url' => route('user.package.payment.failed'),
-            ]);
+                        'external_id' => $transactionId,
+                        'amount' => $totalAmount,
+                        'description' => 'Pembelian ' . $package->name,
+                        'invoice_duration' => 86400, // 24 hours
+                        'customer' => [
+                            'given_names' => Auth::user()->name,
+                            'email' => Auth::user()->email,
+                        ],
+                        'customer_notification_preference' => [
+                            'invoice_created' => ['email'],
+                            'invoice_reminder' => ['email'],
+                            'invoice_paid' => ['email'],
+                        ],
+                        'success_redirect_url' => route('user.package.payment.success'),
+                        'failure_redirect_url' => route('user.package.payment.failed'),
+                    ]);
 
             if ($response->successful()) {
                 $invoiceData = $response->json();
 
                 // Save payment record
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
-                    'amount' => $package->price,
+                    'discount_id' => $discountData['discount']?->id,
+                    'discount_code' => $discountData['discount_code'],
+                    'original_amount' => (int) $package->price,
+                    'discount_amount' => $discountData['discount_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $package->price,
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'xendit',
                     'payment_details' => json_encode([
                         'invoice_id' => $invoiceData['id'],
                         'invoice_url' => $invoiceData['invoice_url'],
-                        'external_id' => $transactionId
+                        'external_id' => $transactionId,
+                        'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
+                        'discount_code' => $discountData['discount_code'],
+                        'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
 
+                $this->recordDiscountUsage($discountData['discount']);
+
                 return [
                     'success' => true,
-                    'redirect_url' => $invoiceData['invoice_url']
+                    'redirect_url' => $invoiceData['invoice_url'],
+                    'payment' => $payment,
                 ];
             } else {
                 $errorMessage = 'Gagal membuat pembayaran';
@@ -251,7 +1090,7 @@ class PackageController extends Controller
         }
     }
 
-    private function createMidtransPayment(Package $package)
+    private function createMidtransPayment(Package $package, array $discountData)
     {
         $serverKey = config('services.midtrans.server_key');
         $snapUrl = config('services.midtrans.snap_url', 'https://app.sandbox.midtrans.com/snap/v1/transactions');
@@ -264,6 +1103,9 @@ class PackageController extends Controller
         }
 
         $transactionId = 'PKG-' . $package->package_id . '-' . Auth::id() . '-' . time();
+        $amount = (int) round($discountData['payable_amount']);
+        $uniqueCode = $this->paymentUniqueCodeFor($amount);
+        $totalAmount = $amount + ($uniqueCode ?? 0);
 
         try {
             $response = Http::withHeaders([
@@ -271,51 +1113,65 @@ class PackageController extends Controller
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->post($snapUrl, [
-                'transaction_details' => [
-                    'order_id' => $transactionId,
-                    'gross_amount' => (int) round($package->price),
-                ],
-                'item_details' => [
-                    [
-                        'id' => (string) $package->package_id,
-                        'price' => (int) round($package->price),
-                        'quantity' => 1,
-                        'name' => Str::limit($package->name, 50, ''),
-                    ],
-                ],
-                'customer_details' => [
-                    'first_name' => Auth::user()->name,
-                    'email' => Auth::user()->email,
-                ],
-                'callbacks' => [
-                    'finish' => route('user.package.payment.success'),
-                    'error' => route('user.package.payment.failed'),
-                    'pending' => route('user.package.riwayatPembelian'),
-                ],
-            ]);
+                        'transaction_details' => [
+                            'order_id' => $transactionId,
+                            'gross_amount' => $totalAmount,
+                        ],
+                        'item_details' => [
+                            [
+                                'id' => (string) $package->package_id,
+                                'price' => $totalAmount,
+                                'quantity' => 1,
+                                'name' => Str::limit($package->name, 50, ''),
+                            ],
+                        ],
+                        'customer_details' => [
+                            'first_name' => Auth::user()->name,
+                            'email' => Auth::user()->email,
+                        ],
+                        'callbacks' => [
+                            'finish' => route('user.package.payment.success'),
+                            'error' => route('user.package.payment.failed'),
+                            'pending' => route('user.package.riwayatPembelian'),
+                        ],
+                    ]);
 
             if ($response->successful()) {
                 $data = $response->json();
 
-                Payment::create([
+                $payment = Payment::create([
                     'transaction_id' => $transactionId,
                     'user_id' => Auth::id(),
                     'package_id' => $package->package_id,
-                    'amount' => $package->price,
+                    'discount_id' => $discountData['discount']?->id,
+                    'discount_code' => $discountData['discount_code'],
+                    'original_amount' => (int) $package->price,
+                    'discount_amount' => $discountData['discount_amount'],
+                    'amount' => $amount,
                     'admin_fee' => 0,
-                    'total_amount' => $package->price,
+                    'unique_code' => $uniqueCode,
+                    'unique_code_date' => $uniqueCode ? now()->toDateString() : null,
+                    'total_amount' => $totalAmount,
                     'status' => Payment::STATUS_PENDING,
                     'payment_method' => 'midtrans',
                     'payment_details' => json_encode([
                         'snap_token' => $data['token'] ?? null,
                         'redirect_url' => $data['redirect_url'] ?? null,
                         'external_id' => $transactionId,
+                        'base_amount' => (int) $package->price,
+                        'payable_amount' => $amount,
+                        'unique_code' => $uniqueCode,
+                        'discount_code' => $discountData['discount_code'],
+                        'discount_amount' => $discountData['discount_amount'],
                     ]),
                 ]);
+
+                $this->recordDiscountUsage($discountData['discount']);
 
                 return [
                     'success' => true,
                     'redirect_url' => $data['redirect_url'] ?? null,
+                    'payment' => $payment,
                 ];
             }
 
@@ -336,16 +1192,27 @@ class PackageController extends Controller
         }
     }
 
-    private function grantFreeAccess(int $packageId): void
+    private function paymentUniqueCodeFor(int $amount): ?int
     {
+        if ($amount <= 0 || !(bool) config('client.branding.payment_unique_code_enabled', true)) {
+            return null;
+        }
+
+        return Payment::generateManualUniqueCode();
+    }
+
+    private function grantFreeAccess(Package $package): void
+    {
+        $startDate = Carbon::now();
+
         UserPackageAcces::updateOrCreate(
             [
                 'user_id' => Auth::id(),
-                'package_id' => $packageId,
+                'package_id' => $package->package_id,
             ],
             [
-                'start_date' => Carbon::now(),
-                'end_date' => Carbon::now()->addDays(30),
+                'start_date' => $startDate,
+                'end_date' => PurchaseAccessDuration::expiresAt($package, $startDate),
                 'status' => 'active',
                 'payment_amount' => 0,
                 'payment_status' => 'free',
@@ -358,17 +1225,36 @@ class PackageController extends Controller
         );
     }
 
-    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, \Illuminate\Http\UploadedFile $proof): void
+    private function freeClaimError(Request $request, string $message)
     {
-        $proofPath = $proof->store('conditional-proofs', 'public');
+        if ($request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
+    }
+
+    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
+    {
+        $proofPaths = collect($proofs)
+            ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs', 'public'))
+            ->values()
+            ->all();
 
         $access = $existingAccess ?: new UserPackageAcces([
             'user_id' => Auth::id(),
             'package_id' => $package->package_id,
         ]);
 
-        if ($access->requirement_proof_path && Storage::disk('public')->exists($access->requirement_proof_path)) {
-            Storage::disk('public')->delete($access->requirement_proof_path);
+        $oldProofPaths = collect($access->requirement_proof_paths ?? [])
+            ->when($access->requirement_proof_path, fn ($paths) => $paths->push($access->requirement_proof_path))
+            ->filter()
+            ->unique();
+
+        foreach ($oldProofPaths as $oldProofPath) {
+            if (Storage::disk('public')->exists($oldProofPath)) {
+                Storage::disk('public')->delete($oldProofPath);
+            }
         }
 
         $access->fill([
@@ -378,7 +1264,9 @@ class PackageController extends Controller
             'payment_amount' => 0,
             'payment_status' => 'conditional',
             'notes' => $package->conditional_requirement,
-            'requirement_proof_path' => $proofPath,
+            'requirement_proof_path' => $proofPaths[0] ?? null,
+            'requirement_proof_paths' => $proofPaths,
+            'requirement_user_notes' => $userNotes ? trim($userNotes) : null,
             'requirement_review_notes' => null,
             'requirement_status' => 'pending',
             'created_by' => Auth::id(),
@@ -387,21 +1275,441 @@ class PackageController extends Controller
         $access->save();
     }
 
-    public function riwayatPembelian()
+    public function riwayatPembelian(Request $request)
     {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
         $payments = Payment::where('user_id', Auth::id())
             ->with('package')
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->get()
+            ->map(function (Payment $payment) use ($combinedCheckout) {
+                if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuPaymentUsesCurrentGateway($payment)) {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
 
-        return view('user.pages.package.riwayat-pembelian', compact('payments'));
+                        if ($payment->status === Payment::STATUS_PENDING) {
+                            $this->expireStaleIpaymuPayment($payment);
+                            $payment->refresh();
+                        }
+                    } else {
+                        $payment = $this->syncPendingIpaymuPayment($payment);
+                    }
+                }
+
+                $actionUrl = null;
+                $actionLabel = null;
+
+                if ($payment->status === Payment::STATUS_PENDING && $payment->payment_method !== 'manual') {
+                    if ($this->pendingGatewayPaymentIsExpired($payment)) {
+                        $payment->update(['status' => Payment::STATUS_EXPIRED]);
+                        $payment->refresh();
+                    } else {
+                        $actionUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
+                        $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $payment->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $payment->transaction_id);
+                        }
+                    }
+                }
+
+                if (
+                    $payment->status === Payment::STATUS_EXPIRED
+                    && $payment->package
+                    && $payment->package->status === 'active'
+                    && $payment->package->is_displayed
+                ) {
+                    $actionUrl = route('user.package.detail', $payment->package_id);
+                    $actionLabel = 'Checkout Ulang';
+                }
+
+                return (object) [
+                    'type' => 'package',
+                    'title' => $payment->package->name ?? 'Paket',
+                    'subtitle' => 'Paket',
+                    'transaction_id' => $payment->transaction_id,
+                    'amount' => (float) $payment->total_amount,
+                    'status' => $payment->status,
+                    'payment_method' => $payment->payment_method,
+                    'created_at' => $payment->created_at,
+                    'action_url' => $actionUrl,
+                    'action_label' => $actionLabel,
+                ];
+            });
+
+        $individualPurchases = IndividualPurchase::where('user_id', Auth::id())
+            ->with('purchasable')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (IndividualPurchase $purchase) use ($combinedCheckout) {
+                if ($purchase->status === IndividualPurchase::STATUS_PENDING && $purchase->payment_method === 'ipaymu') {
+                    if (!$this->pendingIpaymuIndividualPurchaseUsesCurrentGateway($purchase)) {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+
+                        if ($purchase->status === IndividualPurchase::STATUS_PENDING) {
+                            $this->rejectStaleIpaymuIndividualPurchase($purchase);
+                            $purchase->refresh();
+                        }
+                    } else {
+                        $purchase = $this->syncPendingIpaymuIndividualPurchase($purchase);
+                    }
+                }
+
+                $item = $purchase->purchasable;
+                $subtitle = match (class_basename($purchase->purchasable_type)) {
+                    'Material' => 'Materi',
+                    'Tryout' => 'Tryout',
+                    'TesKoran' => 'Tes Koran',
+                    'Kecermatan' => 'Tes Kecermatan',
+                    default => 'Item',
+                };
+                $actionUrl = null;
+                $actionLabel = null;
+
+                if ($purchase->status === IndividualPurchase::STATUS_PENDING && !in_array($purchase->payment_method, ['manual', 'free_conditional'], true)) {
+                    if ($this->pendingIndividualPurchaseIsExpired($purchase)) {
+                        $details = is_array($purchase->payment_details) ? $purchase->payment_details : [];
+                        $details['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+                        $details['auto_rejected_at'] = now()->toDateTimeString();
+                        $purchase->update([
+                            'status' => IndividualPurchase::STATUS_REJECTED,
+                            'payment_details' => $details,
+                        ]);
+                        $purchase->refresh();
+                    } else {
+                        $actionUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
+                        $actionLabel = 'Lanjutkan Pembayaran';
+
+                        if ($this->isCombinedCheckoutTransaction($combinedCheckout, $purchase->transaction_id)) {
+                            $actionUrl = route('user.package.payment.resume', $purchase->transaction_id);
+                        }
+                    }
+                }
+
+                $isAutoExpired = $purchase->status === IndividualPurchase::STATUS_REJECTED && $this->individualPurchaseWasAutoExpired($purchase);
+
+                if ($isAutoExpired) {
+                    $actionUrl = $this->individualPurchaseRetryUrl($purchase);
+                    $actionLabel = 'Checkout Ulang';
+                }
+
+                return (object) [
+                    'type' => 'individual',
+                    'title' => $item?->title ?? $item?->name ?? 'Item',
+                    'subtitle' => $subtitle,
+                    'transaction_id' => $purchase->transaction_id,
+                    'amount' => (float) $purchase->total_amount,
+                    'status' => $isAutoExpired ? 'expired' : $purchase->status,
+                    'payment_method' => $purchase->payment_method,
+                    'created_at' => $purchase->created_at,
+                    'action_url' => $actionUrl,
+                    'action_label' => $actionLabel,
+                ];
+            });
+
+        $items = $payments
+            ->merge($individualPurchases)
+            ->sortByDesc('created_at')
+            ->values();
+
+        $perPage = \App\Support\Pagination::perPage(10);
+        $page = (int) $request->get('page', 1);
+        $histories = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return view('user.pages.package.riwayat-pembelian', compact('histories'));
+    }
+
+    public function resumeCombinedPayment(Request $request, string $transactionId): \Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return redirect()->route('user.package.riwayatPembelian')
+                ->with('error', 'Tagihan gabungan tidak ditemukan atau sudah kedaluwarsa.');
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $this->pendingGatewayPaymentRedirectUrl($payment);
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->firstOrFail();
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $this->pendingIndividualPurchaseRedirectUrl($purchase);
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaid ? null : $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'] ?? null,
+            'product_item_id' => (int) ($combinedCheckout['product_item_id'] ?? 0),
+            'ai_payment_pending' => true,
+        ]);
+    }
+
+    private function isCombinedCheckoutTransaction(mixed $combinedCheckout, string $transactionId): bool
+    {
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || ! hash_equals((string) ($combinedCheckout['product_transaction_id'] ?? ''), $transactionId)) {
+            return false;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+
+        return ! $expiresAt || ! Carbon::parse($expiresAt)->isPast();
+    }
+
+    private function pendingIndividualPurchaseRedirectUrl(IndividualPurchase $purchase): ?string
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+
+        return match ($purchase->payment_method) {
+            'interactive_qris' => route('user.package.payment.qris.show', $purchase->transaction_id),
+            'xendit' => $details['invoice_url'] ?? null,
+            'midtrans', 'ipaymu' => $details['redirect_url'] ?? null,
+            default => null,
+        };
+    }
+
+    private function pendingIndividualPurchaseIsExpired(IndividualPurchase $purchase): bool
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $expiresAt = $details['expires_at']
+            ?? $details['expired_at']
+            ?? $details['expiry_date']
+            ?? $details['expiration_date']
+            ?? null;
+
+        if ($expiresAt) {
+            return Carbon::parse($expiresAt)->isPast();
+        }
+
+        if ($purchase->payment_method === 'interactive_qris') {
+            return ($purchase->created_at ?: now())->copy()->addMinutes(30)->isPast();
+        }
+
+        if (in_array($purchase->payment_method, ['xendit', 'midtrans', 'ipaymu'], true)) {
+            return ($purchase->created_at ?: now())->copy()->addDay()->isPast();
+        }
+
+        return false;
+    }
+
+    private function individualPurchaseWasAutoExpired(IndividualPurchase $purchase): bool
+    {
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $reason = strtolower((string) ($details['auto_rejected_reason'] ?? ''));
+
+        return str_contains($reason, 'expired');
+    }
+
+    private function individualPurchaseRetryUrl(IndividualPurchase $purchase): ?string
+    {
+        return match ($purchase->purchasable_type) {
+            Material::class => route('user.material.index'),
+            ClassModel::class => route('user.package.my', ['tab' => 'classes']),
+            Tryout::class => route('user.package.tryout.list'),
+            TesKoran::class => route('user.tes-koran.index'),
+            default => null,
+        };
+    }
+
+    private function paymentDetailsArray(mixed $details): array
+    {
+        if (is_array($details)) {
+            return $details;
+        }
+
+        return $details ? (json_decode($details, true) ?: []) : [];
+    }
+
+    private function checkIndividualQrisPurchase(IndividualPurchase $purchase): array
+    {
+        $apiKey = config('services.interactive_qris.api_key');
+        $merchantId = config('services.interactive_qris.mid');
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $invoiceId = $details['qris_invoiceid'] ?? null;
+        $transactionDate = Carbon::parse($details['qris_request_date'] ?? $purchase->created_at)->toDateString();
+
+        if (!$apiKey || !$merchantId) {
+            return [
+                'success' => false,
+                'message' => 'Credential InterActive QRIS belum dikonfigurasi.',
+            ];
+        }
+
+        if (!$invoiceId) {
+            return [
+                'success' => false,
+                'message' => 'Invoice ID QRIS tidak ditemukan.',
+            ];
+        }
+
+        $response = Http::timeout(20)->get(rtrim(config('services.interactive_qris.base_url', 'https://qris.interactive.co.id/restapi/qris'), '/') . '/checkpaid_qris.php', [
+            'do' => 'checkStatus',
+            'apikey' => $apiKey,
+            'mID' => $merchantId,
+            'invid' => $invoiceId,
+            'trxvalue' => (int) $purchase->total_amount,
+            'trxdate' => $transactionDate,
+        ]);
+
+        if (!$response->successful()) {
+            return [
+                'success' => false,
+                'message' => 'Gagal mengecek status InterActive QRIS.',
+            ];
+        }
+
+        $payload = $response->json();
+        $status = $payload['data']['qris_status'] ?? null;
+
+        if (($payload['status'] ?? null) === 'success' && $status === 'paid') {
+            $details['qris_paid_status'] = $payload['data'] ?? [];
+            $details['qris_api_version_code'] = $payload['qris_api_version_code'] ?? null;
+
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_APPROVED,
+                'approved_at' => now(),
+                'payment_details' => $details,
+            ]);
+
+            return [
+                'success' => true,
+                'paid' => true,
+                'message' => 'Pembayaran QRIS berhasil dikonfirmasi.',
+                'data' => $payload,
+            ];
+        }
+
+        if ($this->pendingIndividualPurchaseIsExpired($purchase)) {
+            $details['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+            $details['auto_rejected_at'] = now()->toDateTimeString();
+            $purchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $details,
+            ]);
+
+            return [
+                'success' => true,
+                'paid' => false,
+                'expired' => true,
+                'message' => 'QRIS sudah kedaluwarsa. Silakan buat pembayaran ulang.',
+                'data' => $payload,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'paid' => false,
+            'expired' => false,
+            'message' => 'Pembayaran belum ditemukan. Coba cek lagi setelah beberapa saat.',
+            'data' => $payload,
+        ];
+    }
+
+    private function ensureIndividualPurchaseAccess(IndividualPurchase $purchase, string $notes): void
+    {
+        $purchase->loadMissing('purchasable');
+        $approvedAt = $purchase->approved_at ?: Carbon::now();
+        $accessExpiresAt = $purchase->access_expires_at
+            ?: ($purchase->purchasable ? PurchaseAccessDuration::expiresAt($purchase->purchasable, $approvedAt) : null);
+
+        if ($purchase->purchasable_type === Material::class) {
+            UserMaterialAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'material_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === ClassModel::class) {
+            UserClassAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'class_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'active',
+                    'started_at' => now(),
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        } elseif ($purchase->purchasable_type === Tryout::class) {
+            UserTryoutAccess::updateOrCreate(
+                [
+                    'user_id' => $purchase->user_id,
+                    'tryout_id' => $purchase->purchasable_id,
+                ],
+                [
+                    'access_type' => 'purchased',
+                    'access_source' => 'direct',
+                    'source_id' => $purchase->id,
+                    'status' => 'not_started',
+                    'expires_at' => $accessExpiresAt,
+                ]
+            );
+        }
+
+        $details = $this->paymentDetailsArray($purchase->payment_details);
+        $details['access_activation_notes'] = $notes;
+
+        $purchase->update([
+            'status' => IndividualPurchase::STATUS_APPROVED,
+            'approved_at' => $approvedAt,
+            'access_expires_at' => $accessExpiresAt,
+            'payment_details' => $details,
+        ]);
     }
 
     public function riwayatPembelianAktif()
     {
         $activePackages = UserPackageAcces::where('user_id', Auth::id())
             ->where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
             ->with('package')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -409,9 +1717,137 @@ class PackageController extends Controller
         return view('user.pages.package.riwayat-pembelian-aktif', compact('activePackages'));
     }
 
+    public function showQrisPayment(string $transactionId, InteractiveQrisGateway $gateway)
+    {
+        $payment = Payment::with('package')
+            ->where('transaction_id', $transactionId)
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'interactive_qris')
+            ->first();
+
+        $individualPurchase = null;
+        if (!$payment) {
+            $individualPurchase = IndividualPurchase::with('purchasable')
+                ->where('transaction_id', $transactionId)
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'interactive_qris')
+                ->firstOrFail();
+        }
+
+        $payable = $payment ?: $individualPurchase;
+        $paymentDetails = $this->paymentDetailsArray($payable->payment_details);
+        $qrisContent = $paymentDetails['qris_content'] ?? null;
+
+        if (!$qrisContent) {
+            return redirect()
+                ->route('user.package.riwayatPembelian')
+                ->with('error', 'Konten QRIS tidak ditemukan.');
+        }
+
+        if ($payment && $payment->status === Payment::STATUS_PENDING && $gateway->isExpired($payment)) {
+            $payment->update(['status' => Payment::STATUS_EXPIRED]);
+            $payment->refresh();
+        }
+
+        if ($individualPurchase && $individualPurchase->status === IndividualPurchase::STATUS_PENDING && $this->pendingIndividualPurchaseIsExpired($individualPurchase)) {
+            $paymentDetails['auto_rejected_reason'] = 'Gateway payment expired before completion.';
+            $paymentDetails['auto_rejected_at'] = now()->toDateTimeString();
+            $individualPurchase->update([
+                'status' => IndividualPurchase::STATUS_REJECTED,
+                'payment_details' => $paymentDetails,
+            ]);
+            $individualPurchase->refresh();
+            $payable = $individualPurchase;
+        }
+
+        $qrisImage = base64_encode(QrCode::format('png')->size(280)->margin(1)->generate($qrisContent));
+        $payment = $payable;
+        $paymentTitle = $payable instanceof Payment
+            ? ($payable->package->name ?? 'Paket')
+            : ($payable->purchasable?->title ?? $payable->purchasable?->name ?? 'Item');
+
+        return view('user.pages.package.payment-qris', compact('payment', 'paymentDetails', 'qrisImage', 'paymentTitle'));
+    }
+
+    public function checkQrisPayment(string $transactionId, InteractiveQrisGateway $gateway)
+    {
+        $payment = Payment::with('package')
+            ->where('transaction_id', $transactionId)
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'interactive_qris')
+            ->first();
+
+        if (!$payment) {
+            $individualPurchase = IndividualPurchase::with('purchasable')
+                ->where('transaction_id', $transactionId)
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'interactive_qris')
+                ->firstOrFail();
+
+            if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via InterActive QRIS');
+
+                return response()->json([
+                    'success' => true,
+                    'paid' => true,
+                    'message' => 'Pembayaran sudah dikonfirmasi.',
+                    'redirect_url' => route('user.package.my'),
+                ]);
+            }
+
+            $result = $this->checkIndividualQrisPurchase($individualPurchase);
+            $individualPurchase->refresh();
+
+            if (($result['paid'] ?? false) && $individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via InterActive QRIS');
+
+                return response()->json([
+                    ...$result,
+                    'redirect_url' => route('user.package.my'),
+                ]);
+            }
+
+            return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
+        }
+
+        if ($payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS');
+
+            return response()->json([
+                'success' => true,
+                'paid' => true,
+                'message' => 'Pembayaran sudah dikonfirmasi.',
+                'redirect_url' => route('user.package.my'),
+            ]);
+        }
+
+        $result = $gateway->checkPayment($payment);
+        $payment->refresh();
+
+        if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS');
+
+            return response()->json([
+                ...$result,
+                'redirect_url' => route('user.package.my'),
+            ]);
+        }
+
+        return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
+    }
+
     public function indexBimbel($id_package)
     {
-        $package = Package::findOrFail($id_package);
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses kelas.');
+        }
+        
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $package = $tesKoranEnabled
+            ? Package::with('tesKorans')->findOrFail($id_package)
+            : Package::findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
         $hasAccess = UserPackageAcces::where('user_id', Auth::id())
@@ -429,15 +1865,33 @@ class PackageController extends Controller
         }
 
         // Get classes for this package
-        $classes = ClassModel::whereHas('detailPackages', function ($query) use ($id_package) {
+        $classes = ClassModel::with('tentor')
+            ->whereHas('detailPackages', function ($query) use ($id_package) {
             $query->where('package_id', $id_package);
         })->orderBy('schedule_time', 'desc')->get();
 
-        return view('user.pages.package.bimbel', compact('package', 'classes'));
+        $tesKorans = $tesKoranEnabled
+            ? $package->tesKorans()
+                ->where('is_active', true)
+                ->where('is_displayed', true)
+                ->get()
+            : collect();
+
+        ActivityLogger::log('class_list_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+        ]);
+
+        return view('user.pages.package.bimbel', compact('package', 'classes', 'tesKorans'));
     }
 
     public function indexTryout($id_package)
     {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses tryout.');
+        }
+        
         $package = Package::findOrFail($id_package);
 
         // Check if user has access - perbaiki query akses
@@ -457,31 +1911,121 @@ class PackageController extends Controller
 
         // Get tryouts for this package with user attempts
         $tryouts = $package->tryouts()
-            ->with(['tryoutDetails.questions', 'userAnswers' => function ($query) {
-                $query->where('user_id', Auth::id());
-            }])->get();
+            ->where('tryouts.is_active', true)
+            ->where('tryouts.is_displayed', true)
+            ->with([
+                'tryoutDetails.questions',
+                'userAnswers' => function ($query) {
+                    $query->where('user_id', Auth::id());
+                }
+            ])->get();
+
+        ActivityLogger::log('tryout_list_opened', 'success', Auth::user(), [
+            'package_id' => $id_package,
+        ]);
 
         return view('user.pages.package.tryout', compact('package', 'tryouts'));
     }
 
-    public function riwayatTryout($id_package, $id_tryout)
+    public function openClassZoom(ClassModel $class)
     {
-        $package = Package::findOrFail($id_package);
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $packageIds = $class->packages()->pluck('packages.package_id')->all();
+        if (!empty($class->package_id)) {
+            $packageIds[] = $class->package_id;
+        }
+        $packageIds = array_unique($packageIds);
 
-        // Check access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        $hasAccess = $class->canUserAccess(Auth::id());
 
         if (!$hasAccess) {
             return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+                ->with('error', 'Anda tidak memiliki akses ke kelas ini');
+        }
+
+        ActivityLogger::log('class_zoom_opened', 'success', Auth::user(), [
+            'class_id' => $class->class_id,
+            'package_ids' => $packageIds,
+        ]);
+
+        if (empty($class->zoom_link)) {
+            return redirect()->back()->with('error', 'Link zoom tidak tersedia.');
+        }
+
+        return redirect()->away($class->zoom_link);
+    }
+
+    public function openClassMaterial(ClassModel $class)
+    {
+        $packageIds = $class->packages()->pluck('packages.package_id')->all();
+        if (!empty($class->package_id)) {
+            $packageIds[] = $class->package_id;
+        }
+        $packageIds = array_unique($packageIds);
+
+        $hasAccess = $class->canUserAccess(Auth::id());
+
+        if (!$hasAccess) {
+            return redirect()->route('user.package.index')
+                ->with('error', 'Anda tidak memiliki akses ke materi ini');
+        }
+
+        ActivityLogger::log('class_material_opened', 'success', Auth::user(), [
+            'class_id' => $class->class_id,
+            'package_ids' => $packageIds,
+        ]);
+
+        if (empty($class->drive_link)) {
+            return redirect()->back()->with('error', 'Link materi tidak tersedia.');
+        }
+
+        return redirect()->away($class->drive_link);
+    }
+
+    public function riwayatTryout($id_package, $id_tryout)
+    {
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $package = null;
+        $packageRouteId = $id_package;
+
+        if ($id_package === 'free') {
+            $hasAccess = UserTryoutAccess::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists();
+
+            $hasCompletedAttempt = \App\Models\UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('status', 'completed')
+                ->exists();
+
+            if (!$hasAccess && !$hasCompletedAttempt) {
+                return redirect()->route('user.package.my', ['tab' => 'tryouts'])
+                    ->with('error', 'Anda tidak memiliki akses ke tryout ini');
+            }
+        } else {
+            $package = Package::findOrFail($id_package);
+
+            // Check access - perbaiki query akses
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user attempts for this tryout dengan data yang lebih lengkap
@@ -528,45 +2072,46 @@ class PackageController extends Controller
                 $totalScore = (float) ($firstAnswer->utbk_total_score ?? 0);
                 $finalPercentage = $totalScore / 10;
             } else
-            // Calculate total score untuk attempt ini
-            if ($userAnswers->count() > 1) {
-                // SKD Full - hitung total dari semua subtest
-                $totalScore = 0;
-                $totalMaxScore = 0;
-                $totalCorrect = 0;
-                $totalWrong = 0;
-                $totalUnanswered = 0;
+                // Calculate total score untuk attempt ini
+                if ($userAnswers->count() > 1) {
+                    // SKD Full - hitung total dari semua subtest
+                    $totalScore = 0;
+                    $totalMaxScore = 0;
+                    $totalCorrect = 0;
+                    $totalWrong = 0;
+                    $totalUnanswered = 0;
 
-                foreach ($userAnswers as $ua) {
-                    $subtestScore = $this->calculateTotalScore($ua, $ua->tryoutDetail->type_subtest);
-                    $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
-                        $ua->tryout_detail_id,
-                        $ua->tryoutDetail->type_subtest
+                    foreach ($userAnswers as $ua) {
+                        $subtestScore = $this->calculateTotalScore($ua, $ua->tryoutDetail->type_subtest);
+                        $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                            $ua->tryout_detail_id,
+                            $ua->tryoutDetail->type_subtest
+                        );
+
+                        $totalScore += $subtestScore;
+                        $totalMaxScore += $maxSubtestScore;
+                        $totalCorrect += $ua->correct_answers ?? 0;
+                        $totalWrong += $ua->wrong_answers ?? 0;
+                        $totalUnanswered += $ua->unanswered ?? 0;
+                    }
+
+                    $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
+                    $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
+                } else {
+                    // Single subtest
+                    $singleAnswer = $userAnswers->first();
+                    $rawScore = $this->calculateTotalScore($singleAnswer, $singleAnswer->tryoutDetail->type_subtest);
+                    $maxScore = $this->getMaxPossibleScoreForDetail(
+                        $singleAnswer->tryout_detail_id,
+                        $singleAnswer->tryoutDetail->type_subtest
                     );
-
-                    $totalScore += $subtestScore;
-                    $totalMaxScore += $maxSubtestScore;
-                    $totalCorrect += $ua->correct_answers ?? 0;
-                    $totalWrong += $ua->wrong_answers ?? 0;
-                    $totalUnanswered += $ua->unanswered ?? 0;
+                    $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+                    $totalScore = $rawScore;
+                    $isPassed = $this->isAttemptPassed($userAnswers, 1);
+                    $totalCorrect = $singleAnswer->correct_answers ?? 0;
+                    $totalWrong = $singleAnswer->wrong_answers ?? 0;
+                    $totalUnanswered = $singleAnswer->unanswered ?? 0;
                 }
-
-                $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-                $isPassed = $this->isAttemptPassed($userAnswers, $tryout->tryoutDetails->count());
-            } else {
-                // Single subtest
-                $singleAnswer = $userAnswers->first();
-                $rawScore = $this->calculateTotalScore($singleAnswer, $singleAnswer->tryoutDetail->type_subtest);
-                $maxScore = $this->getMaxPossibleScoreForDetail(
-                    $singleAnswer->tryout_detail_id,
-                    $singleAnswer->tryoutDetail->type_subtest
-                );
-                $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
-                $isPassed = $this->isAttemptPassed($userAnswers, 1);
-                $totalCorrect = $singleAnswer->correct_answers ?? 0;
-                $totalWrong = $singleAnswer->wrong_answers ?? 0;
-                $totalUnanswered = $singleAnswer->unanswered ?? 0;
-            }
 
             // Calculate duration
             $startTime = Carbon::parse($firstAnswer->started_at);
@@ -578,7 +2123,7 @@ class PackageController extends Controller
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
-                'score' => $userAnswers->count() > 1 ? round($totalScore, 0) : round($rawScore, 0),
+                'score' => round($totalScore, 0),
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -591,7 +2136,7 @@ class PackageController extends Controller
         // Sort by newest first
         $attemptHistory = collect($attemptHistory)->sortByDesc('created_at')->values();
 
-        return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory'));
+        return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory', 'packageRouteId'));
     }
 
     // Helper methods untuk calculation (tambahkan jika belum ada)
@@ -614,15 +2159,15 @@ class PackageController extends Controller
             $pendingReview = (bool) ($answerMeta['pending_review'] ?? false);
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    break;
+                case 'multiple_true_false':
+                    $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
-                    }
-                    $totalScore += $detail->is_correct ? $weight : 0;
+                    $totalScore += $this->resolveMatchingAwardedScore($question, $detail);
                     break;
 
                 case 'short_answer':
@@ -630,8 +2175,15 @@ class PackageController extends Controller
                     if ($pendingReview) {
                         continue 2;
                     }
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    // Gunakan score_obtained dari answer_json (hasil koreksi AI/manual)
+                    $scoreObtained = isset($answerMeta['score_obtained']) ? (float) $answerMeta['score_obtained'] : null;
+                    if ($scoreObtained !== null) {
+                        $totalScore += $scoreObtained;
+                    } else {
+                        // Fallback: gunakan essay_score_correct atau default_weight
+                        $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
+                        $totalScore += $detail->is_correct ? ($weight > 0 ? $weight : 1) : 0;
+                    }
                     break;
 
                 case 'audio':
@@ -647,7 +2199,7 @@ class PackageController extends Controller
                                 break;
                             case 'tkp':
                                 $w = (float) ($detail->questionOption->weight ?? 0);
-                                $totalScore += $w > 0 ? min($w, 1) : 1;
+                                $totalScore += $w > 0 ? $w : 1;
                                 break;
                             case 'writing':
                             case 'reading':
@@ -668,9 +2220,138 @@ class PackageController extends Controller
         return $totalScore;
     }
 
+    private function resolveMultipleAnswerAwardedScore($question, $detail): float
+    {
+        $defaultWeight = (float) ($question->default_weight ?? 1);
+        $maxWeight = $defaultWeight > 0 ? $defaultWeight : 1;
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $selectedIds = collect($meta['selected_option_ids'] ?? [])
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!empty($selectedIds)) {
+            $correctIds = $question->questionOptions()
+                ->where('is_correct', true)
+                ->pluck('question_option_id')
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            sort($selectedIds);
+            sort($correctIds);
+            $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
+            $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
+            $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
+            $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? (($maxWeight > 0 && count($correctIds) > 0) ? ($maxWeight / count($correctIds)) : 1));
+            $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
+            $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                ? $multipleAnswerMeta['scoring_mode']
+                : 'fullscore';
+            $totalCorrectCount = max(1, count($correctIds));
+            $missedCorrect = max(0, $totalCorrectCount - $matchedCorrect);
+            $wrongCount = $missedCorrect + $wrongSelected;
+            $isExactCorrect = ($selectedIds === $correctIds);
+            $fullScore = $scoreCorrect;
+            $score = 0.0;
+
+            if ($scoringMode === 'partial') {
+                $score = $matchedCorrect > 0
+                    ? ($matchedCorrect / $totalCorrectCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $scoreCorrect : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, min((float) $storedScore, $maxWeight));
+        }
+
+        return $detail->is_correct ? $maxWeight : 0;
+    }
+
+    private function resolveMatchingAwardedScore($question, $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? $question->metadata : [];
+        $matchingMeta = is_array($questionMeta['matching_scores'] ?? null) ? $questionMeta['matching_scores'] : [];
+        $scoreCorrect = (float) ($matchingMeta['score_correct'] ?? 1);
+        $scoreWrong = (float) ($matchingMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $matchingMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+        $wrongCount = max(0, $totalCount - $correctCount);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
+            $score = 0.0;
+            if ($scoringMode === 'partial') {
+                $score = $correctCount > 0
+                    ? ($correctCount / $totalCount) * $fullScore
+                    : $scoreWrong;
+            } else {
+                $score = $isExactCorrect ? $fullScore : $scoreWrong;
+            }
+
+            return max(0, $score);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
+    private function resolveMultipleTrueFalseAwardedScore($question, $detail): float
+    {
+        $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
+        $questionMeta = is_array($question->metadata) ? ($question->metadata['multiple_true_false'] ?? []) : [];
+        $scoreCorrect = (float) ($questionMeta['score_correct'] ?? ($question->default_weight ?? 1));
+        $scoreWrong = (float) ($questionMeta['score_wrong'] ?? 0);
+        $scoringMode = in_array(($questionMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+            ? $questionMeta['scoring_mode']
+            : 'fullscore';
+
+        $summary = is_array($meta['summary'] ?? null) ? $meta['summary'] : [];
+        $correctCount = (int) ($summary['correct'] ?? 0);
+        $totalCount = (int) ($summary['total'] ?? 0);
+
+        if ($totalCount > 0) {
+            $fullScore = max(0, $scoreCorrect);
+            $isExactCorrect = ($correctCount === $totalCount);
+            if ($scoringMode === 'partial') {
+                return max(0, $correctCount > 0 ? ($correctCount / $totalCount) * $fullScore : $scoreWrong);
+            }
+
+            return max(0, $isExactCorrect ? $fullScore : $scoreWrong);
+        }
+
+        $storedScore = $meta['score_obtained'] ?? null;
+        if (is_numeric($storedScore)) {
+            return max(0, (float) $storedScore);
+        }
+
+        $weight = (float) ($question->default_weight ?? 1);
+        return $detail->is_correct ? max(0, $weight) : 0;
+    }
+
     private function isUtbkSubtestPassed($detail, float $score): bool
     {
-        if (! $detail) {
+        if (!$detail) {
             return false;
         }
 
@@ -722,23 +2403,32 @@ class PackageController extends Controller
             $questionType = $question->question_type ?? 'multiple_choice';
 
             switch ($questionType) {
+                case 'multiple_answer':
+                    $weight = (float) ($question->default_weight ?? 1);
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+                case 'multiple_true_false':
+                    $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
+                    $weight = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 0));
+                    $total += $weight > 0 ? $weight : 1;
+                    break;
+
                 case 'matching':
-                    $weight = (float) ($question->default_weight ?? 0);
+                    $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];
+                    $weight = (float) ($matchingMeta['score_correct'] ?? ($question->default_weight ?? 0));
                     if ($weight <= 0) {
-                        $pairs = isset($question->metadata['matching_pairs']) && is_array($question->metadata['matching_pairs'])
-                            ? count($question->metadata['matching_pairs'])
-                            : 1;
-                        $weight = max(1, $pairs);
+                        $weight = 1;
                     }
                     if ($type_subtest === 'tkp') {
-                        $weight = $weight > 0 ? min($weight, 1) : 1;
+                        $weight = $weight > 0 ? $weight : 1;
                     }
                     $total += $weight;
                     break;
 
                 case 'short_answer':
                 case 'essay':
-                    $weight = (float) ($question->default_weight ?? 1);
+                    // Gunakan essay_score_correct (field "Benar") untuk max score
+                    $weight = (float) ($question->getEssayScoreCorrect() ?? $question->default_weight ?? 1);
                     $total += $weight > 0 ? $weight : 1;
                     break;
 
@@ -750,7 +2440,7 @@ class PackageController extends Controller
                     switch ($type_subtest) {
                         case 'tkp':
                             $maxWeight = (float) ($options->max('weight') ?? 0);
-                            $total += $maxWeight > 0 ? min($maxWeight, 1) : 1;
+                            $total += $maxWeight > 0 ? $maxWeight : 1;
                             break;
                         case 'twk':
                         case 'tiu':
@@ -832,59 +2522,407 @@ class PackageController extends Controller
         });
     }
 
-    public function paymentSuccess()
+    public function paymentSuccess(Request $request, IpaymuGateway $ipaymuGateway)
     {
-        // TEMPORARY: Auto-activate pending payments for development testing
-        if (config('app.env') === 'local' || config('app.env') === 'production') {
-            $this->activatePendingPayments(Auth::id());
+        $payment = $this->ipaymuReturnPayment($request);
+
+        if ($payment) {
+            try {
+                if ($payment->status === Payment::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $payment->paymentDetailsArray();
+                    $details['ipaymu_return'] = $request->all();
+                    $payment->update([
+                        'status' => Payment::STATUS_SUCCESS,
+                        'paid_at' => Carbon::now(),
+                        'payment_details' => json_encode($details),
+                    ]);
+                    $payment->refresh();
+                } elseif ($payment->status === Payment::STATUS_PENDING) {
+                    $ipaymuGateway->checkTransaction($payment);
+                    $payment->refresh();
+                }
+
+                if ($payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu return');
+
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Paket sudah aktif.'
+                    );
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $individualPurchase = $this->ipaymuReturnIndividualPurchase($request);
+
+        if ($individualPurchase) {
+            try {
+                if ($individualPurchase->status === IndividualPurchase::STATUS_PENDING && $ipaymuGateway->requestHasPaidStatus($request)) {
+                    $details = $this->paymentDetailsArray($individualPurchase->payment_details);
+                    $details['ipaymu_return'] = $request->all();
+                    $individualPurchase->update([
+                        'status' => IndividualPurchase::STATUS_APPROVED,
+                        'approved_at' => Carbon::now(),
+                        'payment_details' => $details,
+                    ]);
+                    $individualPurchase->refresh();
+                } elseif ($individualPurchase->status === IndividualPurchase::STATUS_PENDING) {
+                    $ipaymuGateway->checkIndividualTransaction($individualPurchase);
+                    $individualPurchase->refresh();
+                }
+
+                if ($individualPurchase->status === IndividualPurchase::STATUS_APPROVED) {
+                    $this->ensureIndividualPurchaseAccess($individualPurchase, 'Payment confirmed via iPaymu return');
+
+                    return $this->redirectAfterSuccessfulProductPayment(
+                        $request,
+                        'Pembayaran berhasil. Akses sudah aktif.'
+                    );
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        if ($combinedRedirect = $this->redirectAfterCombinedProductPaymentReturn($request)) {
+            return $combinedRedirect;
         }
 
         return redirect()->route('user.package.riwayatPembelian')
-            ->with('success', 'Pembayaran berhasil! Akses paket akan diaktifkan setelah konfirmasi.');
+            ->with('success', 'Terima kasih. Akses akan aktif setelah pembayaran dikonfirmasi oleh payment gateway.');
     }
 
-    /**
-     * TEMPORARY: Activate pending payments for development testing
-     */
-    private function activatePendingPayments($userId)
+    private function rememberCombinedAiCheckout(Request $request, ?Payment $payment, string $productType): void
     {
-        try {
-            $pendingPayments = Payment::where('user_id', $userId)
-                ->where('status', 'pending')
-                ->where('created_at', '>', now()->subHours(2)) // Only payments from last 2 hours
-                ->get();
-
-            foreach ($pendingPayments as $payment) {
-                // Update payment status
-                $payment->update([
-                    'status' => 'success',
-                    'paid_at' => Carbon::now()
-                ]);
-
-                // Check if user already has access
-                $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
-                    ->where('package_id', $payment->package_id)
-                    ->where('status', 'active')
-                    ->where('end_date', '>', Carbon::now())
-                    ->first();
-
-                if (!$existingAccess) {
-                    // Give user access to package
-                    $userAccess = UserPackageAcces::create([
-                        'user_id' => $payment->user_id,
-                        'package_id' => $payment->package_id,
-                        'start_date' => Carbon::now(),
-                        'end_date' => Carbon::now()->addYear(),
-                        'status' => 'active',
-                        'payment_amount' => $payment->amount,
-                        'payment_status' => 'paid',
-                        'notes' => 'Auto-activated for development testing',
-                        'created_by' => $payment->user_id
-                    ]);
-                }
-            }
-        } catch (\Exception $e) {
+        if (! $request->boolean('combined_ai_checkout') || ! $payment) {
+            return;
         }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout) || empty($combinedCheckout['invoice_url'])) {
+            return;
+        }
+
+        $combinedCheckout['product_transaction_id'] = $payment->transaction_id;
+        $combinedCheckout['product_type'] = $productType;
+        $combinedCheckout['product_item_id'] = $payment->package_id;
+        $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
+    }
+
+    private function redirectAfterSuccessfulProductPayment(Request $request, string $message): \Illuminate\Http\RedirectResponse
+    {
+        return $this->redirectAfterCombinedProductPaymentReturn($request)
+            ?? redirect()->route('user.package.my')->with('success', $message);
+    }
+
+    private function redirectAfterCombinedProductPaymentReturn(Request $request): ?\Illuminate\Http\RedirectResponse
+    {
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+
+        if (! is_array($combinedCheckout)
+            || empty($combinedCheckout['invoice_url'])
+            || empty($combinedCheckout['product_transaction_id'])
+            || ! Auth::check()) {
+            return null;
+        }
+
+        $expiresAt = $combinedCheckout['expires_at'] ?? null;
+        if ($expiresAt && Carbon::parse($expiresAt)->isPast()) {
+            $request->session()->forget('ai_gateway_combined_checkout');
+
+            return null;
+        }
+
+        $isSuccessful = false;
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($payment) {
+                $this->syncMidtransProductPaymentStatus($payment);
+                $payment->refresh();
+            }
+
+            if ($payment?->status === Payment::STATUS_SUCCESS) {
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $combinedCheckout['product_transaction_id'])
+                ->first();
+
+            if ($purchase) {
+                $this->syncMidtransProductPaymentStatus($purchase);
+                $purchase->refresh();
+            }
+
+            if ($purchase?->status === IndividualPurchase::STATUS_APPROVED) {
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via payment return');
+                $isSuccessful = true;
+            }
+        }
+
+        $returnUrl = $combinedCheckout['return_url'] ?? route('user.package.index');
+
+        return redirect()->to($returnUrl)->with('combined_ai_payment', [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $isSuccessful,
+            'product_payment_url' => null,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => (int) $combinedCheckout['product_item_id'],
+            'ai_payment_pending' => true,
+        ]);
+    }
+
+    private function activeCombinedAiPayment(Request $request): ?array
+    {
+        if (! app(AiDiscussionService::class)->isEnabled()) {
+            return null;
+        }
+
+        $combinedCheckout = $request->session()->get('ai_gateway_combined_checkout');
+        $transactionId = (string) data_get($combinedCheckout, 'product_transaction_id', '');
+
+        if (! Auth::check() || ! $this->isCombinedCheckoutTransaction($combinedCheckout, $transactionId)) {
+            return null;
+        }
+
+        $productPaid = false;
+        $productPaymentUrl = null;
+
+        if (($combinedCheckout['product_type'] ?? null) === 'package') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $payment) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($payment);
+            $payment->refresh();
+            $productPaid = $payment->status === Payment::STATUS_SUCCESS;
+            $productPaymentUrl = $productPaid ? null : $this->pendingGatewayPaymentRedirectUrl($payment);
+            $productItemId = (int) $payment->package_id;
+        } elseif (($combinedCheckout['product_type'] ?? null) === 'individual') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('transaction_id', $transactionId)
+                ->first();
+
+            if (! $purchase) {
+                return null;
+            }
+
+            $this->syncMidtransProductPaymentStatus($purchase);
+            $purchase->refresh();
+            $productPaid = $purchase->status === IndividualPurchase::STATUS_APPROVED;
+            $productPaymentUrl = $productPaid ? null : $this->pendingIndividualPurchaseRedirectUrl($purchase);
+            $productItemId = (int) $purchase->purchasable_id;
+        } else {
+            return null;
+        }
+
+        return [
+            'invoice_url' => $combinedCheckout['invoice_url'],
+            'plan_name' => $combinedCheckout['plan_name'] ?? 'Pembahasan AI',
+            'product_paid' => $productPaid,
+            'product_payment_url' => $productPaymentUrl,
+            'product_type' => $combinedCheckout['product_type'],
+            'product_item_id' => $productItemId,
+            'ai_payment_pending' => true,
+        ];
+    }
+
+    private function forgetCombinedAiCheckoutAfterAiPayment(Request $request): void
+    {
+        if ($request->query('payment') === 'success') {
+            $request->session()->forget('ai_gateway_combined_checkout');
+            $request->session()->forget('ai_gateway_pending_payment');
+        }
+    }
+
+    private function syncMidtransProductPaymentStatus(Payment|IndividualPurchase $payable): void
+    {
+        if ($payable->payment_method !== 'midtrans'
+            || ! in_array($payable->status, [Payment::STATUS_PENDING, IndividualPurchase::STATUS_PENDING], true)) {
+            return;
+        }
+
+        $serverKey = (string) config('services.midtrans.server_key');
+        $statusUrl = rtrim((string) config('services.midtrans.status_url'), '/');
+
+        if ($serverKey === '' || $statusUrl === '') {
+            return;
+        }
+
+        try {
+            $response = Http::withBasicAuth($serverKey, '')
+                ->acceptJson()
+                ->timeout(8)
+                ->get($statusUrl.'/'.rawurlencode($payable->transaction_id).'/status');
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            $data = $response->json();
+            $orderId = (string) data_get($data, 'order_id');
+            $signature = (string) data_get($data, 'signature_key');
+            $expectedSignature = hash('sha512', $orderId.(string) data_get($data, 'status_code').(string) data_get($data, 'gross_amount').$serverKey);
+
+            if ($orderId !== $payable->transaction_id
+                || ($signature !== '' && ! hash_equals($expectedSignature, $signature))) {
+                return;
+            }
+
+            $transactionStatus = (string) data_get($data, 'transaction_status');
+            $fraudStatus = (string) data_get($data, 'fraud_status');
+            $isPaid = in_array($transactionStatus, ['capture', 'settlement'], true)
+                && ! ($transactionStatus === 'capture' && $fraudStatus === 'challenge');
+
+            if ($payable instanceof Payment) {
+                if ($isPaid) {
+                    $payable->update(['status' => Payment::STATUS_SUCCESS, 'paid_at' => $payable->paid_at ?? now()]);
+                    $this->ensureUserPackageAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+                } elseif ($transactionStatus === 'expire') {
+                    $payable->update(['status' => Payment::STATUS_EXPIRED]);
+                } elseif (in_array($transactionStatus, ['cancel', 'deny', 'failure'], true)) {
+                    $payable->update(['status' => Payment::STATUS_FAILED]);
+                }
+
+                return;
+            }
+
+            if ($isPaid) {
+                $payable->update(['status' => IndividualPurchase::STATUS_APPROVED, 'approved_at' => $payable->approved_at ?? now()]);
+                $this->ensureIndividualPurchaseAccess($payable->fresh(), 'Payment confirmed via Midtrans status check');
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $details = $this->paymentDetailsArray($payable->payment_details);
+                $details['auto_rejected_reason'] = $transactionStatus === 'expire'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $payable->update(['status' => IndividualPurchase::STATUS_REJECTED, 'payment_details' => $details]);
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function ipaymuReturnPayment(Request $request): ?Payment
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        $referenceId = (string) ($request->input('transaction_id')
+            ?: $request->input('reference_id')
+            ?: $request->input('referenceId')
+            ?: $request->input('reference')
+            ?: $request->input('merchant_ref')
+            ?: '');
+
+        if ($referenceId !== '') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('transaction_id', $referenceId)
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        $gatewayTransactionId = (string) ($request->input('trx_id')
+            ?: $request->input('ipaymu_transaction_id')
+            ?: $request->input('sid')
+            ?: '');
+
+        if ($gatewayTransactionId !== '') {
+            $payment = Payment::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('payment_details', 'like', '%' . $gatewayTransactionId . '%')
+                ->latest()
+                ->first();
+
+            if ($payment) {
+                return $payment;
+            }
+        }
+
+        if (strtolower((string) config('services.payment_gateway', '')) !== 'ipaymu') {
+            return null;
+        }
+
+        return Payment::query()
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'ipaymu')
+            ->where('status', Payment::STATUS_PENDING)
+            ->latest()
+            ->first();
+    }
+
+    private function ipaymuReturnIndividualPurchase(Request $request): ?IndividualPurchase
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        $referenceId = (string) ($request->input('transaction_id')
+            ?: $request->input('reference_id')
+            ?: $request->input('referenceId')
+            ?: $request->input('reference')
+            ?: $request->input('merchant_ref')
+            ?: '');
+
+        if ($referenceId !== '') {
+            $purchase = IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('transaction_id', $referenceId)
+                ->first();
+
+            if ($purchase) {
+                return $purchase;
+            }
+        }
+
+        $gatewayTransactionId = (string) ($request->input('trx_id')
+            ?: $request->input('ipaymu_transaction_id')
+            ?: $request->input('sid')
+            ?: '');
+
+        if ($gatewayTransactionId !== '') {
+            return IndividualPurchase::query()
+                ->where('user_id', Auth::id())
+                ->where('payment_method', 'ipaymu')
+                ->where('payment_details', 'like', '%' . $gatewayTransactionId . '%')
+                ->latest()
+                ->first();
+        }
+
+        if (strtolower((string) config('services.payment_gateway', '')) !== 'ipaymu') {
+            return null;
+        }
+
+        return IndividualPurchase::query()
+            ->where('user_id', Auth::id())
+            ->where('payment_method', 'ipaymu')
+            ->where('status', IndividualPurchase::STATUS_PENDING)
+            ->latest()
+            ->first();
     }
 
     public function paymentFailed()
@@ -898,16 +2936,40 @@ class PackageController extends Controller
     {
 
         $callbackToken = $request->header('X-CALLBACK-TOKEN');
-        $expectedToken = config('services.xendit.webhook_token');
+        $expectedToken = (string) config('services.xendit.webhook_token', '');
 
-        if ($callbackToken !== $expectedToken) {
+        if ($expectedToken === '' || ! is_string($callbackToken) || ! hash_equals($expectedToken, $callbackToken)) {
             return response()->json(['message' => 'Invalid callback token'], 401);
         }
 
         $payment = Payment::where('transaction_id', $request->external_id)->first();
 
         if (!$payment) {
-            return response()->json(['message' => 'Payment not found'], 404);
+            $purchase = IndividualPurchase::where('transaction_id', $request->external_id)->first();
+
+            if (!$purchase) {
+                return response()->json(['message' => 'Payment not found'], 404);
+            }
+
+            if ($request->status === 'PAID') {
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_APPROVED,
+                    'approved_at' => Carbon::now(),
+                ]);
+                $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via Xendit');
+            } elseif (in_array($request->status, ['EXPIRED', 'FAILED'], true)) {
+                $details = $this->paymentDetailsArray($purchase->payment_details);
+                $details['auto_rejected_reason'] = $request->status === 'EXPIRED'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         if ($request->status === 'PAID') {
@@ -916,7 +2978,7 @@ class PackageController extends Controller
                 'paid_at' => Carbon::now()
             ]);
 
-            $this->ensureUserPackageAccess($payment, 'Payment confirmed via Xendit - 1 year access');
+                $this->ensureUserPackageAccess($payment, 'Payment confirmed via Xendit');
         } elseif ($request->status === 'EXPIRED') {
             $payment->update(['status' => Payment::STATUS_EXPIRED]);
         } elseif ($request->status === 'FAILED') {
@@ -948,10 +3010,66 @@ class PackageController extends Controller
             return response()->json(['message' => 'Invalid payload'], 422);
         }
 
+        $aiTransaction = AiGatewayTransaction::query()
+            ->where('external_id', $orderId)
+            ->where('provider', 'midtrans')
+            ->first();
+
+        if ($aiTransaction) {
+            $transactionStatus = (string) $request->input('transaction_status');
+            $fraudStatus = (string) $request->input('fraud_status');
+
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                    return response()->json(['message' => 'OK']);
+                }
+
+                app(AiGatewaySubscriptionService::class)->activateTransaction($aiTransaction);
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $aiTransaction->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+                $aiTransaction->subscription?->update(['status' => $transactionStatus === 'expire' ? 'expired' : 'failed']);
+            }
+
+            return response()->json(['message' => 'OK']);
+        }
+
         $payment = Payment::where('transaction_id', $orderId)->first();
 
         if (!$payment) {
-            return response()->json(['message' => 'Payment not found'], 404);
+            $purchase = IndividualPurchase::where('transaction_id', $orderId)->first();
+
+            if (!$purchase) {
+                return response()->json(['message' => 'Payment not found'], 404);
+            }
+
+            $transactionStatus = $request->input('transaction_status');
+            $fraudStatus = $request->input('fraud_status');
+
+            if (in_array($transactionStatus, ['capture', 'settlement'], true)) {
+                if ($transactionStatus === 'capture' && $fraudStatus === 'challenge') {
+                    $purchase->update(['status' => IndividualPurchase::STATUS_PENDING]);
+                } else {
+                    $purchase->update([
+                        'status' => IndividualPurchase::STATUS_APPROVED,
+                        'approved_at' => Carbon::now(),
+                    ]);
+                    $this->ensureIndividualPurchaseAccess($purchase, 'Payment confirmed via Midtrans');
+                }
+            } elseif ($transactionStatus === 'pending') {
+                $purchase->update(['status' => IndividualPurchase::STATUS_PENDING]);
+            } elseif (in_array($transactionStatus, ['expire', 'cancel', 'deny', 'failure'], true)) {
+                $details = $this->paymentDetailsArray($purchase->payment_details);
+                $details['auto_rejected_reason'] = $transactionStatus === 'expire'
+                    ? 'Gateway payment expired before completion.'
+                    : 'Gateway payment failed or cancelled.';
+                $details['auto_rejected_at'] = now()->toDateTimeString();
+                $purchase->update([
+                    'status' => IndividualPurchase::STATUS_REJECTED,
+                    'payment_details' => $details,
+                ]);
+            }
+
+            return response()->json(['message' => 'OK']);
         }
 
         $transactionStatus = $request->input('transaction_status');
@@ -966,7 +3084,7 @@ class PackageController extends Controller
                     'paid_at' => Carbon::now(),
                 ]);
 
-                $this->ensureUserPackageAccess($payment, 'Payment confirmed via Midtrans - 1 year access');
+            $this->ensureUserPackageAccess($payment, 'Payment confirmed via Midtrans');
             }
         } elseif ($transactionStatus === 'pending') {
             $payment->update(['status' => Payment::STATUS_PENDING]);
@@ -979,29 +3097,59 @@ class PackageController extends Controller
         return response()->json(['message' => 'OK']);
     }
 
+    public function ipaymuWebhook(Request $request, IpaymuGateway $gateway)
+    {
+        $payable = $gateway->handleWebhook($request);
+
+        if (!$payable) {
+            return response()->json(['message' => 'Payment not found'], 404);
+        }
+
+        if ($payable instanceof Payment && $payable->status === Payment::STATUS_SUCCESS) {
+            $this->ensureUserPackageAccess($payable, 'Payment confirmed via iPaymu');
+        }
+
+        if ($payable instanceof IndividualPurchase && $payable->status === IndividualPurchase::STATUS_APPROVED) {
+            $this->ensureIndividualPurchaseAccess($payable, 'Payment confirmed via iPaymu');
+        }
+
+        return response()->json(['message' => 'OK']);
+    }
+
     private function ensureUserPackageAccess(Payment $payment, string $notes): void
     {
+        if ($payment->status !== Payment::STATUS_SUCCESS) {
+            throw new \RuntimeException('Cannot grant package access before payment is successful.');
+        }
+
         $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
             ->where('package_id', $payment->package_id)
             ->where('status', 'active')
-            ->where('end_date', '>', Carbon::now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+            })
             ->first();
 
-        if ($existingAccess) {
-            return;
+        if (!$existingAccess) {
+            $payment->loadMissing('package');
+            $startDate = Carbon::now();
+
+            UserPackageAcces::create([
+                'user_id' => $payment->user_id,
+                'package_id' => $payment->package_id,
+                'start_date' => $startDate,
+                'end_date' => $payment->package
+                    ? PurchaseAccessDuration::expiresAt($payment->package, $startDate)
+                    : $startDate->copy()->addYear(),
+                'status' => 'active',
+                'payment_amount' => $payment->total_amount,
+                'payment_status' => 'paid',
+                'notes' => $notes,
+                'created_by' => $payment->user_id
+            ]);
         }
 
-        UserPackageAcces::create([
-            'user_id' => $payment->user_id,
-            'package_id' => $payment->package_id,
-            'start_date' => Carbon::now(),
-            'end_date' => Carbon::now()->addYear(),
-            'status' => 'active',
-            'payment_amount' => $payment->amount,
-            'payment_status' => 'paid',
-            'notes' => $notes,
-            'created_by' => $payment->user_id
-        ]);
+        app(AffiliateService::class)->recordCommission($payment);
     }
 
     // Add method to manually check payment status (for testing)
@@ -1019,6 +3167,24 @@ class PackageController extends Controller
         }
 
         $paymentDetails = json_decode($payment->payment_details ?? '{}', true);
+
+        if ($payment->payment_method === 'interactive_qris') {
+            try {
+                $result = app(InteractiveQrisGateway::class)->checkPayment($payment);
+                $payment->refresh();
+
+                if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via InterActive QRIS - admin check');
+                }
+
+                return response()->json([
+                    'payment_status' => $payment->status,
+                    'interactive_qris_result' => $result,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
 
         if ($payment->payment_method === 'midtrans') {
             $orderId = $payment->transaction_id;
@@ -1050,6 +3216,25 @@ class PackageController extends Controller
                 }
 
                 return response()->json(['error' => 'Failed to fetch from Midtrans']);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()]);
+            }
+        }
+
+        if ($payment->payment_method === 'ipaymu') {
+            try {
+                $result = app(IpaymuGateway::class)->checkTransaction($payment);
+                $payment->refresh();
+
+                if (($result['paid'] ?? false) && $payment->status === Payment::STATUS_SUCCESS) {
+                    $this->ensureUserPackageAccess($payment, 'Payment confirmed via iPaymu - admin check');
+                }
+
+                return response()->json([
+                    'payment_status' => $payment->status,
+                    'gateway_confirmation' => $payment->gatewayConfirmationLabel(),
+                    'ipaymu_result' => $result,
+                ]);
             } catch (\Exception $e) {
                 return response()->json(['error' => $e->getMessage()]);
             }
@@ -1098,9 +3283,11 @@ class PackageController extends Controller
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>', Carbon::now());
             })
-            ->with(['package' => function ($query) {
-                $query->where('status', 'active');
-            }])
+            ->with([
+                'package' => function ($query) {
+                    $query->where('status', 'active');
+                }
+            ])
             ->get()
             ->filter(function ($access) {
                 return $access->package !== null;
@@ -1134,39 +3321,13 @@ class PackageController extends Controller
             ]);
 
             // Check if user already has access
-            $existingAccess = UserPackageAcces::where('user_id', $payment->user_id)
-                ->where('package_id', $payment->package_id)
-                ->where('status', 'active')
-                ->where('end_date', '>', Carbon::now())
-                ->first();
+            $this->ensureUserPackageAccess($payment, 'Manually activated by admin: ' . Auth::user()->name);
 
-            if (!$existingAccess) {
-                // Give user access to package
-                $userAccess = UserPackageAcces::create([
-                    'user_id' => $payment->user_id,
-                    'package_id' => $payment->package_id,
-                    'start_date' => Carbon::now(),
-                    'end_date' => Carbon::now()->addYear(),
-                    'status' => 'active',
-                    'payment_amount' => $payment->amount,
-                    'payment_status' => 'paid',
-                    'notes' => 'Manually activated by admin: ' . Auth::user()->name,
-                    'created_by' => Auth::id()
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment activated successfully',
-                    'payment_id' => $payment->payment_id,
-                    'access_id' => $userAccess->user_package_access_id
-                ]);
-            } else {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment activated, user already had access',
-                    'existing_access_id' => $existingAccess->user_package_access_id
-                ]);
-            }
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment activated successfully',
+                'payment_id' => $payment->payment_id,
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to activate payment',
@@ -1177,32 +3338,119 @@ class PackageController extends Controller
 
     public function rankingTryout($id_package, $id_tryout)
     {
-        $package = Package::findOrFail($id_package);
-
-        // Check access - perbaiki query akses
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
-
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        if (! $tryout->show_leaderboard) {
+            return redirect()->route('user.package.my', ['tab' => 'tryouts'])
+                ->with('error', 'Leaderboard tryout ini tidak tersedia.');
         }
 
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $package = null;
+        $packageRouteId = $id_package;
 
-        // Get leaderboard for this tryout - ambil hasil terbaik per user
-        $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
-            ->where('status', 'completed')
-            ->with(['user', 'tryoutDetail'])
-            ->get()
-            ->groupBy('user_id')
-            ->map(function ($userAnswers) use ($tryout) {
+        if ($id_package === 'free') {
+            $hasAccess = UserTryoutAccess::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', Carbon::now());
+                })
+                ->exists();
+
+            $hasCompletedAttempt = \App\Models\UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('status', 'completed')
+                ->exists();
+
+            if (!$hasAccess && !$hasCompletedAttempt) {
+                return redirect()->route('user.package.my', ['tab' => 'tryouts'])
+                    ->with('error', 'Anda tidak memiliki akses ke tryout ini');
+            }
+        } else {
+            $package = Package::findOrFail($id_package);
+
+            // Check access - perbaiki query akses
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+        }
+
+        $currentUser = Auth::user();
+        $currentUser->loadMissing([
+            'participantDestinationCategory.parent',
+            'participantDestinationCategory.activeChildren',
+        ]);
+        $activeRankingTab = request('tab', 'all') === 'profile' ? 'profile' : 'all';
+        $profileCategory = $currentUser->participantDestinationCategory;
+        $profileOfficialInstitution = trim((string) ($currentUser->participant_destination_institution_name ?? ''));
+        $profileOfficialProgram = trim((string) ($currentUser->participant_destination_program_name ?? ''));
+        $hasOfficialDestination = $currentUser->participant_destination_source === 'snpmb'
+            && $profileOfficialInstitution !== '';
+        $profileNeedsCompletion = !$hasOfficialDestination
+            && (
+                !$profileCategory
+                || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists())
+            );
+
+        if ($activeRankingTab === 'profile' && $profileNeedsCompletion) {
+            return redirect()->route('user.profile.index')
+                ->with('error', 'Lengkapi instansi/prodi tujuan di profil terlebih dahulu untuk melihat ranking berdasarkan profil.');
+        }
+
+        $profileDestinationIds = [];
+        $profileDestinationLabel = null;
+        $profileDestinationSnapshot = null;
+        if ($profileCategory) {
+            $profileDestinationLabel = $profileCategory->display_name;
+            $profileDestinationIds = $profileCategory->parent_id
+                ? [$profileCategory->id]
+                : $profileCategory->activeChildren
+                    ->pluck('id')
+                    ->prepend($profileCategory->id)
+                    ->unique()
+                    ->values()
+                    ->all();
+        } elseif ($hasOfficialDestination) {
+            $profileDestinationLabel = $currentUser->participant_destination_display_name;
+            $profileDestinationSnapshot = [
+                'source' => 'snpmb',
+                'institution_name' => $profileOfficialInstitution,
+                'program_name' => $profileOfficialProgram,
+            ];
+        }
+
+        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout) {
+            return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
+                ->where('status', 'completed')
+                ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
+                    $query->whereHas('user', function ($userQuery) use ($destinationIds) {
+                        $userQuery->whereIn('participant_destination_category_id', $destinationIds);
+                    });
+                })
+                ->when(!empty($destinationSnapshot), function ($query) use ($destinationSnapshot) {
+                    $query->whereHas('user', function ($userQuery) use ($destinationSnapshot) {
+                        $userQuery
+                            ->where('participant_destination_source', $destinationSnapshot['source'])
+                            ->where('participant_destination_institution_name', $destinationSnapshot['institution_name']);
+
+                        if (!empty($destinationSnapshot['program_name'])) {
+                            $userQuery->where('participant_destination_program_name', $destinationSnapshot['program_name']);
+                        }
+                    });
+                })
+                ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
+                ->get()
+                ->groupBy('user_id')
+                ->map(function ($userAnswers) use ($tryout) {
                 $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
 
                 if ($usesUtbkIrt) {
@@ -1212,9 +3460,14 @@ class PackageController extends Controller
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
                         $attempt->loadMissing('tryoutDetail');
+                        $subtestScores = [];
                         $allPassed = $attempt->every(function ($ua) {
                             return $this->isUtbkSubtestPassed($ua->tryoutDetail, (float) ($ua->score ?? 0));
                         });
+
+                        foreach ($attempt as $userAnswer) {
+                            $subtestScores[$userAnswer->tryout_detail_id] = (float) ($userAnswer->score ?? 0);
+                        }
 
                         return [
                             'user' => $representative->user,
@@ -1226,146 +3479,135 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allPassed,
+                            'subtest_scores' => $subtestScores,
                         ];
                     })->filter()->sortByDesc('raw_score')->values()->first();
 
                     return $bestAttempt;
                 }
 
-                // Untuk SKD Full, gabungkan skor dari semua subtest
-                if ($userAnswers->count() > 1) {
-                    // Group by attempt_token untuk mendapatkan attempt terbaik
-                    $attemptGroups = $userAnswers->groupBy('attempt_token');
+                // Gabungkan skor dari semua subtest dengan group_by attempt_token
+                $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                    $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
-                        if ($tryout->is_toefl == 1) {
-                            // For TOEFL, use the actual TOEFL total score
-                            $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
-
-                            return [
-                                'user' => $attempt->first()->user,
-                                'raw_score' => $toeflScore,
-                                'max_score' => 677, // TOEFL max score
-                                'percentage' => $toeflScore,
-                                'finished_at' => $attempt->max('finished_at'),
-                                'correct_answers' => $attempt->sum('correct_answers'),
-                                'wrong_answers' => $attempt->sum('wrong_answers'),
-                                'unanswered' => $attempt->sum('unanswered'),
-                                'is_passed' => $this->isToeflPassed((int) $toeflScore)
-                            ];
-                        } else {
-                            // Regular scoring
-                            $totalScore = 0;
-                            $totalMaxScore = 0;
-                            $allSubtestsPassed = true;
-
-                            foreach ($attempt as $userAnswer) {
-                                $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
-                                $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
-                                    $userAnswer->tryout_detail_id,
-                                    $userAnswer->tryoutDetail->type_subtest
-                                );
-
-                                $totalScore += $subtestScore;
-                                $totalMaxScore += $maxSubtestScore;
-
-                                $detail = $userAnswer->tryoutDetail;
-                                if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
-                                    $allSubtestsPassed = false;
-                                }
-                            }
-
-                            $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
-
-                            return [
-                                'user' => $attempt->first()->user,
-                                'raw_score' => $totalScore,
-                                'max_score' => $totalMaxScore,
-                                'percentage' => $percentage,
-                                'finished_at' => $attempt->max('finished_at'),
-                                'correct_answers' => $attempt->sum('correct_answers'),
-                                'wrong_answers' => $attempt->sum('wrong_answers'),
-                                'unanswered' => $attempt->sum('unanswered'),
-                                'is_passed' => $allSubtestsPassed
-                            ];
-                        }
-                    })->filter()->sortByDesc('raw_score')->values()->first();
-
-                    return $bestAttempt;
-                } else {
-                    // Single subtest - ambil yang terbaik
-                    $bestAttempt = $userAnswers->sortByDesc(function ($answer) {
-                        return $this->calculateTotalScore($answer, $answer->tryoutDetail->type_subtest);
-                    })->first();
-
+                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
                     if ($tryout->is_toefl == 1) {
-                        // For TOEFL single section (shouldn't happen but handle it)
-                        $toeflScore = $bestAttempt->toefl_total_score ?? $bestAttempt->score;
+                        // For TOEFL, use the actual TOEFL total score
+                        $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
 
                         return [
-                            'user' => $bestAttempt->user,
+                            'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
-                            'max_score' => 677,
+                            'max_score' => 677, // TOEFL max score
                             'percentage' => $toeflScore,
-                            'finished_at' => $bestAttempt->finished_at,
-                            'correct_answers' => $bestAttempt->correct_answers ?? 0,
-                            'wrong_answers' => $bestAttempt->wrong_answers ?? 0,
-                            'unanswered' => $bestAttempt->unanswered ?? 0,
-                            'is_passed' => $this->isToeflPassed((int) $toeflScore)
+                            'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
+                            'correct_answers' => $attempt->sum('correct_answers'),
+                            'wrong_answers' => $attempt->sum('wrong_answers'),
+                            'unanswered' => $attempt->sum('unanswered'),
+                            'is_passed' => $this->isToeflPassed((int) $toeflScore),
+                            'subtest_scores' => []
                         ];
                     } else {
-                        $rawScore = $this->calculateTotalScore($bestAttempt, $bestAttempt->tryoutDetail->type_subtest);
-                        $maxScore = $this->getMaxPossibleScoreForDetail(
-                            $bestAttempt->tryout_detail_id,
-                            $bestAttempt->tryoutDetail->type_subtest
-                        );
-                        $percentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
-                        $isPassed = $this->isSubtestPassed(
-                            $bestAttempt->tryoutDetail,
-                            $rawScore,
-                            $maxScore,
-                            $bestAttempt->tryoutDetail->type_subtest
-                        );
+                        // Regular scoring
+                        $totalScore = 0;
+                        $totalMaxScore = 0;
+                        $allSubtestsPassed = true;
+                        $subtestScores = [];
+
+                        foreach ($attempt as $userAnswer) {
+                            $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
+                            $maxSubtestScore = $this->getMaxPossibleScoreForDetail(
+                                $userAnswer->tryout_detail_id,
+                                $userAnswer->tryoutDetail->type_subtest
+                            );
+
+                            $totalScore += $subtestScore;
+                            $totalMaxScore += $maxSubtestScore;
+                            $subtestScores[$userAnswer->tryout_detail_id] = $subtestScore;
+
+                            $detail = $userAnswer->tryoutDetail;
+                            if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
+                                $allSubtestsPassed = false;
+                            }
+                        }
+
+                        $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
 
                         return [
-                            'user' => $bestAttempt->user,
-                            'raw_score' => $rawScore,
-                            'max_score' => $maxScore,
+                            'user' => $attempt->first()->user,
+                            'raw_score' => $totalScore,
+                            'max_score' => $totalMaxScore,
                             'percentage' => $percentage,
-                            'finished_at' => $bestAttempt->finished_at,
-                            'correct_answers' => $bestAttempt->correct_answers ?? 0,
-                            'wrong_answers' => $bestAttempt->wrong_answers ?? 0,
-                            'unanswered' => $bestAttempt->unanswered ?? 0,
-                            'is_passed' => $isPassed
+                            'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
+                            'correct_answers' => $attempt->sum('correct_answers'),
+                            'wrong_answers' => $attempt->sum('wrong_answers'),
+                            'unanswered' => $attempt->sum('unanswered'),
+                            'is_passed' => $allSubtestsPassed,
+                            'subtest_scores' => $subtestScores
                         ];
                     }
-                }
-            })
-            ->filter() // Remove null values
-            ->sortByDesc('raw_score')
-            ->values();
+                })->filter()->sortByDesc('raw_score')->values()->first();
 
-        return view('user.pages.package.tryout-rank', compact('package', 'tryout', 'rankings'));
+                return $bestAttempt;
+            })
+                ->filter() // Remove null values
+                ->sortByDesc('raw_score')
+                ->values();
+        };
+
+        $allRankings = $buildRankings();
+        $profileRankings = !$profileNeedsCompletion
+            ? $buildRankings($profileDestinationIds, $profileDestinationSnapshot)
+            : collect();
+        $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+
+        return view('user.pages.package.tryout-rank', compact(
+            'package',
+            'tryout',
+            'rankings',
+            'allRankings',
+            'profileRankings',
+            'activeRankingTab',
+            'profileDestinationLabel',
+            'profileNeedsCompletion',
+            'packageRouteId'
+        ));
     }
 
     public function pembahasanTryout($id_package, $id_tryout, $token)
     {
-        $package = Package::findOrFail($id_package);
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
         $tryout = \App\Models\Tryout::findOrFail($id_tryout);
+        if (! $tryout->show_discussion) {
+            $redirectRoute = $isFreeTryout
+                ? route('user.tryout.result', [$id_package, $id_tryout, 'attempt' => $token])
+                : route('user.package.tryout.riwayat', [$id_package, $id_tryout]);
+
+            return redirect($redirectRoute)
+                ->with('error', 'Pembahasan tryout ini tidak tersedia.');
+        }
 
         // Check access
-        $hasAccess = UserPackageAcces::where('user_id', Auth::id())
-            ->where('package_id', $id_package)
-            ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', Carbon::now());
-            })
-            ->exists();
+        if (!$isFreeTryout) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $id_package)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
 
-        if (!$hasAccess) {
-            return redirect()->route('user.package.index')
-                ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            if (!$hasAccess) {
+                return redirect()->route('user.package.index')
+                    ->with('error', 'Anda tidak memiliki akses ke paket ini');
+            }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                abort(404);
+            }
         }
 
         // Get user's latest completed answers for this tryout
@@ -1388,8 +3630,7 @@ class PackageController extends Controller
 
         $tryoutDetails = $tryout->tryoutDetails;
 
-        // Get all answer details with questions for pembahasan
-        $allAnswerDetails = collect();
+        $answeredDetailsByQuestionId = collect();
         foreach ($latestUserAnswers as $userAnswer) {
             $answerDetails = $userAnswer->userAnswerDetails()->with([
                 'question.questionOptions',
@@ -1401,8 +3642,65 @@ class PackageController extends Controller
                 $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail->type_subtest);
             }
 
-            $allAnswerDetails = $allAnswerDetails->concat($answerDetails);
+            foreach ($answerDetails as $detail) {
+                $answeredDetailsByQuestionId->put($detail->question_id, $detail);
+            }
         }
+
+        $userAnswersByTryoutDetailId = $latestUserAnswers->keyBy('tryout_detail_id');
+        $questions = \App\Models\Question::with('questionOptions')
+            ->whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        $allAnswerDetails = $questions->map(function ($question) use ($answeredDetailsByQuestionId, $userAnswersByTryoutDetailId) {
+            $userAnswer = $userAnswersByTryoutDetailId->get($question->tryout_detail_id);
+            $detail = $answeredDetailsByQuestionId->get($question->question_id);
+
+            if (!$detail) {
+                $detail = new \App\Models\UserAnswerDetail([
+                    'user_answer_id' => $userAnswer?->user_answer_id,
+                    'question_id' => $question->question_id,
+                    'question_option_id' => null,
+                    'answer_text' => null,
+                    'answer_json' => [],
+                    'is_correct' => false,
+                    'answered_at' => null,
+                ]);
+                $detail->exists = false;
+                $detail->setRelation('questionOption', null);
+            }
+
+            $detail->setRelation('question', $question);
+            $detail->subtest_type = $userAnswer?->tryoutDetail?->type_subtest ?? $question->tryoutDetail?->type_subtest;
+            $detail->subtest_name = $this->getSubtestName($detail->subtest_type);
+            $detail->is_unanswered = !$detail->exists || (
+                !$detail->question_option_id
+                && blank($detail->answer_text)
+                && empty($detail->answer_json)
+            );
+
+            return $detail;
+        });
+
+        // Riwayat percakapan disimpan per attempt dan per soal agar siswa dapat
+        // membacanya kembali ketika membuka halaman pembahasan di lain waktu.
+        $aiDiscussionHistoryByQuestion = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereIn('question_id', $questions->pluck('question_id'))
+            ->orderBy('created_at')
+            ->get(['id', 'question_id', 'user_message', 'assistant_message', 'created_at'])
+            ->groupBy('question_id')
+            ->map(fn ($messages) => $messages->map(fn ($message) => [
+                'id' => $message->id,
+                'user_message' => $message->user_message,
+                'assistant_message' => $message->assistant_message,
+                'created_at' => optional($message->created_at)->toIso8601String(),
+            ])->values())
+            ->all();
 
         $pendingReviewCount = $allAnswerDetails->filter(function ($detail) {
             $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
@@ -1417,8 +3715,8 @@ class PackageController extends Controller
 
         if ($tryout->requiresIrtScoring()) {
             $totalQuestions = $questionCounts->sum();
-            $answeredCount = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->count());
-            $correctAnswers = $latestUserAnswers->sum(fn ($ua) => $ua->userAnswerDetails->where('is_correct', true)->count());
+            $answeredCount = $latestUserAnswers->sum(fn($ua) => $ua->userAnswerDetails->count());
+            $correctAnswers = $latestUserAnswers->sum(fn($ua) => $ua->userAnswerDetails->where('is_correct', true)->count());
             $wrongAnswers = max(0, $answeredCount - $correctAnswers);
             $unanswered = max(0, $totalQuestions - $answeredCount);
 
@@ -1561,16 +3859,353 @@ class PackageController extends Controller
         }
 
         $token = $token;
+        $packageRouteId = $isFreeTryout ? 'free' : $package->package_id;
+        $aiGatewaySubscription = null;
+        $aiGatewaySubscriptions = [];
+        $aiGatewayTrial = null;
+        $aiGatewayPendingPayment = null;
+        $aiGatewayPlans = [];
+        $gatewayUrl = rtrim((string) config('services.ai_gateway.url'), '/');
+        $gatewayBaseUrl = Str::beforeLast($gatewayUrl, '/discussion');
+
+        if ($gatewayBaseUrl !== '' && filled(config('services.ai_gateway.key'))) {
+            try {
+                $gateway = Http::acceptJson()
+                    ->timeout(3)
+                    ->withHeaders(['X-AI-Gateway-Key' => config('services.ai_gateway.key')]);
+                $gatewayStatus = $gateway
+                    ->get("{$gatewayBaseUrl}/subscription", ['external_user_id' => (string) Auth::id()])
+                    ->json();
+                $aiGatewaySubscription = data_get($gatewayStatus, 'subscription');
+                $aiGatewaySubscriptions = data_get($gatewayStatus, 'subscriptions', $aiGatewaySubscription ? [$aiGatewaySubscription] : []);
+                $aiGatewayTrial = data_get($gatewayStatus, 'trial');
+                $aiGatewayPendingPayment = data_get($gatewayStatus, 'pending_payment');
+                $aiGatewayPlans = $gateway->get("{$gatewayBaseUrl}/plans")->json() ?? [];
+            } catch (\Throwable) {
+                // Halaman pembahasan tetap tersedia bila gateway sedang tidak merespons.
+            }
+        }
+
         return view('user.pages.package.tryout-pembahasan', compact(
             'package',
+            'packageRouteId',
             'tryout',
             'tryoutDetails',
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
+            'aiDiscussionHistoryByQuestion',
             'overallStats',
-            'subtestSummaries'
+            'subtestSummaries',
+            'aiGatewaySubscription',
+            'aiGatewaySubscriptions',
+            'aiGatewayTrial',
+            'aiGatewayPendingPayment',
+            'aiGatewayPlans'
         ));
+    }
+
+    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type)
+    {
+        abort_unless(in_array($type, ['soal', 'pembahasan'], true), 404);
+
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 404);
+
+        if (! $isFreeTryout) {
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        $attemptAnswers = UserAnswer::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->get(['tryout_detail_id']);
+
+        if ($attemptAnswers->isEmpty()) {
+            return redirect()->route('user.package.tryout', $id_package)
+                ->with('error', 'Anda belum mengerjakan tryout ini.');
+        }
+
+        $questions = \App\Models\Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->whereIn('tryout_detail_id', $attemptAnswers->pluck('tryout_detail_id'))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        $options = new Options;
+        $options->set('isRemoteEnabled', false);
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml(view('user.pages.package.tryout-download', compact('tryout', 'questions', 'type'))->render());
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = Str::slug($tryout->name).'-'.$type.'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)
+    {
+        $validated = $request->validate([
+            'question_id' => ['required', 'integer'],
+            'message' => ['required', 'string', 'max:1200'],
+            'mode' => ['nullable', 'in:text,voice'],
+        ]);
+
+        if (!$aiDiscussionService->isEnabled()) {
+            return response()->json([
+                'message' => 'Diskusi AI belum diaktifkan admin.',
+            ], 403);
+        }
+
+        $isFreeTryout = $id_package === 'free';
+        $package = $isFreeTryout ? null : Package::findOrFail($id_package);
+        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+
+        if (!$tryout->show_discussion) {
+            return response()->json([
+                'message' => 'Pembahasan tryout ini tidak tersedia.',
+            ], 403);
+        }
+
+        if (!$isFreeTryout) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+
+            if (!$hasAccess) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki akses ke paket ini.',
+                ], 403);
+            }
+
+            if (! $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists()) {
+                return response()->json([
+                    'message' => 'Tryout ini tidak termasuk dalam paket tersebut.',
+                ], 403);
+            }
+        }
+
+        $userAnswers = \App\Models\UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('status', 'completed')
+            ->where('attempt_token', $token)
+            ->with('tryoutDetail')
+            ->latest()
+            ->get();
+
+        if ($userAnswers->isEmpty()) {
+            return response()->json([
+                'message' => 'Data pengerjaan tidak ditemukan.',
+            ], 404);
+        }
+
+        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail'])
+            ->where('question_id', $validated['question_id'])
+            ->whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
+            ->firstOrFail();
+
+        $answerDetail = \App\Models\UserAnswerDetail::with('questionOption')
+            ->whereIn('user_answer_id', $userAnswers->pluck('user_answer_id'))
+            ->where('question_id', $question->question_id)
+            ->first();
+
+        // Kirim beberapa giliran terakhir agar pertanyaan lanjutan seperti
+        // "kenapa?" atau "kalau opsi B?" tetap dipahami dalam konteksnya.
+        // Riwayat dibatasi supaya biaya dan waktu respons tetap terjaga.
+        $conversationHistory = AiDiscussionUsageLog::query()
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('question_id', $question->question_id)
+            ->where('attempt_token', $token)
+            ->latest('id')
+            ->limit(4)
+            ->get(['user_message', 'assistant_message'])
+            ->reverse()
+            ->values()
+            ->map(fn (AiDiscussionUsageLog $log) => [
+                'user_message' => Str::limit(trim((string) $log->user_message), 600, ''),
+                'assistant_message' => Str::limit(trim((string) $log->assistant_message), 1000, ''),
+            ])
+            ->all();
+
+        try {
+            $result = $aiDiscussionService->chat($validated['message'], [
+                'tryout_name' => $tryout->name,
+                'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
+                'question' => $question,
+                'answer_detail' => $answerDetail,
+                'conversation_history' => $conversationHistory,
+                'response_style' => ($validated['mode'] ?? 'text') === 'voice' ? 'guru_suara' : 'chat',
+            ]);
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        $usageLog = AiDiscussionUsageLog::create([
+            'user_id' => Auth::id(),
+            'tryout_id' => $tryout->tryout_id,
+            'question_id' => $question->question_id,
+            'attempt_token' => $token,
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'input_tokens' => $result['usage']['input'],
+            'output_tokens' => $result['usage']['output'],
+            'total_tokens' => $result['usage']['total'],
+            'response_time_ms' => $result['response_time_ms'],
+            'user_message' => $validated['message'],
+            'assistant_message' => $result['message'],
+        ]);
+
+        return response()->json([...$result, 'discussion_log_id' => $usageLog->id]);
+    }
+
+    public function speakPembahasanAi(Request $request, $id_package, $id_tryout, $token)
+    {
+        $data = $request->validate([
+            'usage_log_id' => ['required', 'integer'],
+        ]);
+        $isFreeTryout = $id_package === 'free';
+        $tryout = Tryout::findOrFail($id_tryout);
+        abort_unless($tryout->show_discussion, 403);
+
+        if (! $isFreeTryout) {
+            $package = Package::findOrFail($id_package);
+            $hasAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(fn ($query) => $query->whereNull('end_date')->orWhere('end_date', '>', now()))
+                ->exists();
+            abort_unless($hasAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 403);
+        }
+
+        abort_unless(UserAnswer::where('user_id', Auth::id())
+            ->where('tryout_id', $id_tryout)
+            ->where('attempt_token', $token)
+            ->where('status', 'completed')
+            ->exists(), 404);
+
+        $usageLog = AiDiscussionUsageLog::query()
+            ->whereKey($data['usage_log_id'])
+            ->where('user_id', Auth::id())
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('attempt_token', $token)
+            ->whereNotNull('assistant_message')
+            ->firstOrFail();
+
+        $voiceText = Str::limit($this->voiceExplanation((string) $usageLog->assistant_message), 4000, '');
+        if ($audioPath = $this->edgeTtsAudio($voiceText)) {
+            return response()
+                ->file($audioPath, [
+                    'Content-Type' => 'audio/mpeg',
+                    'Cache-Control' => 'no-store',
+                ])
+                ->deleteFileAfterSend(true);
+        }
+
+        $apiKey = (string) config('services.openai.api_key');
+        if ($apiKey === '') {
+            return response()->json(['message' => 'Suara AI belum tersedia. Coba ulangi sebentar lagi.'], 422);
+        }
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->accept('audio/mpeg')
+                ->timeout((int) config('services.openai.timeout', 90))
+                ->post(rtrim((string) config('services.openai.base_url'), '/') . '/audio/speech', [
+                    'model' => 'tts-1-hd',
+                    'voice' => 'nova',
+                    'input' => $voiceText,
+                    'speed' => 1.08,
+                    'response_format' => 'mp3',
+                ]);
+        } catch (\Throwable $exception) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        if (! $response->successful()) {
+            return response()->json(['message' => 'Suara AI tidak dapat dibuat.'], 422);
+        }
+
+        return response($response->body(), 200, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    private function edgeTtsAudio(string $text): ?string
+    {
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'bimbel-ai-tts-');
+        if ($temporaryPath === false) {
+            return null;
+        }
+
+        @unlink($temporaryPath);
+        $audioPath = $temporaryPath . '.mp3';
+        $configuredBinary = (string) config('services.edge_tts.binary', 'edge-tts');
+        $homeBinary = rtrim((string) getenv('HOME'), '/') . '/.local/bin/edge-tts';
+        $binary = $configuredBinary === 'edge-tts' && is_file($homeBinary)
+            ? $homeBinary
+            : $configuredBinary;
+
+        try {
+            $process = new Process([
+                $binary,
+                '--voice', (string) config('services.edge_tts.voice', 'id-ID-GadisNeural'),
+                '--rate=' . (string) config('services.edge_tts.rate', '+10%'),
+                '--text', $text,
+                '--write-media', $audioPath,
+            ]);
+            $process->setTimeout((int) config('services.edge_tts.timeout', 30));
+            $process->run();
+
+            if ($process->isSuccessful() && is_file($audioPath) && filesize($audioPath) > 0) {
+                return $audioPath;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        @unlink($audioPath);
+
+        return null;
+    }
+
+    private function voiceExplanation(string $message): string
+    {
+        $plainText = trim(strip_tags($message));
+        $explanation = preg_split('/(?:^|\n)\s*(?:\*\*)?catatan\s+inti\s*:?(?:\*\*)?/iu', $plainText, 2)[0] ?? $plainText;
+        $explanation = (string) preg_replace('/\*\*([^*]+)\*\*/u', '$1', $explanation);
+        $explanation = str_replace(['$', '`', '#', '=', '+', '÷'], ['', '', '', ' sama dengan ', ' ditambah ', ' dibagi '], $explanation);
+        $explanation = preg_replace('/(\d)([a-zA-Z])/u', '$1 $2', $explanation);
+        $explanation = preg_replace('/\s+-\s+/u', ' dikurangi ', $explanation);
+
+        return trim((string) $explanation) ?: $plainText;
     }
 
     private function getSubtestName($type)
@@ -1597,5 +4232,662 @@ class PackageController extends Controller
             default:
                 return ucfirst($type);
         }
+    }
+
+    /**
+     * Display user's active packages with step by step view
+     */
+    public function myPackages(Request $request)
+    {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk melihat paket Anda.');
+        }
+        
+        $user = Auth::user();
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        
+        $packageRelations = [
+            'package.materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+            'package.classes' => fn ($query) => $query->where('classes.is_displayed', true),
+            'package.tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+        ];
+        if ($tesKoranEnabled) {
+            $packageRelations['package.tesKorans'] = fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true);
+        }
+
+        $activePackages = UserPackageAcces::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->with($packageRelations)
+            ->get();
+
+        $accessiblePackageIds = $activePackages
+            ->pluck('package_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $packageMaterialIds = \DB::table('detail_packages')
+            ->join('materials', 'detail_packages.detailable_id', '=', 'materials.material_id')
+            ->whereIn('package_id', $accessiblePackageIds)
+            ->where('detailable_type', \App\Models\Material::class)
+            ->where('materials.is_active', true)
+            ->where('materials.is_displayed', true)
+            ->pluck('detail_packages.detailable_id')
+            ->toArray();
+
+        $directMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
+            ->where('status', '!=', 'not_started')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('material_id')
+            ->toArray();
+
+        $accessibleMaterialIds = array_values(array_unique(array_merge($packageMaterialIds, $directMaterialIds)));
+
+        $myMaterials = \App\Models\Material::whereIn('material_id', $accessibleMaterialIds)
+            ->where('is_active', true)
+            ->where('is_displayed', true)
+            ->with(['userAccess' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }])
+            ->get();
+
+        $packageClassIds = \DB::table('detail_packages')
+            ->join('classes', 'detail_packages.detailable_id', '=', 'classes.class_id')
+            ->whereIn('package_id', $accessiblePackageIds)
+            ->where('detailable_type', ClassModel::class)
+            ->where('classes.is_displayed', true)
+            ->pluck('detail_packages.detailable_id')
+            ->toArray();
+
+        $directClassIds = UserClassAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('class_id')
+            ->toArray();
+
+        $accessibleClassIds = array_values(array_unique(array_merge($packageClassIds, $directClassIds)));
+
+        $myClasses = ClassModel::whereIn('class_id', $accessibleClassIds)
+            ->where('is_displayed', true)
+            ->with(['tentor', 'userAccess' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }])
+            ->orderBy('schedule_time', 'desc')
+            ->get();
+
+        $directTryoutIds = UserTryoutAccess::where('user_id', $user->id)
+            ->where('access_source', 'direct')
+            ->active()
+            ->pluck('tryout_id')
+            ->toArray();
+
+        $myTryouts = Tryout::where(function ($query) use ($accessiblePackageIds, $directTryoutIds) {
+            $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
+                $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+            })->orWhereIn('tryout_id', $directTryoutIds);
+        })
+            ->where('is_active', true)
+            ->where('is_displayed', true)
+            ->with([
+                'packages' => function ($query) use ($accessiblePackageIds) {
+                    $query->whereIn('packages.package_id', $accessiblePackageIds);
+                },
+                'userAnswers' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                },
+            ])
+            ->get();
+
+        $myTesKorans = $tesKoranEnabled
+            ? \App\Models\TesKoran::where(function ($query) use ($accessiblePackageIds, $user) {
+                $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
+                    $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
+                })->orWhereHas('individualPurchases', function ($purchaseQuery) use ($user) {
+                    $purchaseQuery->where('user_id', $user->id)
+                        ->where('status', \App\Models\IndividualPurchase::STATUS_APPROVED)
+                        ->where(function ($query) {
+                            $query->whereNull('access_expires_at')
+                                ->orWhere('access_expires_at', '>', now());
+                        });
+                });
+            })
+                ->where('is_active', true)
+                ->where('is_displayed', true)
+                ->with(['results' => function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                }])
+                ->get()
+            : collect();
+
+        $activePackages = $this->filterAndSortUserCollection(
+            $activePackages,
+            $search,
+            $sort,
+            fn ($access) => (string) ($access->package?->name ?? ''),
+            fn ($access) => $access->created_at
+        );
+
+        $myMaterials = $this->filterAndSortUserCollection(
+            $myMaterials,
+            $search,
+            $sort,
+            fn ($material) => (string) $material->title,
+            fn ($material) => $material->created_at
+        );
+
+        $myClasses = $this->filterAndSortUserCollection(
+            $myClasses,
+            $search,
+            $sort,
+            fn ($class) => (string) $class->title,
+            fn ($class) => $class->schedule_time ?? $class->created_at
+        );
+
+        $myTryouts = $this->filterAndSortUserCollection(
+            $myTryouts,
+            $search,
+            $sort,
+            fn ($tryout) => (string) $tryout->name,
+            fn ($tryout) => $tryout->created_at
+        );
+
+        $myTesKorans = $this->filterAndSortUserCollection(
+            $myTesKorans,
+            $search,
+            $sort,
+            fn ($tesKoran) => (string) $tesKoran->name,
+            fn ($tesKoran) => $tesKoran->created_at
+        );
+
+        $videoMaterials = $myMaterials->where('type', 'video')->values();
+        $documentMaterials = $myMaterials->where('type', 'document')->values();
+        $liveSessionMaterials = $myMaterials->where('type', 'live_session')->values();
+
+        $completedMaterialIds = UserMaterialAccess::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->pluck('material_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $completedTryoutIds = UserAnswer::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->pluck('tryout_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $completedTesKoranIds = $tesKoranEnabled
+            ? TesKoranResult::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->pluck('tes_koran_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
+
+        $packageProgress = [];
+        foreach ($activePackages as $access) {
+            $package = $access->package;
+            $materials = $package?->materialsThroughDetail ?? collect();
+            $classes = $package?->classes ?? collect();
+            $tryouts = $package?->tryouts ?? collect();
+            $tesKorans = $tesKoranEnabled ? ($package?->tesKorans ?? collect()) : collect();
+            $totalItems = $materials->count() + $classes->count() + $tryouts->count() + $tesKorans->count();
+            $completedCount = $materials->whereIn('material_id', $completedMaterialIds)->count()
+                + $tryouts->whereIn('tryout_id', $completedTryoutIds)->count()
+                + $tesKorans->whereIn('id', $completedTesKoranIds)->count();
+
+            $packageProgress[$access->package_id] = [
+                'total_items' => $totalItems,
+                'completed_count' => $completedCount,
+                'percent' => $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0,
+            ];
+        }
+
+        $tryoutPackageIds = \DB::table('detail_packages')
+            ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+            ->where('detail_packages.detailable_type', Tryout::class)
+            ->where('user_package_access.user_id', $user->id)
+            ->where('user_package_access.status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('user_package_access.end_date')
+                    ->orWhere('user_package_access.end_date', '>', now());
+            })
+            ->pluck('detail_packages.package_id', 'detail_packages.detailable_id')
+            ->all();
+
+        return view('user.pages.package.new-my-packages', compact(
+            'activePackages',
+            'myMaterials',
+            'myClasses',
+            'videoMaterials',
+            'documentMaterials',
+            'liveSessionMaterials',
+            'myTryouts',
+            'myTesKorans',
+            'packageProgress',
+            'tryoutPackageIds',
+            'search',
+            'sort'
+        ));
+    }
+    
+    /**
+     * Show package roadmap (new gamified view)
+     */
+    public function showPackage($packageId)
+    {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu untuk mengakses paket.');
+        }
+        
+        $user = Auth::user();
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $liveSessionAvailable = config('client.live_session_available', false);
+        $relations = $tesKoranEnabled
+            ? [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
+            ]
+            : [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'materialsThroughDetail.categories',
+                'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+            ];
+
+        $package = Package::with($relations)->findOrFail($packageId);
+        
+        // Check access
+        $hasAccess = UserPackageAcces::where('user_id', $user->id)
+            ->where('package_id', $packageId)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->exists();
+        
+        if (!$hasAccess) {
+            return redirect()->route('user.package.my')
+                ->with('error', 'Anda tidak memiliki akses ke paket ini.');
+        }
+        
+        // Prepare roadmap items with status
+        $roadmapItems = collect();
+        $completedCount = 0;
+        $orderCounter = 1;
+        
+        // Process materials first. Package content uses detail_packages as the single source of truth.
+        $sortedMaterials = $package->materialsThroughDetail->sortBy(function ($material) {
+            return $material->order_number ?? $material->material_id;
+        });
+        
+        foreach ($sortedMaterials as $material) {
+            if (! $liveSessionAvailable && $material->type === 'live_session') {
+                continue;
+            }
+
+            $progress = UserMaterialAccess::where('user_id', $user->id)
+                ->where('material_id', $material->material_id)
+                ->first();
+            $isCompleted = $progress && $progress->is_completed;
+            $isInProgress = $progress && $progress->is_in_progress;
+            $itemProgress = $progress ? (int) ($progress->progress_percentage ?? 0) : 0;
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'material',
+                'material_type' => $material->type,
+                'title' => $material->title,
+                'subtitle' => $material->categories->first()?->name ?? $material->type_label,
+                'icon' => $material->type === 'video' ? 'ri-video-line' : ($material->type === 'document' ? 'ri-file-text-line' : 'ri-live-line'),
+                'route' => route('user.material.show', $material->material_id),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => $isInProgress,
+                'progress_percent' => $itemProgress,
+                'status_text' => $isCompleted ? 'Selesai' : ($isInProgress ? 'Berlangsung' : 'Mulai'),
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+
+        // Kelas adalah bagian dari konten paket, sehingga harus dapat diakses dari roadmap paket.
+        foreach ($package->classes->sortBy(fn (ClassModel $class) => $class->schedule_time ?? $class->class_id) as $class) {
+            $classStatus = match (true) {
+                $class->status === 'cancelled' => 'cancelled',
+                $class->status === 'completed' => 'completed',
+                $class->schedule_time?->isFuture() => 'upcoming',
+                default => 'ongoing',
+            };
+            $statusMeta = match ($classStatus) {
+                'upcoming' => ['Akan Datang', 'bg-blue-100 text-blue-700'],
+                'ongoing' => ['Berlangsung', 'bg-emerald-100 text-emerald-700'],
+                'completed' => ['Selesai', 'bg-gray-100 text-gray-600'],
+                default => ['Dibatalkan', 'bg-red-100 text-red-700'],
+            };
+            $schedule = $class->schedule_time?->translatedFormat('d M Y, H:i');
+            $subtitle = collect([
+                $class->tentor?->name ?? $class->mentor,
+                $schedule,
+            ])->filter()->implode(' · ') ?: 'Jadwal akan segera diinformasikan';
+
+            if ($classStatus === 'completed') {
+                $completedCount++;
+            }
+
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'class',
+                'title' => $class->title,
+                'subtitle' => $subtitle,
+                'icon' => 'ri-video-on-line',
+                'route' => route('user.class.zoom', $class),
+                'is_completed' => $classStatus === 'completed',
+                'is_in_progress' => $classStatus === 'ongoing',
+                'progress_percent' => 0,
+                'status_text' => $statusMeta[0],
+                'status_class' => $statusMeta[1],
+                'class_status' => $classStatus,
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+
+            $orderCounter++;
+        }
+        
+        // Process tryouts (append at the end)
+        foreach ($package->tryouts as $tryout) {
+            $attempts = UserAnswer::where('user_id', $user->id)
+                ->where('tryout_id', $tryout->tryout_id)
+                ->get();
+            $isCompleted = $attempts->where('status', 'completed')->isNotEmpty();
+            $isInProgress = $attempts->where('status', 'in_progress')->isNotEmpty();
+            
+            if ($isCompleted) {
+                $completedCount++;
+            }
+            
+            $roadmapItems->push([
+                'order' => $orderCounter,
+                'type' => 'tryout',
+                'title' => $tryout->name,
+                'subtitle' => 'Tryout Latihan',
+                'icon' => 'ri-file-list-3-line',
+                'route' => route('user.tryout.lobby', ['id_package' => $package->package_id, 'id_tryout' => $tryout->tryout_id]),
+                'is_completed' => $isCompleted,
+                'is_in_progress' => $isInProgress,
+                'progress_percent' => 0,
+                'status_text' => $isCompleted ? 'Selesai' : ($isInProgress ? 'Berlangsung' : 'Mulai'),
+                'is_left' => $orderCounter % 2 === 1,
+            ]);
+            
+            $orderCounter++;
+        }
+
+        if ($tesKoranEnabled) {
+            foreach ($package->tesKorans as $tesKoran) {
+                $attempt = TesKoranResult::where('user_id', $user->id)
+                    ->where('tes_koran_id', $tesKoran->id)
+                    ->where('status', 'completed')
+                    ->first();
+                $isCompleted = $attempt !== null;
+
+                if ($isCompleted) {
+                    $completedCount++;
+                }
+
+                $roadmapItems->push([
+                    'order' => $orderCounter,
+                    'type' => 'tes_koran',
+                    'title' => $tesKoran->name,
+                    'subtitle' => 'Tes Koran',
+                    'icon' => 'ri-file-edit-line',
+                    'route' => route('user.tes-koran.show', $tesKoran),
+                    'is_completed' => $isCompleted,
+                    'is_in_progress' => false,
+                    'progress_percent' => 0,
+                    'status_text' => $isCompleted ? 'Selesai' : 'Mulai',
+                    'is_left' => $orderCounter % 2 === 1,
+                ]);
+
+                $orderCounter++;
+            }
+        }
+        
+        $totalItems = $roadmapItems->count();
+        $progressPercent = $totalItems > 0 ? round(($completedCount / $totalItems) * 100) : 0;
+        
+        // Find next item to start
+        $nextItem = $roadmapItems->first(fn($item) => !$item['is_completed']) ?? $roadmapItems->first();
+        
+        return view('user.pages.package.roadmap', compact(
+            'package',
+            'roadmapItems',
+            'completedCount',
+            'totalItems',
+            'progressPercent',
+            'nextItem'
+        ));
+    }
+
+    private function filterAndSortUserCollection($items, string $search, string $sort, callable $nameResolver, callable $dateResolver)
+    {
+        if ($search !== '') {
+            $needle = Str::lower($search);
+            $items = $items->filter(fn ($item) => Str::contains(Str::lower($nameResolver($item)), $needle));
+        }
+
+        $items = match ($sort) {
+            'oldest' => $items->sortBy(fn ($item) => $dateResolver($item)),
+            'name_asc' => $items->sortBy(fn ($item) => Str::lower($nameResolver($item))),
+            'name_desc' => $items->sortByDesc(fn ($item) => Str::lower($nameResolver($item))),
+            default => $items->sortByDesc(fn ($item) => $dateResolver($item)),
+        };
+
+        return $items->values();
+    }
+
+    /**
+     * List all tryouts - tampilkan SEMUA dengan status akses user
+     * BISA diakses oleh GUEST
+     */
+    public function listTryout(Request $request)
+    {
+        $this->forgetCombinedAiCheckoutAfterAiPayment($request);
+        $user = Auth::user();
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'latest');
+        
+        // Get packages that user has access to (empty for guest)
+        $accessiblePackageIds = $user ? $user->userPackageAccess()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                    ->orWhere('end_date', '>', Carbon::now());
+            })
+            ->pluck('package_id')
+            ->toArray() : [];
+        
+        // Get ALL active tryouts with their packages (only displayed)
+        $tryoutsQuery = \App\Models\Tryout::with(['tryoutDetails', 'packages', 'userAnswers' => function ($query) use ($user) {
+            if ($user) {
+                $query->where('user_id', $user->id);
+            }
+        }])
+        ->where('is_active', true)
+        ->where('is_displayed', true);
+
+        if ($search !== '') {
+            $tryoutsQuery->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%');
+            });
+        }
+
+        match ($sort) {
+            'oldest' => $tryoutsQuery->orderBy('created_at', 'asc'),
+            'name_asc' => $tryoutsQuery->orderBy('name', 'asc'),
+            'name_desc' => $tryoutsQuery->orderBy('name', 'desc'),
+            default => $tryoutsQuery->orderBy('created_at', 'desc'),
+        };
+
+        $tryouts = $tryoutsQuery->get();
+        $pendingIndividualTryoutIds = $user
+            ? \App\Models\IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', \App\Models\Tryout::class)
+                ->where('status', \App\Models\IndividualPurchase::STATUS_PENDING)
+                ->pluck('purchasable_id')
+                ->map(fn ($id) => (int) $id)
+                ->all()
+            : [];
+
+        // Mark each tryout with access status
+        foreach ($tryouts as $tryout) {
+            $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
+            $tryout->has_package_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
+            $tryout->has_access = $user && ($tryout->has_package_access || $tryout->canUserAccess($user->id));
+            $tryout->is_pending_individual = $user && in_array((int) $tryout->tryout_id, $pendingIndividualTryoutIds, true);
+            $tryout->route_package_id = $tryout->has_package_access
+                ? collect($tryoutPackageIds)->first(fn ($packageId) => in_array($packageId, $accessiblePackageIds))
+                : 'free';
+            $tryout->access_via_package = $tryout->packages->first();
+        }
+        
+        $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
+        $combinedAiPayment = $user ? $this->activeCombinedAiPayment($request) : null;
+
+        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans', 'combinedAiPayment'));
+    }
+
+    /**
+     * Show public package detail (accessible by guest)
+     */
+    public function detail($package_id)
+    {
+        $tesKoranEnabled = config('client.branding.tes_koran_enabled', true);
+        $relations = $tesKoranEnabled
+            ? [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts.tryoutDetails',
+                'classes',
+                'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
+                'detailPackages',
+            ]
+            : [
+                'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts.tryoutDetails',
+                'classes',
+                'detailPackages',
+            ];
+
+        $package = Package::with(array_merge($relations, ['freeClaimTryout:tryout_id,name']))
+            ->where('status', 'active')
+            ->where('is_displayed', true)
+            ->findOrFail($package_id);
+        
+        // Check if user is logged in and has access
+        $hasAccess = false;
+        $isOwned = false;
+        $isPendingConditional = false;
+        $pendingPackagePayment = null;
+        
+        if (Auth::check()) {
+            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('end_date')
+                        ->orWhere('end_date', '>', Carbon::now());
+                })
+                ->exists();
+            $isOwned = $hasAccess;
+            $isPendingConditional = UserPackageAcces::where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('requirement_status', 'pending')
+                ->exists();
+            $pendingPackagePayment = $this->pendingPackagePaymentsForPackages([(int) $package_id])->get((int) $package_id);
+        }
+        
+        // Calculate stats counts from materialsThroughDetail
+        $totalVideos = 0;
+        $totalDocuments = 0;
+        $totalLiveSessions = 0;
+        $totalMaterials = $package->materialsThroughDetail->count();
+
+        foreach ($package->materialsThroughDetail as $material) {
+            switch ($material->type) {
+                case 'video':
+                    $totalVideos++;
+                    break;
+                case 'document':
+                    $totalDocuments++;
+                    break;
+                case 'live_session':
+                    $totalLiveSessions++;
+                    break;
+            }
+        }
+
+        $publicDiscounts = Discount::query()
+            ->publicAvailable()
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->filter(fn (Discount $discount) => $discount->appliesToPurchaseType('package')
+                && $discount->appliesToPackage($package->package_id)
+            )
+            ->values();
+        $packageAutomaticDiscounts = $package->type_price === 'paid'
+            ? $this->automaticDiscountsForPackages(collect([$package]), Discount::query()
+                ->automaticAvailable()
+                ->with('tryout:tryout_id,name')
+                ->orderBy('created_at', 'desc')
+                ->get())
+            : null;
+        $packageAutomaticDiscount = $packageAutomaticDiscounts[$package->package_id] ?? null;
+        $affiliateDiscountPreview = $package->type_price === 'paid'
+            ? $this->affiliateDiscountPreview((int) $package->price)
+            : null;
+
+        return view('user.pages.package.detail-public', compact(
+            'package',
+            'hasAccess',
+            'isOwned',
+            'isPendingConditional',
+            'pendingPackagePayment',
+            'totalVideos',
+            'totalDocuments',
+            'totalLiveSessions',
+            'totalMaterials',
+            'publicDiscounts',
+            'packageAutomaticDiscount',
+            'affiliateDiscountPreview'
+        ));
     }
 }

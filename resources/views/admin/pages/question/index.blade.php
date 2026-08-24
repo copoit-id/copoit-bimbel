@@ -2,6 +2,14 @@
 @section('title', 'Manajemen Soal')
 @section('content')
 
+@php
+    $currentAdmin = auth()->user();
+    $canGenerateAi = ($clientBranding['ai_question_generator_enabled'] ?? false)
+        && ($currentAdmin?->isSuperAdmin()
+            || ($currentAdmin?->hasPermission('ai_question_generator', 'view')
+                && $currentAdmin?->hasPermission('ai_question_generator', 'create')));
+@endphp
+
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
@@ -29,28 +37,36 @@
             <p class="text-gray-600 text-sm mt-1">{{ $tryout_detail->type_subtest ?? 'Unknown' }} - {{
                 $questions->count() }} soal</p>
         </div>
-        <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+            @if($canGenerateAi)
+            <a href="{{ route('admin.question.ai-generator', $tryout_detail) }}"
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2">
+                <i class="ri-sparkling-2-line"></i>
+                Generate AI
+            </a>
+            @endif
+
             <!-- Import Excel Button -->
             <button type="button" id="importBtn"
-                class="px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
                 <i class="ri-file-excel-2-line"></i>
                 Import Excel
             </button>
 
             <!-- Download Template Button -->
             <a href="{{ asset('template/template_soal.xlsx') }}"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
                 <i class="ri-download-line"></i>
                 Download Template
             </a>
 
             <a href="{{ route('admin.question.create', $tryout_detail->tryout_detail_id) }}"
-                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
                 <i class="ri-add-line"></i>
                 Tambah Soal
             </a>
             <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
-                class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
+                class="w-full sm:w-auto justify-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
                 <i class="ri-folder-transfer-line"></i>
                 Ambil dari Bank
             </a>
@@ -116,10 +132,22 @@
                 $maxWeight = optional($question->questionOptions)->max(function($opt){
                 return is_null($opt->weight) ? 0 : (float)$opt->weight;
                 });
-                $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
                 $metadata = is_array($question->metadata) ? $question->metadata : [];
+                $multipleAnswerMeta = is_array($metadata['multiple_answer'] ?? null) ? $metadata['multiple_answer'] : [];
+                $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
+                $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
+                $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                if (($question->question_type ?? '') === 'multiple_answer' && isset($multipleAnswerMeta['score_correct'])) {
+                    $displayWeight = (float) $multipleAnswerMeta['score_correct'];
+                } elseif (($question->question_type ?? '') === 'matching' && isset($matchingMeta['score_correct'])) {
+                    $displayWeight = (float) $matchingMeta['score_correct'];
+                } elseif (($question->question_type ?? '') === 'multiple_true_false' && isset($mtfMeta['score_correct'])) {
+                    $displayWeight = (float) $mtfMeta['score_correct'];
+                }
                 $typeLabels = [
                 'multiple_choice' => 'Multiple Choice',
+                'multiple_answer' => 'Multiple Answer',
+                'multiple_true_false' => 'Multiple True/False',
                 'true_false' => 'Benar/Salah',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
@@ -128,8 +156,19 @@
                 @endphp
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type))
-                    }}</span>
+                    @if(($question->question_type ?? '') === 'multiple_answer')
+                        {{ $typeLabels[$question->question_type] ?? 'Multiple Answer' }}
+                        - {{ in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $multipleAnswerMeta['scoring_mode'] : 'fullscore' }}
+                    @elseif(($question->question_type ?? '') === 'matching')
+                        {{ $typeLabels[$question->question_type] ?? 'Pencocokan' }}
+                        - {{ in_array(($matchingMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $matchingMeta['scoring_mode'] : 'fullscore' }}
+                    @elseif(($question->question_type ?? '') === 'multiple_true_false')
+                        {{ $typeLabels[$question->question_type] ?? 'Multiple True/False' }}
+                        - {{ in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $mtfMeta['scoring_mode'] : 'fullscore' }}
+                    @else
+                        {{ $typeLabels[$question->question_type] ?? ucwords(str_replace('_', ' ', $question->question_type)) }}
+                    @endif
+                </span>
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
                     {{ (float) $displayWeight }} poin
@@ -174,6 +213,54 @@
                 </ul>
                 @else
                 <p class="text-sm text-gray-500">Belum ada pasangan pencocokan yang tersimpan.</p>
+                @endif
+                @break
+
+                @case('multiple_true_false')
+                @php
+                $mtfStatements = isset($mtfMeta['statements']) && is_array($mtfMeta['statements']) ? $mtfMeta['statements'] : [];
+                $mtfTrueLabel = trim((string) ($mtfMeta['true_label'] ?? 'Benar'));
+                $mtfFalseLabel = trim((string) ($mtfMeta['false_label'] ?? 'Salah'));
+                $mtfScoringMode = in_array(($mtfMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true) ? $mtfMeta['scoring_mode'] : 'fullscore';
+                $mtfTotalScore = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
+                $mtfPerStatementScore = count($mtfStatements) > 0 ? ($mtfTotalScore / count($mtfStatements)) : $mtfTotalScore;
+                @endphp
+                @if(!empty($mtfStatements))
+                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-5 py-3.5 text-left font-semibold text-gray-800 w-[70%]">Pernyataan</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Benar' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah' }}</th>
+                                <th class="px-5 py-3.5 text-center font-semibold text-gray-800 whitespace-nowrap w-[10%]">Poin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($mtfStatements as $stmt)
+                            @php $isTrue = (($stmt['correct'] ?? 'true') === 'true'); @endphp
+                            <tr class="border-t border-gray-200">
+                                <td class="px-5 py-3.5 text-gray-800">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if($isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center align-middle">
+                                    @if(!$isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
+                                </td>
+                                <td class="px-5 py-3.5 text-center text-gray-600 whitespace-nowrap align-middle">
+                                    @if($mtfScoringMode === 'partial')
+                                    {{ number_format($mtfPerStatementScore, 2) }} poin
+                                    @else
+                                    Benar semua : {{ rtrim(rtrim(number_format($mtfTotalScore, 2, '.', ''), '0'), '.') }} poin
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @else
+                <p class="text-sm text-gray-500">Belum ada pernyataan Multiple True/False yang tersimpan.</p>
                 @endif
                 @break
 
@@ -248,17 +335,40 @@
                 @break
 
                 @default
+                @php
+                $isMultipleAnswer = ($question->question_type ?? '') === 'multiple_answer';
+                $multipleAnswerScoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
+                    ? $multipleAnswerMeta['scoring_mode']
+                    : 'fullscore';
+                $multipleAnswerTotalScore = (float) ($multipleAnswerMeta['score_correct'] ?? ($question->default_weight ?? 1));
+                $multipleAnswerCorrectCount = max(1, $question->questionOptions->where('is_correct', true)->count());
+                $multipleAnswerPerCorrectScore = $multipleAnswerCorrectCount > 0
+                    ? ($multipleAnswerTotalScore / $multipleAnswerCorrectCount)
+                    : $multipleAnswerTotalScore;
+                @endphp
                 <ul class="space-y-2 text-gray-600">
                     @foreach ($question->questionOptions as $optIndex => $option)
                     @php
                     $optionLabel = chr(65 + $optIndex);
+                    $partialOptionScore = $option->is_correct ? $multipleAnswerPerCorrectScore : 0;
                     @endphp
-                    <li class="flex items-center gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
+                    <li class="flex items-start gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
                         <i
-                            class="{{ $option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' }}"></i>
-                        <span class="flex items-center gap-1">{{ $optionLabel }}. {!! $option->option_text !!}</span>
-                        @if($question->custom_score == 'yes')
-                        <span class="text-xs text-gray-500">({{ $option->weight }} poin)</span>
+                            class="mt-0.5 {{ $option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' }}"></i>
+                        <div class="flex-1 min-w-0 flex items-start gap-1">
+                            <span class="shrink-0">{{ $optionLabel }}.</span>
+                            <div class="option-inline-text">{!! $option->option_text !!}</div>
+                        </div>
+                        @if($isMultipleAnswer && $multipleAnswerScoringMode === 'partial')
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            ({{ number_format($partialOptionScore, 2) }} poin)
+                        </span>
+                        @elseif($isMultipleAnswer && $multipleAnswerScoringMode === 'fullscore' && $option->is_correct)
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            (Benar semua : {{ rtrim(rtrim(number_format($multipleAnswerTotalScore, 2, '.', ''), '0'), '.') }} poin)
+                        </span>
+                        @elseif($question->custom_score == 'yes')
+                        <span class="text-xs text-gray-500 whitespace-nowrap ml-2">({{ $option->weight }} poin)</span>
                         @endif
                     </li>
                     @endforeach
@@ -274,18 +384,28 @@
             </div>
             @endif
 
-            <div class="flex gap-3 mt-6">
-                <x-btn title="Edit Soal"
-                    route="{{ route('admin.question.edit', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
-                    icon="ri-pencil-fill">
-                </x-btn>
+            <div class="flex flex-col sm:flex-row gap-3 mt-6">
+                <a href="{{ route('admin.question.edit', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
+                    class="w-full sm:w-auto bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                    <i class="ri-pencil-fill"></i>
+                    Edit Soal
+                </a>
+                <form action="{{ route('admin.question.duplicate', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
+                    method="POST" class="w-full sm:w-auto">
+                    @csrf
+                    <button type="submit"
+                        class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                        <i class="ri-file-copy-2-line"></i>
+                        Duplikat Soal
+                    </button>
+                </form>
                 <form
                     action="{{ route('admin.question.destroy', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
-                    method="POST" onsubmit="return confirmDelete(event)" class="inline">
+                    method="POST" onsubmit="return confirmDelete(event)" class="w-full sm:w-auto">
                     @csrf
                     @method('DELETE')
                     <button type="submit"
-                        class="px-4 py-2 bg-red text-white rounded-lg hover:bg-red/90 transition-colors flex items-center gap-2">
+                        class="w-full sm:w-auto px-4 py-2 bg-red text-white rounded-lg hover:bg-red/90 transition-colors flex items-center justify-center gap-2">
                         <i class="ri-delete-bin-5-fill"></i>
                         Hapus Soal
                     </button>
@@ -308,6 +428,15 @@
         @endforelse
     </div>
 </div>
+@endsection
+
+@section('styles')
+<style>
+    .option-inline-text p {
+        display: inline;
+        margin: 0;
+    }
+</style>
 @endsection
 
 @section('scripts')

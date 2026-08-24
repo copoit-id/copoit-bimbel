@@ -1,0 +1,419 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\HasIndividualPricing;
+use App\Services\TutorContentVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
+class Material extends Model
+{
+    use HasFactory;
+    use HasIndividualPricing;
+
+    protected $primaryKey = 'material_id';
+    protected $guarded = ['material_id'];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'is_for_sale' => 'boolean',
+        'is_displayed' => 'boolean',
+        'type_price' => 'string',
+        'metadata' => 'array',
+        'duration_minutes' => 'integer',
+        'order_number' => 'integer',
+        'price' => 'decimal:0',
+        'access_duration_value' => 'integer',
+    ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('tutor-content-owner', function (Builder $query): void {
+            $user = auth()->user();
+
+            if (! app(TutorContentVisibilityService::class)->shouldScopeToOwner($user)) {
+                return;
+            }
+
+            $query->where($query->qualifyColumn('created_by'), $user->id);
+        });
+    }
+
+    /**
+     * Relasi ke kategori (many-to-many)
+     */
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            MaterialCategory::class,
+            'material_category_pivot',
+            'material_id',
+            'category_id'
+        )->withTimestamps();
+    }
+
+    /**
+     * Relasi ke user access
+     */
+    public function userAccess(): HasMany
+    {
+        return $this->hasMany(UserMaterialAccess::class, 'material_id');
+    }
+
+    /**
+     * Relasi ke progress logs
+     */
+    public function progressLogs(): HasMany
+    {
+        return $this->hasMany(MaterialProgressLog::class, 'material_id');
+    }
+
+    /**
+     * Relasi ke packages (many-to-many dengan pivot data)
+     */
+    public function packages(): BelongsToMany
+    {
+        return $this->belongsToMany(Package::class, 'package_materials', 'material_id', 'package_id')
+            ->withPivot(['section_name', 'order_number', 'is_required', 'unlock_condition'])
+            ->orderBy('package_materials.order_number');
+    }
+
+    /**
+     * Polymorphic relationship untuk detail_packages
+     */
+    public function detailPackages(): MorphMany
+    {
+        return $this->morphMany(DetailPackage::class, 'detailable');
+    }
+
+    /**
+     * Relasi ke creator
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Scope: Active materials
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope: By type
+     */
+    public function scopeByType($query, $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    /**
+     * Scope: By category
+     */
+    public function scopeByCategory($query, $categoryId)
+    {
+        $categoryIds = [(int) $categoryId];
+        $category = MaterialCategory::query()
+            ->with('activeChildren')
+            ->find($categoryId);
+
+        if ($category) {
+            $categoryIds = $category->activeChildren
+                ->pluck('category_id')
+                ->prepend($category->category_id)
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        return $query->whereHas('categories', function ($q) use ($categoryIds) {
+            $q->whereIn('material_categories.category_id', $categoryIds);
+        });
+    }
+
+    /**
+     * Scope: Order by order_number
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('order_number', 'asc');
+    }
+
+    /**
+     * Check if user has access to this material
+     */
+    public function userHasAccess(int $userId): bool
+    {
+        return $this->userAccess()
+            ->where('user_id', $userId)
+            ->where('status', '!=', 'not_started')
+            ->exists();
+    }
+
+    /**
+     * Get user access record
+     */
+    public function getUserAccess(int $userId): ?UserMaterialAccess
+    {
+        return $this->userAccess()
+            ->where('user_id', $userId)
+            ->first();
+    }
+
+    /**
+     * Get formatted duration attribute
+     */
+    public function getFormattedDurationAttribute(): ?string
+    {
+        if (!$this->duration_minutes) {
+            return null;
+        }
+
+        $hours = floor($this->duration_minutes / 60);
+        $minutes = $this->duration_minutes % 60;
+
+        if ($hours > 0) {
+            return $minutes > 0
+                ? "{$hours}j {$minutes}m"
+                : "{$hours}j";
+        }
+
+        return "{$minutes}m";
+    }
+
+    /**
+     * Get type label attribute
+     */
+    public function getTypeLabelAttribute(): string
+    {
+        return match ($this->type) {
+            'video' => 'Video',
+            'document' => 'Dokumen',
+            'live_session' => config('client.branding.live_session_label', 'Kelas Belajar'),
+            default => 'Materi',
+        };
+    }
+
+    /**
+     * Get type icon attribute
+     */
+    public function getTypeIconAttribute(): string
+    {
+        return match ($this->type) {
+            'video' => 'ri-video-line',
+            'document' => 'ri-file-text-line',
+            'live_session' => 'ri-live-line',
+            default => 'ri-book-line',
+        };
+    }
+
+    public function getEmbedUrlAttribute(): string
+    {
+        $url = trim((string) $this->content_url);
+
+        if ($url === '') {
+            return '';
+        }
+
+        return match ($this->type) {
+            'video' => $this->videoEmbedUrl($url),
+            'document' => $this->documentEmbedUrl($url),
+            default => $url,
+        };
+    }
+
+    private function videoEmbedUrl(string $url): string
+    {
+        return $this->youtubeEmbedUrl($url)
+            ?? $this->vimeoEmbedUrl($url)
+            ?? $this->googleDrivePreviewUrl($url)
+            ?? $url;
+    }
+
+    private function documentEmbedUrl(string $url): string
+    {
+        return $this->googleDrivePreviewUrl($url)
+            ?? $this->googleDocsPreviewUrl($url)
+            ?? $url;
+    }
+
+    private function youtubeEmbedUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        if ($host === 'youtu.be') {
+            $videoId = explode('/', $path)[0] ?? null;
+        } elseif (str_ends_with($host, 'youtube.com')) {
+            if (str_starts_with($path, 'embed/')) {
+                return $url;
+            }
+
+            $videoId = $query['v'] ?? null;
+
+            if (!$videoId && preg_match('~^(shorts|live)/([^/?#]+)~', $path, $matches)) {
+                $videoId = $matches[2];
+            }
+        } else {
+            return null;
+        }
+
+        $videoId = is_string($videoId ?? null) ? trim($videoId) : '';
+
+        return $videoId !== '' ? 'https://www.youtube.com/embed/' . $videoId : null;
+    }
+
+    private function vimeoEmbedUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = trim((string) parse_url($url, PHP_URL_PATH), '/');
+
+        if ($host === 'player.vimeo.com') {
+            return $url;
+        }
+
+        if (!str_ends_with($host, 'vimeo.com') || !preg_match('~(\d+)~', $path, $matches)) {
+            return null;
+        }
+
+        return 'https://player.vimeo.com/video/' . $matches[1];
+    }
+
+    private function googleDrivePreviewUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        if ($host !== 'drive.google.com' && !str_ends_with($host, '.drive.google.com')) {
+            return null;
+        }
+
+        if (preg_match('~/file/d/([^/]+)~', $path, $matches)) {
+            return 'https://drive.google.com/file/d/' . $matches[1] . '/preview';
+        }
+
+        if (!empty($query['id']) && is_string($query['id'])) {
+            return 'https://drive.google.com/file/d/' . $query['id'] . '/preview';
+        }
+
+        return null;
+    }
+
+    private function googleDocsPreviewUrl(string $url): ?string
+    {
+        $host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+
+        if ($host !== 'docs.google.com' && !str_ends_with($host, '.docs.google.com')) {
+            return null;
+        }
+
+        if (str_ends_with($path, '/preview')) {
+            return $url;
+        }
+
+        if (preg_match('~^/(document|presentation|spreadsheets)/d/([^/]+)~', $path, $matches)) {
+            return 'https://docs.google.com/' . $matches[1] . '/d/' . $matches[2] . '/preview';
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if user can access this material (via any method)
+     */
+    public function canUserAccess(int $userId): bool
+    {
+        // Check via package. Package assignment uses detail_packages.
+        $hasPackageAccess = \DB::table('detail_packages')
+            ->join('user_package_access', 'detail_packages.package_id', '=', 'user_package_access.package_id')
+            ->where('detail_packages.detailable_type', self::class)
+            ->where('detail_packages.detailable_id', $this->material_id)
+            ->where('user_package_access.user_id', $userId)
+            ->where('user_package_access.status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('user_package_access.end_date')
+                    ->orWhere('user_package_access.end_date', '>', now());
+            })
+            ->exists();
+
+        if ($hasPackageAccess) {
+            return true;
+        }
+
+        // Check via direct user access
+        $hasDirectAccess = $this->userAccess()
+            ->where('user_id', $userId)
+            ->where('access_source', 'direct')
+            ->whereIn('access_type', ['free', 'purchased', 'paid'])
+            ->where('status', '!=', 'not_started')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+
+        if ($hasDirectAccess) {
+            return true;
+        }
+
+        // Check via individual purchase.
+        if ($this->isIndividuallyAvailable()) {
+            $hasIndividualPurchase = \App\Models\IndividualPurchase::where('user_id', $userId)
+                ->where('purchasable_type', self::class)
+                ->where('purchasable_id', $this->material_id)
+                ->where('status', 'approved')
+                ->where(function ($query) {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
+                ->exists();
+
+            if ($hasIndividualPurchase) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has purchased this individually
+     */
+    public function hasUserPurchased(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->material_id)
+            ->where('status', 'approved')
+            ->where(function ($query) {
+                $query->whereNull('access_expires_at')
+                    ->orWhere('access_expires_at', '>', now());
+            })
+            ->exists();
+    }
+
+    /**
+     * Check if user has pending purchase for this
+     */
+    public function hasPendingPurchase(int $userId): bool
+    {
+        return \App\Models\IndividualPurchase::where('user_id', $userId)
+            ->where('purchasable_type', self::class)
+            ->where('purchasable_id', $this->material_id)
+            ->where('status', 'pending')
+            ->exists();
+    }
+}

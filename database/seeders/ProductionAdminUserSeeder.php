@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,23 @@ class ProductionAdminUserSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+
+            // Assign role to role_user pivot table
+            $role = Role::where('slug', $account['role'])->first();
+            if ($role) {
+                $user->roles()->syncWithoutDetaching([$role->id]);
+                $this->command->info(sprintf(
+                    'Assigned role "%s" to user %s',
+                    $account['role'],
+                    $account['email']
+                ));
+            } else {
+                $this->command->warn(sprintf(
+                    'Role "%s" not found for user %s',
+                    $account['role'],
+                    $account['email']
+                ));
+            }
 
             $this->command->info(sprintf(
                 '%s user for %s',

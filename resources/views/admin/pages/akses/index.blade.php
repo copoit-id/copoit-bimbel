@@ -1,6 +1,9 @@
 @extends('admin.layout.admin')
 @section('title', 'Akses User')
 @section('content')
+@php
+    $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
+@endphp
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
@@ -9,222 +12,145 @@
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="Akses User - Kelola & Pengajuan"></x-page-desc>
+<x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Kelas, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi, Kelas & Tryout' }}"></x-page-desc>
 
-<!-- Summary Cards -->
-<div class="grid grid-cols-3 gap-4 mt-6">
-    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm text-primary">Total User Akses</p>
-                <p class="text-2xl font-bold text-primary">{{ number_format($totalUserAccess) }}</p>
+<!-- Tabs Navigation -->
+<div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
+    <a href="{{ route('admin.akses.index', ['tab' => 'packages']) }}" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'packages' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-folder-3-line mr-1"></i>Paket
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'packages' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $items->count() }}
+        </span>
+    </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'videos']) }}" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'videos' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-video-line mr-1"></i>Video
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'videos' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'videos' ? $items->count() : '' }}
+        </span>
+    </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'documents']) }}" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'documents' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-text-line mr-1"></i>Dokumen
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'documents' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'documents' ? $items->count() : '' }}
+        </span>
+    </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'live']) }}" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'live' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-live-line mr-1"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'live' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'live' ? $items->count() : '' }}
+        </span>
+    </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'classes']) }}"
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'classes' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-video-on-line mr-1"></i>Kelas Zoom
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'classes' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'classes' ? $items->count() : '' }}
+        </span>
+    </a>
+    <a href="{{ route('admin.akses.index', ['tab' => 'tryouts']) }}" 
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tryouts' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-list-3-line mr-1"></i>Tryout
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'tryouts' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'tryouts' ? $items->count() : '' }}
+        </span>
+    </a>
+    @if($canManageTesKoran)
+    <a href="{{ route('admin.akses.index', ['tab' => 'tes_koran']) }}"
+       class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tes_koran' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+        <i class="ri-file-edit-line mr-1"></i>Tes Koran
+        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'tes_koran' ? 'bg-white/20' : 'bg-gray-100' }}">
+            {{ $tab === 'tes_koran' ? $items->count() : '' }}
+        </span>
+    </a>
+    @endif
+</div>
+
+<!-- Items Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+    @forelse($items as $item)
+    @php
+    $itemId = $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id;
+    $itemName = $item->name ?? $item->title ?? 'Unknown';
+    $userCount = $item->user_access_count ?? $item->userAccess->count() ?? 0;
+    $pendingCount = (int) ($item->pending_requests_count ?? 0);
+    
+    // Get type-specific icon
+    $icon = match($tab) {
+        'packages' => 'ri-folder-3-line',
+        'videos' => 'ri-video-line',
+        'documents' => 'ri-file-text-line',
+        'live' => 'ri-live-line',
+        'classes' => 'ri-video-on-line',
+        'tryouts' => 'ri-file-list-3-line',
+        'tes_koran' => 'ri-file-edit-line',
+        default => 'ri-apps-line',
+    };
+    
+    // Get color based on tab
+    $colorClass = match($tab) {
+        'packages' => 'bg-blue-100 text-blue-600',
+        'videos' => 'bg-red-100 text-red-600',
+        'documents' => 'bg-green-100 text-green-600',
+        'live' => 'bg-purple-100 text-purple-600',
+        'classes' => 'bg-cyan-100 text-cyan-600',
+        'tryouts' => 'bg-orange-100 text-orange-600',
+        'tes_koran' => 'bg-emerald-100 text-emerald-600',
+        default => 'bg-gray-100 text-gray-600',
+    };
+    @endphp
+    <div class="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow group">
+        <div class="p-5 flex h-full flex-col">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 {{ $colorClass }} rounded-xl flex items-center justify-center flex-shrink-0">
+                    <i class="{{ $icon }} text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-gray-900 truncate" title="{{ $itemName }}">{{ $itemName }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        {{ $userCount }} user memiliki akses
+                    </p>
+                </div>
             </div>
-            <i class="ri-user-line text-3xl text-primary"></i>
-        </div>
-    </div>
-    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm text-primary">Akses Aktif</p>
-                <p class="text-2xl font-bold text-primary">{{ number_format($activeAccess) }}</p>
+            
+            <div class="mt-auto pt-4">
+                <div class="mb-3 border-t pt-4">
+                    <span class="inline-flex max-w-full items-center rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
+                    @if(in_array($tab, ['packages', 'tes_koran']) && $item->price > 0)
+                        Rp {{ number_format($item->price, 0, ',', '.') }}
+                    @elseif(in_array($tab, ['packages', 'tes_koran']))
+                        Gratis
+                    @else
+                        {{ ucfirst(str_replace('_', ' ', $tab)) }}
+                    @endif
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <a href="{{ route('admin.akses.requests.index', ['type' => $tab, 'item_id' => $itemId]) }}"
+                       class="min-h-[40px] inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-center text-sm font-medium transition-colors {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200' }}">
+                        <i class="ri-inbox-archive-line mr-1"></i>Pengajuan
+                        <span class="inline-flex min-w-5 justify-center rounded-full bg-white/70 px-1.5 text-xs">{{ $pendingCount }}</span>
+                    </a>
+                    <a href="{{ route('admin.akses.manage', ['type' => $tab, 'item_id' => $itemId]) }}"
+                       class="min-h-[40px] inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-primary/90">
+                        Kelola Akses
+                    </a>
+                </div>
             </div>
-            <i class="ri-key-line text-3xl text-primary"></i>
         </div>
     </div>
-    <div class="bg-primary/5 border border-primary/50 rounded-lg p-4">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm text-primary">Pengajuan Pending</p>
-                <p class="text-2xl font-bold text-primary">{{ number_format($pendingRequestCount) }}</p>
-            </div>
-            <i class="ri-notification-line text-3xl text-primary"></i>
+    @empty
+    <div class="col-span-full text-center py-12">
+        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="ri-inbox-line text-3xl text-gray-400"></i>
         </div>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Belum ada {{ str_replace('s', '', $tab) }}</h3>
+        <p class="text-gray-400 text-sm">Data akan muncul setelah ditambahkan.</p>
     </div>
+    @endforelse
 </div>
 
-<div class="flex items-center gap-3 mt-8">
-    <button type="button"
-        class="akses-tab px-5 py-2 rounded-lg bg-primary text-white font-semibold"
-        data-section="packages">
-        Kelola Akses
-    </button>
-    <button type="button"
-        class="akses-tab px-5 py-2 rounded-lg border border-primary text-primary font-semibold"
-        data-section="requests">
-        Pengajuan Akses ({{ $pendingRequestCount }})
-    </button>
-</div>
-
-<!-- Package List -->
-<div id="akses-section-packages" data-layout="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-    @foreach($packages as $package)
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <div class="flex items-center justify-between mb-4">
-            <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm capitalize">{{ $package->type_package
-                }}</span>
-            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">{{ ucfirst($package->status)
-                }}</span>
-        </div>
-        <h3 class="text-lg font-bold mb-2">{{ $package->name }}</h3>
-        <p class="text-gray-600 text-sm mb-4">{{ Str::limit($package->description, 100) }}</p>
-        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
-            <span>Total User: {{ $package->user_access_count ?? 0 }}</span>
-            <span>Aktif: {{ $package->active_users_count ?? 0 }}</span>
-        </div>
-        <a href="{{ route('admin.akses.show', $package->package_id) }}"
-            class="block w-full text-center bg-primary text-white py-2 rounded-lg hover:bg-primary/90">
-            Kelola Akses
-        </a>
-    </div>
-    @endforeach
-</div>
-
-<!-- Pending Requests -->
-<div id="akses-section-requests" data-layout="block" class="hidden mt-6">
-    <div class="bg-white rounded-lg border border-gray-200">
-        <div class="p-6 border-b border-gray-100">
-            <h3 class="text-lg font-semibold text-gray-900">Pengajuan Akses Gratis Bersyarat</h3>
-            <p class="text-sm text-gray-500">Review bukti peserta sebelum memberikan akses paket gratis bersyarat.</p>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm text-gray-600">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500">
-                    <tr>
-                        <th class="px-6 py-3 text-left font-semibold">Pengguna</th>
-                        <th class="px-6 py-3 text-left font-semibold">Paket</th>
-                        <th class="px-6 py-3 text-left font-semibold">Bukti & Catatan</th>
-                        <th class="px-6 py-3 text-left font-semibold">Status</th>
-                        <th class="px-6 py-3 text-left font-semibold">Diajukan</th>
-                        <th class="px-6 py-3 text-left font-semibold">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
-                    @forelse($pendingRequests as $requestItem)
-                    <tr>
-                        <td class="px-6 py-4">
-                            <div class="font-semibold text-gray-900">{{ $requestItem->user->name ?? '-' }}</div>
-                            <div class="text-xs text-gray-500">{{ $requestItem->user->email ?? '' }}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="font-semibold text-gray-900">{{ $requestItem->package->name ?? '-' }}</div>
-                            <div class="text-xs text-gray-500 capitalize">{{ $requestItem->package->type_package ?? '' }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            @php
-                                $proofPath = $requestItem->requirement_proof_path;
-                                $proofExists = $proofPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($proofPath);
-                                $proofUrl = $proofExists ? asset('storage/' . ltrim($proofPath, '/')) : null;
-                            @endphp
-                            <div class="flex flex-col gap-1">
-                                @if($proofUrl)
-                                <a href="{{ $proofUrl }}" target="_blank"
-                                    class="inline-flex items-center gap-1 text-primary text-sm font-semibold hover:underline">
-                                    <i class="ri-attachment-line"></i>
-                                    Lihat Bukti
-                                </a>
-                                @else
-                                <span class="text-xs text-gray-400">Belum ada bukti</span>
-                                @endif
-                                <p class="text-xs text-gray-500">{{ Str::limit($requestItem->notes, 80) }}</p>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
-                                Menunggu Review
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            {{ optional($requestItem->created_at)->format('d M Y H:i') }}
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex flex-wrap gap-2">
-                                <form action="{{ route('admin.akses.requests.approve', $requestItem->user_package_access_id) }}"
-                                    method="POST" onsubmit="return confirm('Setujui pengajuan akses ini?');">
-                                    @csrf
-                                    <button type="submit"
-                                        class="inline-flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 hover:bg-green-100">
-                                        <i class="ri-check-line"></i> Setujui
-                                    </button>
-                                </form>
-                                <form action="{{ route('admin.akses.requests.reject', $requestItem->user_package_access_id) }}"
-                                    method="POST" onsubmit="return confirm('Tolak pengajuan akses ini?');">
-                                    @csrf
-                                    <button type="submit"
-                                        class="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100">
-                                        <i class="ri-close-line"></i> Tolak
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-10 text-center text-gray-500">
-                            Tidak ada pengajuan akses menunggu persetujuan.
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-    console.log('Package access management loaded');
-});
-</script>
-
-@endsection
-
-@section('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const sectionMap = {
-            packages: document.getElementById('akses-section-packages'),
-            requests: document.getElementById('akses-section-requests'),
-        };
-
-        const tabs = document.querySelectorAll('.akses-tab');
-
-        function setActive(section) {
-            Object.entries(sectionMap).forEach(([key, el]) => {
-                if (!el) {
-                    return;
-                }
-
-                const layoutClass = el.dataset.layout ?? 'block';
-
-                if (key === section) {
-                    el.classList.remove('hidden');
-                    el.classList.add(layoutClass);
-                } else {
-                    el.classList.add('hidden');
-                    el.classList.remove(layoutClass);
-                }
-            });
-
-            tabs.forEach(tab => {
-                if (tab.dataset.section === section) {
-                    tab.classList.add('bg-primary', 'text-white');
-                    tab.classList.remove('border', 'border-primary', 'text-primary');
-                } else {
-                    tab.classList.remove('bg-primary', 'text-white');
-                    tab.classList.add('border', 'border-primary', 'text-primary');
-                }
-            });
-        }
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', function () {
-                const section = tab.dataset.section;
-                setActive(section);
-            });
-        });
-
-        setActive('packages');
-    });
-</script>
 @endsection

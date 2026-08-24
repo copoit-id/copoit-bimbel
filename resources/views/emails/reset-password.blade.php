@@ -1,126 +1,129 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - {{ $clientBranding['name'] ?? config('client.branding.name') }}</title>
+    <title>Atur Ulang Kata Sandi - {{ $clientBranding['name'] ?? config('client.branding.name') }}</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-
-        .container {
-            background-color: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 20px;
-        }
-
-        .logo {
-            background-color: #2563eb;
-            color: white;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .title {
-            color: #2563eb;
-            margin: 0;
-            font-size: 24px;
-        }
-
-        .content {
-            margin-bottom: 30px;
-        }
-
-        .btn {
-            display: inline-block;
-            background-color: #2563eb;
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-
-        .btn:hover {
-            background-color: #1d4ed8;
-        }
-
-        .footer {
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .warning {
-            background-color: #fef3cd;
-            border: 1px solid #ffeaa7;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                width: 100% !important;
+                padding: 20px !important;
+            }
+            .email-card {
+                padding: 24px !important;
+                border-radius: 8px !important;
+            }
+            .email-button {
+                display: block !important;
+                text-align: center !important;
+                padding: 12px 16px !important;
+            }
         }
     </style>
 </head>
+<body style="margin: 0; padding: 0; width: 100%; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; table-layout: fixed;">
+        <tr>
+            <td align="center" style="padding: 40px 10px;">
+                <!--[if mso]>
+                <table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" width="560">
+                <tr>
+                <td>
+                <![endif]-->
+                <table class="email-container" role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto; text-align: left;">
+                    
+                    <!-- Logo / Brand Section -->
+                    <tr>
+                        <td style="padding-bottom: 24px; padding-left: 4px;">
+                            @if(!empty($clientBranding['logo_url']))
+                                <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] ?? config('client.branding.name') }}" style="height: 40px; max-height: 48px; width: {{ ($clientBranding['logo_display_mode'] ?? 'square') === 'original' ? 'auto' : '40px' }}; display: block; border: 0;">
+                            @else
+                                <span style="font-size: 20px; font-weight: 700; color: {{ $clientBranding['primary_color'] ?? '#1c3259' }}; letter-spacing: -0.5px;">
+                                    {{ $clientBranding['name'] ?? config('client.branding.name') }}
+                                </span>
+                            @endif
+                        </td>
+                    </tr>
 
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">🎓</div>
-            <h1 class="title">{{ $clientBranding['name'] ?? config('client.branding.name') }}</h1>
-        </div>
+                    <!-- Main Email Content Card -->
+                    <tr>
+                        <td class="email-card" style="background-color: #ffffff; padding: 40px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);">
+                            
+                            <h1 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.4;">
+                                Permintaan Atur Ulang Kata Sandi
+                            </h1>
+                            
+                            <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                                Halo {{ $user->safe_name_for_email }},
+                            </p>
+                            
+                            <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #475569;">
+                                Kami menerima permintaan untuk mengatur ulang kata sandi akun Anda di <strong>{{ $clientBranding['name'] ?? config('client.branding.name') }}</strong>. Silakan klik tombol di bawah ini untuk melanjutkan:
+                            </p>
+                            
+                            <!-- Call to Action Button -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
+                                <tr>
+                                    <td>
+                                        <a class="email-button" href="{{ $resetUrl }}" target="_blank" style="background-color: {{ $clientBranding['primary_color'] ?? '#1c3259' }}; color: #ffffff; display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); transition: background-color 0.2s ease;">
+                                            Atur Ulang Kata Sandi
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <div class="content">
-            <h2>Halo, {{ $user->name }}!</h2>
+                            <!-- Important Security Notice -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border-left: 4px solid {{ $clientBranding['primary_color'] ?? '#1c3259' }}; border-radius: 4px; margin-bottom: 28px;">
+                                <tr>
+                                    <td style="padding: 16px; font-size: 13px; line-height: 1.5; color: #64748b;">
+                                        <div style="font-weight: 700; color: #475569; margin-bottom: 6px;">Catatan Keamanan Penting:</div>
+                                        <ul style="margin: 0; padding-left: 20px;">
+                                            <li style="margin-bottom: 4px;">Tautan ini hanya berlaku selama <strong>1 jam</strong>.</li>
+                                            <li style="margin-bottom: 4px;">Jika Anda tidak meminta atur ulang kata sandi ini, Anda dapat mengabaikan email ini dengan aman.</li>
+                                            <li>Jangan pernah membagikan tautan ini kepada siapapun demi keamanan akun Anda.</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
 
-            <p>Kami menerima permintaan untuk reset password akun Anda di {{ $clientBranding['name'] ?? config('client.branding.name') }}.</p>
+                            <!-- Troubleshoot / Raw Link Section -->
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
+                                <tr>
+                                    <td style="font-size: 12px; line-height: 1.5; color: #94a3b8;">
+                                        Jika tombol di atas tidak berfungsi, salin dan tempel tautan berikut ke browser Anda:
+                                        <div style="margin-top: 8px; word-break: break-all;">
+                                            <a href="{{ $resetUrl }}" target="_blank" style="color: {{ $clientBranding['primary_color'] ?? '#1c3259' }}; text-decoration: underline;">
+                                                {{ $resetUrl }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
 
-            <p>Jika Anda meminta reset password, klik tombol di bawah ini untuk melanjutkan:</p>
+                        </td>
+                    </tr>
 
-            <div style="text-align: center; color: white">
-                <a href="{{ $resetUrl }}" class="btn">Reset Password Saya</a>
-            </div>
+                    <!-- Footer Section -->
+                    <tr>
+                        <td style="padding: 32px 0 0 0; text-align: center; font-size: 12px; line-height: 1.6; color: #94a3b8;">
+                            <p style="margin: 0 0 8px 0;">
+                                Email ini dikirim secara otomatis oleh sistem {{ $clientBranding['name'] ?? config('client.branding.name') }}.
+                            </p>
+                            <p style="margin: 0;">
+                                &copy; {{ date('Y') }} {{ $clientBranding['name'] ?? config('client.branding.name') }}. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
 
-            <div class="warning">
-                <strong>⚠️ Penting:</strong>
-                <ul>
-                    <li>Link ini akan kadaluarsa dalam 1 jam</li>
-                    <li>Jika Anda tidak meminta reset password, abaikan email ini</li>
-                    <li>Jangan bagikan link ini kepada siapa pun</li>
-                </ul>
-            </div>
-
-            <p>Jika Anda mengalami kesulitan dengan tombol di atas, hubungi tim support kami.</p>
-        </div>
-
-        <div class="footer">
-            <p>Email ini dikirim otomatis oleh sistem {{ $clientBranding['name'] ?? config('client.branding.name') }}.</p>
-            <p>© {{ date('Y') }} {{ $clientBranding['name'] ?? config('client.branding.name') }}. All rights reserved.</p>
-        </div>
-    </div>
+                </table>
+                <!--[if mso]>
+                </td>
+                </tr>
+                </table>
+                <![endif]-->
+            </td>
+        </tr>
+    </table>
 </body>
-
 </html>

@@ -1,0 +1,198 @@
+@extends('super-admin.layouts.app')
+
+@section('title', 'Super Admin - Pembayaran AI Gateway')
+
+@section('content')
+@php
+    $paymentStatusLabels = [
+        'paid' => 'Dibayar',
+        'pending' => 'Menunggu konfirmasi',
+        'expired' => 'Kedaluwarsa',
+        'failed' => 'Gagal',
+        'rejected' => 'Ditolak',
+    ];
+@endphp
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><h1 class="text-2xl font-bold text-gray-900">Pembayaran AI Gateway</h1><p class="mt-1 text-gray-500">Audit pembelian paket AI dari seluruh project yang terhubung ke gateway pusat.</p></div><a href="{{ route('super-admin.ai-gateway-usage.index') }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"><i class="ri-radar-line"></i> Gateway Monitoring</a></div>
+
+    @if(session('success'))<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
+    @if(session('error'))<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
+
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-xl border border-gray-200 bg-white p-5"><p class="text-sm text-gray-500">Pembayaran berhasil</p><p class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($summary->paid_count ?? 0, 0, ',', '.') }}</p></div>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 p-5"><p class="text-sm font-medium text-blue-700">Pemasukan kotor</p><p class="mt-1 text-2xl font-bold text-blue-950">Rp {{ number_format($financialSummary['gross_income'], 0, ',', '.') }}</p><p class="mt-1 text-xs text-blue-700">Dari transaksi berstatus berhasil.</p></div>
+        <div class="rounded-xl border border-rose-100 bg-rose-50 p-5"><p class="text-sm font-medium text-rose-700">Pengeluaran API</p><p class="mt-1 text-2xl font-bold text-rose-950">Rp {{ number_format($financialSummary['api_expense'], 0, ',', '.') }}</p><p class="mt-1 text-xs text-rose-700">Dari tarif model yang tersimpan saat request terjadi.</p></div>
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-5"><p class="text-sm font-medium text-emerald-700">Pemasukan bersih</p>@if($financialSummary['net_income'] === null)<p class="mt-1 text-lg font-bold text-emerald-950">Belum dapat dihitung</p><p class="mt-1 text-xs text-emerald-700">Ada penggunaan model tanpa tarif tercatat.</p>@else<p class="mt-1 text-2xl font-bold text-emerald-950">Rp {{ number_format($financialSummary['net_income'], 0, ',', '.') }}</p><p class="mt-1 text-xs text-emerald-700">Pemasukan kotor dikurangi pengeluaran API.</p>@endif</div>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div><h2 class="font-semibold text-gray-900">Rincian pengeluaran API</h2><p class="mt-1 text-sm text-gray-500">Biaya dihitung dari token yang benar-benar tercatat di gateway, bukan dari kuota paket yang dibeli. Tarif disimpan pada setiap request.</p></div>
+            <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><span class="font-semibold text-slate-800">{{ number_format($financialSummary['request_count'], 0, ',', '.') }}</span> request · <span class="font-semibold text-slate-800">{{ number_format($financialSummary['input_tokens'], 0, ',', '.') }}</span> input token · <span class="font-semibold text-slate-800">{{ number_format($financialSummary['output_tokens'], 0, ',', '.') }}</span> output token</div>
+        </div>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Project</th><th class="px-4 py-3">Model</th><th class="px-4 py-3 text-right">Input token</th><th class="px-4 py-3 text-right">Output token</th><th class="px-4 py-3">Tarif / 1 juta token</th><th class="px-4 py-3 text-right">Pengeluaran</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($costBreakdown as $cost)<tr><td class="px-4 py-3 font-medium text-gray-900">{{ $cost['client_name'] }}<p class="mt-1 text-xs font-normal text-gray-500">{{ number_format($cost['request_count'], 0, ',', '.') }} request</p></td><td class="px-4 py-3"><span class="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{{ $cost['model'] }}</span></td><td class="whitespace-nowrap px-4 py-3 text-right">{{ number_format($cost['input_tokens'], 0, ',', '.') }}</td><td class="whitespace-nowrap px-4 py-3 text-right">{{ number_format($cost['output_tokens'], 0, ',', '.') }}</td><td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600">Input US$ {{ number_format($cost['input_per_million_usd'], 2, '.', ',') }} · Output US$ {{ number_format($cost['output_per_million_usd'], 2, '.', ',') }}</td><td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-rose-700">Rp {{ number_format($cost['total_cost_idr'], 0, ',', '.') }}</td></tr>@empty<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Belum ada penggunaan model dengan tarif yang dapat dihitung.</td></tr>@endforelse</tbody></table>
+        </div>
+        <p class="mt-3 text-xs text-gray-500">Model dan tarif mengikuti request yang terjadi. Mengganti model atau tarif tidak akan mengubah biaya request lama.</p>
+        @if($unpricedUsage->isNotEmpty())<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Ada {{ number_format($unpricedUsage->sum('request_count'), 0, ',', '.') }} request lama tanpa tarif: {{ $unpricedUsage->pluck('model')->unique()->join(', ') }}. Pemasukan bersih sengaja tidak ditampilkan agar tidak menyesatkan.</div>@endif
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <h2 class="font-semibold text-gray-900">Riwayat pembayaran</h2>
+                <p class="mt-1 text-sm text-gray-500">Status dibayar hanya diberikan setelah konfirmasi provider atau persetujuan manual super admin.</p>
+            </div>
+
+            <form method="GET" class="flex flex-wrap gap-2">
+                <select name="client_id" class="rounded-lg border-gray-300 text-sm">
+                    <option value="">Semua project</option>
+                    @foreach($clients as $client)
+                        <option value="{{ $client->id }}" @selected((string) request('client_id') === (string) $client->id)>
+                            {{ $client->name }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <select name="status" class="rounded-lg border-gray-300 text-sm">
+                    <option value="">Semua status</option>
+                    @foreach(['paid' => 'Dibayar', 'pending' => 'Menunggu konfirmasi', 'expired' => 'Kedaluwarsa', 'failed' => 'Gagal'] as $value => $label)
+                        <option value="{{ $value }}" @selected(request('status') === $value)>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <button class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90">Filter</button>
+            </form>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+                    <tr>
+                        <th class="px-4 py-3">Waktu</th>
+                        <th class="px-4 py-3">Peserta / project</th>
+                        <th class="px-4 py-3">Paket</th>
+                        <th class="px-4 py-3 text-right">Nominal</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3 text-right">Token / chat terpakai</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($transactions as $transaction)
+                        @php
+                            $confirmationSource = data_get($transaction->details, 'confirmation_source');
+                            $accessRevocation = data_get($transaction->details, 'access_revocation');
+                            $subscription = $transaction->subscription;
+                            $isFreeClaim = $transaction->provider === 'free_claim' || (int) $transaction->amount === 0;
+                            $canResetLegacyPayment = $transaction->status === 'paid'
+                                && $transaction->provider === 'ipaymu'
+                                && blank($confirmationSource)
+                                && $subscription
+                                && $subscription->status === 'active'
+                                && (int) $subscription->tokens_used === 0
+                                && (int) $subscription->chats_used === 0;
+                            $canReconcilePayment = $transaction->status === 'paid'
+                                && blank($accessRevocation)
+                                && $subscription?->status === 'pending';
+                        @endphp
+
+                        <tr>
+                            <td class="whitespace-nowrap px-4 py-3 text-gray-500">
+                                {{ $transaction->paid_at?->format('d M Y H:i') ?? $transaction->created_at->format('d M Y H:i') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <p class="font-medium text-gray-900">{{ $subscription?->external_user_name ?? 'Peserta tidak tersedia' }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $subscription?->external_user_email ?? '-' }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $transaction->client?->name ?? 'Project dihapus' }}</p>
+                            </td>
+                            <td class="px-4 py-3 text-gray-700">{{ $transaction->plan?->name ?? '-' }}</td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right font-medium">
+                                @if($isFreeClaim)
+                                    <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Gratis</span>
+                                @else
+                                    Rp {{ number_format($transaction->amount, 0, ',', '.') }}
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $transaction->status === 'paid' ? 'bg-green-100 text-green-700' : ($transaction->status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600') }}">
+                                    {{ $isFreeClaim && $transaction->status === 'paid' ? 'Diklaim gratis' : ($paymentStatusLabels[$transaction->status] ?? ucfirst($transaction->status)) }}
+                                </span>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    @if($isFreeClaim)
+                                        Paket gratis · aktif otomatis
+                                    @else
+                                        {{ $transaction->provider }}
+                                    @endif
+                                    @if(! $isFreeClaim && $transaction->status === 'paid')
+                                        · {{ $confirmationSource === 'manual_admin' ? 'ACC manual' : ($confirmationSource === 'provider' ? 'terverifikasi provider' : 'data lama') }}
+                                    @elseif(! $isFreeClaim && $transaction->status === 'pending')
+                                        · belum ada konfirmasi pembayaran
+                                    @endif
+                                </p>
+                                @if($accessRevocation)
+                                    <p class="mt-1 text-xs font-medium text-red-600">Akses paket dicabut · transaksi tetap tercatat</p>
+                                @endif
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right">
+                                {{ number_format($subscription?->tokens_used ?? 0, 0, ',', '.') }} token<br>
+                                <span class="text-xs text-gray-500">{{ number_format($subscription?->chats_used ?? 0, 0, ',', '.') }} chat</span>
+                            </td>
+                            <td class="whitespace-nowrap px-4 py-3 text-right">
+                                @if($transaction->status === 'pending')
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.approve', $transaction) }}"
+                                        class="inline"
+                                        onsubmit="return confirm('ACC manual akan menandai pembayaran sebagai dibayar dan mengaktifkan kuota. Lanjutkan?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-green-700 hover:underline">ACC manual</button>
+                                    </form>
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reject', $transaction) }}"
+                                        class="ml-3 inline"
+                                        onsubmit="return confirm('Tolak pembayaran ini?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-red-600 hover:underline">Tolak</button>
+                                    </form>
+                                @elseif($canReconcilePayment)
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reconcile', $transaction) }}"
+                                        onsubmit="return confirm('Transaksi sudah dibayar. Sinkronkan dan aktifkan paket peserta tanpa membuat pembayaran baru?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-blue-700 hover:underline">Sinkronkan paket</button>
+                                    </form>
+                                @elseif($canResetLegacyPayment)
+                                    <form
+                                        method="POST"
+                                        action="{{ route('super-admin.ai-gateway-payments.reset-unverified', $transaction) }}"
+                                        onsubmit="return confirm('Kembalikan pembayaran lama ini ke status menunggu dan nonaktifkan kuotanya sampai iPaymu mengonfirmasi pembayaran?')"
+                                    >
+                                        @csrf
+                                        <button class="text-xs font-semibold text-amber-700 hover:underline">Reset ke pending</button>
+                                    </form>
+                                @else
+                                    <span class="text-xs text-gray-400">-</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">Belum ada transaksi pembayaran AI.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4">{{ $transactions->links() }}</div>
+    </div>
+</div>
+@endsection

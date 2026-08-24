@@ -21,6 +21,7 @@
                 <tr>
                     <th scope="col" class="px-6 py-3 w-16">
                         <input type="checkbox" id="select-all"
+                            autocomplete="off"
                             class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
                     </th>
                     <th scope="col" class="px-6 py-3">Nama Tryout</th>
@@ -44,6 +45,7 @@
                     <td class="px-6 py-4">
                         <input type="checkbox"
                             class="tryout-checkbox w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                            autocomplete="off"
                             data-tryout-id="{{ $tryout->tryout_id }}" {{ $isInPackage ? 'checked' : '' }}>
                     </td>
                     <td class="px-6 py-4">
@@ -65,9 +67,9 @@
                     <td class="px-6 py-4 text-center">{{ $totalDuration }} menit</td>
                     <td class="px-6 py-4 text-center">{{ $totalQuestions }} soal</td>
                     <td class="px-6 py-4 text-center">
-                        @if($tryout->start_date > now())
+                        @if($tryout->start_date?->isFuture())
                         <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Datang</span>
-                        @elseif($tryout->end_date < now()) <span
+                        @elseif($tryout->end_date?->isPast()) <span
                             class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Selesai</span>
                             @else
                             <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
@@ -136,13 +138,8 @@
     <div class="mt-4 p-4 bg-gray-50 rounded-lg">
         <div class="flex justify-between items-center">
             <p class="text-sm text-gray-600">
-                <span class="font-medium" id="selected-count">{{ $tryouts->where('detailPackages', '!=', null)->count()
-                    }}</span> tryout dipilih dari {{ $tryouts->total() }} total tryout
+                <span class="font-medium" id="selected-count">{{ $selectedTryoutCount ?? 0 }}</span> tryout dipilih dari {{ $tryouts->total() }} total tryout
             </p>
-            <button id="save-changes"
-                class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50" disabled>
-                Simpan Perubahan
-            </button>
         </div>
     </div>
 </div>
@@ -154,44 +151,29 @@
     document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.tryout-checkbox');
     const selectAll = document.getElementById('select-all');
-    const saveButton = document.getElementById('save-changes');
     const selectedCount = document.getElementById('selected-count');
-    let initialState = new Set();
-    let changedItems = new Set();
+    let totalSelectedCount = {{ (int) ($selectedTryoutCount ?? 0) }};
+    let savingCount = 0;
 
-    // Store initial state
     checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            initialState.add(checkbox.dataset.tryoutId);
-        }
+        checkbox.defaultChecked = checkbox.checked;
     });
 
     function updateUI() {
         const checkedCount = document.querySelectorAll('.tryout-checkbox:checked').length;
-        selectedCount.textContent = checkedCount;
-
-        saveButton.disabled = changedItems.size === 0;
+        selectedCount.textContent = totalSelectedCount;
 
         // Update select all checkbox
         const totalCheckboxes = checkboxes.length;
-        selectAll.checked = checkedCount === totalCheckboxes;
+        selectAll.checked = totalCheckboxes > 0 && checkedCount === totalCheckboxes;
         selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes;
+        selectAll.disabled = savingCount > 0;
     }
 
     // Handle individual checkbox changes
     checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const tryoutId = this.dataset.tryoutId;
-            const isChecked = this.checked;
-            const wasInitiallyChecked = initialState.has(tryoutId);
-
-            if (isChecked !== wasInitiallyChecked) {
-                changedItems.add(tryoutId);
-            } else {
-                changedItems.delete(tryoutId);
-            }
-
-            updateUI();
+        checkbox.addEventListener('change', async function() {
+            await syncTryoutCheckbox(this);
         });
     });
 
@@ -205,48 +187,55 @@
         });
     });
 
-    // Handle save changes
-    saveButton.addEventListener('click', async function() {
-        this.disabled = true;
-        this.textContent = 'Menyimpan...';
+    async function syncTryoutCheckbox(checkbox) {
+        const tryoutId = checkbox.dataset.tryoutId;
+        const previousState = checkbox.defaultChecked;
+        const nextState = checkbox.checked;
 
-        const promises = Array.from(changedItems).map(tryoutId => {
-            return fetch(`/admin/paket/{{ $package->package_id }}/tryout/${tryoutId}/toggle`, {
+        checkbox.disabled = true;
+        savingCount++;
+        updateUI();
+
+        try {
+            const response = await fetch('{{ route('admin.package.tryout.toggle', ['package_id' => $package->package_id, 'tryout_id' => '__TRYOUT_ID__']) }}'.replace('__TRYOUT_ID__', tryoutId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            });
-        });
-
-        try {
-            await Promise.all(promises);
-
-            // Update initial state
-            initialState.clear();
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    initialState.add(checkbox.dataset.tryoutId);
-                }
+                },
+                body: JSON.stringify({
+                    selected: nextState
+                }),
+                keepalive: true
             });
 
-            changedItems.clear();
+            if (!response.ok) {
+                throw new Error('Gagal menyimpan perubahan');
+            }
 
-            // Show success message
+            checkbox.defaultChecked = nextState;
+            totalSelectedCount += nextState ? 1 : -1;
+            totalSelectedCount = Math.max(0, totalSelectedCount);
+
             showNotification('Perubahan berhasil disimpan', 'success');
 
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-
         } catch (error) {
+            checkbox.checked = previousState;
             showNotification('Terjadi kesalahan saat menyimpan', 'error');
+        } finally {
+            savingCount = Math.max(0, savingCount - 1);
+            checkbox.disabled = false;
+            updateUI();
         }
+    }
 
-        this.disabled = false;
-        this.textContent = 'Simpan Perubahan';
+    document.querySelectorAll('nav[role="navigation"] a, .pagination a').forEach(link => {
+        link.addEventListener('click', function(event) {
+            if (savingCount > 0) {
+                event.preventDefault();
+                showNotification('Tunggu sampai perubahan selesai tersimpan', 'error');
+            }
+        });
     });
 
     function showNotification(message, type) {

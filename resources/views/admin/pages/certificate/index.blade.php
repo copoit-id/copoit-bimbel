@@ -8,43 +8,45 @@
             <h2 class="text-2xl font-bold text-gray-800">Manajemen Sertifikat</h2>
             <p class="text-gray-600">Kelola sertifikat dan validasi dokumen</p>
         </div>
+        <a href="{{ route('admin.certificate.template.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90">
+            <i class="ri-layout-4-line"></i> Atur Template Sertifikat
+        </a>
     </div>
 
     <!-- Filter Section -->
     <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
+        <form method="GET" action="{{ route('admin.certificate.index') }}" class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-6">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full lg:w-auto">
                 <div class="relative w-full sm:w-auto">
-                    <input type="text" id="certificate-search" placeholder="Cari sertifikat..."
+                    <input type="search" name="search" value="{{ request('search') }}" placeholder="Cari sertifikat..."
                         class="pl-10 pr-4 py-2 w-full sm:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <select id="certificate-status-filter"
+                    <select name="status"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">Semua Status</option>
-                        <option value="active">Aktif</option>
-                        <option value="revoked">Dicabut</option>
-                        <option value="expired">Expired</option>
+                        <option value="active" @selected(request('status') === 'active')>Aktif</option>
+                        <option value="revoked" @selected(request('status') === 'revoked')>Dicabut</option>
+                        <option value="expired" @selected(request('status') === 'expired')>Expired</option>
                     </select>
-                    <select id="certificate-date-filter"
-                        class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="">Periode Terbit</option>
-                        <option value="today">Hari Ini</option>
-                        <option value="week">7 Hari Terakhir</option>
-                        <option value="month">30 Hari Terakhir</option>
-                        <option value="year">Tahun Ini</option>
-                    </select>
+                    <input type="date" name="date_from" value="{{ request('date_from') }}" aria-label="Tanggal terbit dari"
+                        class="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <input type="date" name="date_to" value="{{ request('date_to') }}" aria-label="Tanggal terbit sampai"
+                        class="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                 </div>
-                <button id="reset-certificate-filters"
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
+                    <i class="ri-search-line"></i> Cari
+                </button>
+                <a href="{{ route('admin.certificate.index') }}"
                     class="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 w-full sm:w-auto">
                     <i class="ri-refresh-line"></i> Reset
-                </button>
+                </a>
             </div>
-            <div id="certificate-count" class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
-                Total: <span class="font-medium text-gray-700">0 Sertifikat</span>
+            <div class="text-sm text-gray-500 w-full lg:w-auto text-left lg:text-right">
+                Total: <span class="font-medium text-gray-700">{{ $certificates->total() }} Sertifikat</span>
             </div>
-        </div>
+        </form>
     </div>
 
     <!-- Certificate Table -->
@@ -172,17 +174,6 @@
             </table>
         </div>
 
-        <!-- No Results Message -->
-        <div id="no-certificate-results" class="hidden">
-            <div class="text-center py-12">
-                <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <i class="ri-search-line text-3xl text-gray-400"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak ada sertifikat ditemukan</h3>
-                <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter</p>
-            </div>
-        </div>
-
         @if($certificates->hasPages())
         <div class="bg-white px-4 py-3 border-t border-gray-200">
             {{ $certificates->links() }}
@@ -193,86 +184,23 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('certificate-search');
-    const statusFilter = document.getElementById('certificate-status-filter');
-    const dateFilter = document.getElementById('certificate-date-filter');
-    const resetButton = document.getElementById('reset-certificate-filters');
-    const certificateCount = document.getElementById('certificate-count');
-    const certificateRows = document.querySelectorAll('.certificate-row');
-    const tableBody = document.getElementById('certificate-table-body');
-    const noResults = document.getElementById('no-certificate-results');
-
     // Bulk actions
     const selectAllCheckbox = document.getElementById('select-all-certificates');
     const certificateCheckboxes = document.querySelectorAll('.certificate-checkbox');
     const selectedCount = document.getElementById('selected-count');
 
-    function filterCertificates() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const selectedStatus = statusFilter.value;
-        const selectedDate = dateFilter.value;
-
-        let visibleCount = 0;
-
-        certificateRows.forEach(row => {
-            const certificateNumber = row.dataset.number || '';
-            const certificateName = row.dataset.name || '';
-            const holderName = row.dataset.holder || '';
-            const holderEmail = row.dataset.email || '';
-            const certificateStatus = row.dataset.status || '';
-            const certificateDate = row.dataset.date || '';
-
-            const matchesSearch = certificateNumber.toLowerCase().includes(searchTerm) ||
-                                certificateName.includes(searchTerm) ||
-                                holderName.includes(searchTerm) ||
-                                holderEmail.includes(searchTerm);
-            const matchesStatus = !selectedStatus || certificateStatus === selectedStatus;
-            const matchesDate = !selectedDate; // Date filtering would need backend support
-
-            if (matchesSearch && matchesStatus && matchesDate) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Show/hide no results message
-        if (visibleCount === 0 && certificateRows.length > 0) {
-            noResults.classList.remove('hidden');
-            tableBody.parentElement.style.display = 'none';
-        } else {
-            noResults.classList.add('hidden');
-            tableBody.parentElement.style.display = 'block';
-        }
-
-        updateCertificateCount(visibleCount);
-    }
-
-    function updateCertificateCount(count) {
-        certificateCount.innerHTML = `Total: <span class="font-medium text-gray-700">${count} Sertifikat</span>`;
-    }
-
-    function resetFilters() {
-        searchInput.value = '';
-        statusFilter.value = '';
-        dateFilter.value = '';
-        filterCertificates();
-    }
-
     function updateSelectedCount() {
-        const visibleCheckboxes = Array.from(certificateCheckboxes).filter(cb =>
-            cb.closest('.certificate-row').style.display !== 'none'
-        );
-        const selectedCheckboxes = visibleCheckboxes.filter(cb => cb.checked);
+        const selectedCheckboxes = Array.from(certificateCheckboxes).filter(cb => cb.checked);
 
-        selectedCount.textContent = `${selectedCheckboxes.length} sertifikat dipilih`;
+        if (selectedCount) {
+            selectedCount.textContent = `${selectedCheckboxes.length} sertifikat dipilih`;
+        }
 
         // Update select all checkbox state
         if (selectedCheckboxes.length === 0) {
             selectAllCheckbox.indeterminate = false;
             selectAllCheckbox.checked = false;
-        } else if (selectedCheckboxes.length === visibleCheckboxes.length) {
+        } else if (selectedCheckboxes.length === certificateCheckboxes.length) {
             selectAllCheckbox.indeterminate = false;
             selectAllCheckbox.checked = true;
         } else {
@@ -280,19 +208,9 @@
         }
     }
 
-    // Event listeners
-    searchInput.addEventListener('input', filterCertificates);
-    statusFilter.addEventListener('change', filterCertificates);
-    dateFilter.addEventListener('change', filterCertificates);
-    resetButton.addEventListener('click', resetFilters);
-
     // Bulk selection
     selectAllCheckbox.addEventListener('change', function() {
-        const visibleCheckboxes = Array.from(certificateCheckboxes).filter(cb =>
-            cb.closest('.certificate-row').style.display !== 'none'
-        );
-
-        visibleCheckboxes.forEach(checkbox => {
+        certificateCheckboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
 
@@ -303,8 +221,6 @@
         checkbox.addEventListener('change', updateSelectedCount);
     });
 
-    // Initial render
-    filterCertificates();
     updateSelectedCount();
 
     console.log('Certificate management scripts loaded');
