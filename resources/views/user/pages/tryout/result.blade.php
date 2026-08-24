@@ -16,6 +16,7 @@
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
                         $showResultScores = $tryout->shouldShowResultScores();
+                        $showPassingGrade = $tryout->shouldShowPassingGrade();
                         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
                     <div class="flex flex-col justify-center items-center">
@@ -252,20 +253,24 @@
                                         <div>
                                             <p class="font-medium text-gray-900">{{ $result['name'] }}</p>
                                             <div class="text-sm text-gray-500">
-                                                @if ($showResultScores)
-                                                    <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                        {{ $result['raw_score'] }}/{{ $result['max_score'] }}
-                                                    </span>
+                                                @if ($showResultScores || $showPassingGrade)
+                                                    @if ($showResultScores)
+                                                        <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
+                                                            {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                        </span>
+                                                    @endif
+                                                    @if ($showResultScores && $showPassingGrade)
+                                                        <span class="mx-1">-</span>
+                                                    @endif
+                                                    @if ($showPassingGrade)
+                                                        Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                    @endif
                                                 @endif
                                                 @if (($result['pending_count'] ?? 0) > 0)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded ml-2">
                                                         <i class="ri-time-line animate-pulse"></i>
                                                         {{ $result['pending_count'] }} menunggu
                                                     </span>
-                                                @endif
-                                                @if ($showResultScores)
-                                                    <span class="mx-1">-</span>
-                                                    Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
                                                 @endif
                                             </div>
                                         </div>

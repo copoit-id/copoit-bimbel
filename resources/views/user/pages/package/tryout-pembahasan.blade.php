@@ -6,6 +6,7 @@
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         $aiDiscussionEnabled = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
@@ -241,17 +242,19 @@
                 <div class="mt-2 text-xs text-gray-600 text-center">
                     {{ $summary['correct_answers'] }} benar, {{ $summary['wrong_answers'] }} salah
                 </div>
-                <div class="mt-1 text-xs text-gray-500 text-center">
-                    Passing grade:
-                    @if(($summary['passing_type'] ?? 'score') === 'percentage')
-                        {{ number_format($summary['passing_score'] ?? 0, 1) }}%
-                    @else
-                        {{ $summary['passing_score'] ?? '-' }}
-                        @if(!is_null($summary['passing_percentage'] ?? null))
-                            ({{ number_format($summary['passing_percentage'], 1) }}%)
+                @if($showPassingGrade)
+                    <div class="mt-1 text-xs text-gray-500 text-center">
+                        Passing grade:
+                        @if(($summary['passing_type'] ?? 'score') === 'percentage')
+                            {{ number_format($summary['passing_score'] ?? 0, 1) }}%
+                        @else
+                            {{ $summary['passing_score'] ?? '-' }}
+                            @if(!is_null($summary['passing_percentage'] ?? null))
+                                ({{ number_format($summary['passing_percentage'], 1) }}%)
+                            @endif
                         @endif
-                    @endif
-                </div>
+                    </div>
+                @endif
             </div>
             @endforeach
         </div>

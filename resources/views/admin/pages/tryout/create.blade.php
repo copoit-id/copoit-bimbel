@@ -30,6 +30,7 @@
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
     $lobbyTokenEnabled = old('lobby_token_enabled', $tryout->lobby_token_enabled ?? false);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
+    $showPassingGradeChecked = old('show_passing_grade', $tryout->show_passing_grade ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
     $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
     $securityOptions = [
@@ -366,7 +367,7 @@
                         </span>
                     </label>
 
-                    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <div class="space-y-3">
                         <label class="flex items-center gap-3">
                             <input type="checkbox" id="lobby_token_enabled" name="lobby_token_enabled" value="1"
                                 {{ $lobbyTokenEnabled ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
@@ -412,6 +413,21 @@
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tampilkan Leaderboard di User
                             <x-ui.tooltip>Jika dimatikan, tombol ranking disembunyikan dan URL ranking akan ditolak.</x-ui.tooltip>
+                        </span>
+                    </label>
+
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" id="show_passing_grade" name="show_passing_grade" value="1"
+                            {{ $showPassingGradeChecked ? 'checked' : '' }}
+                            class="sr-only peer tryout-toggle-input">
+                        <span
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            Tampilkan Passing Grade di User
+                            <x-ui.tooltip>Atur tampilan passing grade secara terpisah. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
                         </span>
                     </label>
 

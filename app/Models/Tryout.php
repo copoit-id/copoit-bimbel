@@ -32,6 +32,7 @@ class Tryout extends Model
         'show_discussion' => 'boolean',
         'lobby_token_enabled' => 'boolean',
         'show_leaderboard' => 'boolean',
+        'show_passing_grade' => 'boolean',
         'show_result_scores' => 'boolean',
         'result_score_display' => 'string',
         'section_break_duration' => 'integer',
@@ -86,6 +87,11 @@ class Tryout extends Model
     public function shouldShowResultScores(): bool
     {
         return $this->show_result_scores ?? true;
+    }
+
+    public function shouldShowPassingGrade(): bool
+    {
+        return $this->show_passing_grade ?? true;
     }
 
     public function shouldShowTotalResultScore(): bool

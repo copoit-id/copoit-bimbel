@@ -5,6 +5,7 @@
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     @php
         $showResultScores = $tryout->shouldShowResultScores();
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
     @endphp
     <div class="text-center mb-6">
@@ -203,11 +204,17 @@
                 </div>
                 
                 <div class="flex items-center justify-between">
-                    @if($showResultScores)
+                    @if($showResultScores || $showPassingGrade)
                         <p class="text-sm text-gray-500">
-                            {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
-                            <span class="mx-1">-</span>
-                            Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                            @if($showResultScores)
+                                {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
+                            @endif
+                            @if($showResultScores && $showPassingGrade)
+                                <span class="mx-1">-</span>
+                            @endif
+                            @if($showPassingGrade)
+                                Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                            @endif
                         </p>
                     @else
                         <span></span>
