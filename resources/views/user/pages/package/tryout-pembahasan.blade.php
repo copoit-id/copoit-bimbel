@@ -151,8 +151,6 @@
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
-                <a href="{{ $downloadQuestionsUrl }}" class="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"><i class="ri-download-2-line mr-1"></i>Unduh Soal</a>
-                <a href="{{ $downloadExplanationsUrl }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-file-download-line mr-1"></i>Unduh Pembahasan</a>
                 @if($aiDiscussionEnabled)
                     <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-pushpin-2-line mr-1"></i>Catatan Dipin</a>
                 @endif
@@ -301,6 +299,18 @@
                 {{ $navIndex + 1 }}
             </button>
             @endforeach
+        </div>
+        <div class="mt-5 border-t border-gray-200 pt-4">
+            <p class="text-sm font-semibold text-gray-700">Unduh Materi</p>
+            <p class="mt-1 text-xs text-gray-500">Simpan soal atau pembahasannya untuk dipelajari kembali.</p>
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                <x-ui.button :href="$downloadQuestionsUrl" variant="outline" size="sm" icon="ri-download-2-line" :full-width="true" class="sm:w-auto">
+                    Unduh Soal
+                </x-ui.button>
+                <x-ui.button :href="$downloadExplanationsUrl" size="sm" icon="ri-file-download-line" :full-width="true" class="sm:w-auto">
+                    Unduh Pembahasan
+                </x-ui.button>
+            </div>
         </div>
     </div>
     @endif
