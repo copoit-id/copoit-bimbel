@@ -5,7 +5,9 @@
         : route('admin.profile.index');
     $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
     $headerPrimary = $clientBranding['header_primary_color'] ?? false;
-    $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
+    $navClasses = $headerPrimary
+        ? 'border-b border-primary bg-primary text-white shadow-lg shadow-primary/20'
+        : 'border-b border-slate-200 bg-white/95 text-gray-900 shadow-sm backdrop-blur';
     $toggleButtonClasses = $headerPrimary
         ? 'inline-flex items-center p-2 text-sm text-white rounded-lg sm:hidden hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30'
         : 'inline-flex items-center p-2 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200';
@@ -32,12 +34,14 @@
                         </path>
                     </svg>
                 </button>
-                <a href="#" class="flex min-w-0 ms-2 md:me-12 items-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" class="client-brand-logo w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
+                <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" class="flex min-w-0 items-center gap-2 rounded-xl px-1 py-1 transition-colors hover:bg-black/5 focus:outline-none focus:ring-2 {{ $headerPrimary ? 'focus:ring-white/50' : 'focus:ring-primary/30' }}">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm sm:h-11 sm:w-11">
+                        <img src="{{ $clientBranding['logo_url'] }}" class="client-brand-logo h-full w-full object-contain"
                         alt="{{ $clientBranding['name'] }} Logo" />
+                    </span>
                     <div class="flex min-w-0 flex-col justify-start">
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>
-                        <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
+                        <p class="hidden sm:block text-[12px] font-medium {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
                     </div>
                 </a>
             </div>

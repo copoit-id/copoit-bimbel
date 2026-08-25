@@ -14,7 +14,9 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
+use App\Services\TryoutQuestionDownloadService;
 use App\Services\UtbkResultReleaseService;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -506,6 +508,18 @@ class TryoutController extends Controller
                 ->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
         }
+    }
+
+    public function downloadQuestions(Tryout $tryout, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    {
+        $questions = Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->whereHas('tryoutDetail', fn ($query) => $query->where('tryout_id', $tryout->tryout_id))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        return $questionDownloadService->download($tryout, $questions);
     }
 
     private function createTryoutDetails(Tryout $tryout, Request $request): void

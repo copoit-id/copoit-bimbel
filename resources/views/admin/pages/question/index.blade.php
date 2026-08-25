@@ -10,6 +10,7 @@
                 && $currentAdmin?->hasPermission('ai_question_generator', 'create')));
 @endphp
 
+<div class="space-y-6">
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
@@ -22,25 +23,32 @@
         icon="ri-add-fill">
     </x-btn>
 </div>
-<div class="package-bimbel bg-white p-8 rounded-lg border border-border flex justify-center text-center">
-    <x-page-desc direction='item-center' title="Manajemen Soal - {{ $tryout->name }}">
-        <x-slot name="description">
-            Subtest: {{ $tryout_detail->type_subtest == 'social culture' ? 'Sosial Kultural & Manajerial' :
-            strtoupper($tryout_detail->type_subtest) }} • Durasi: {{ $tryout_detail->duration }} menit
-        </x-slot>
-    </x-page-desc>
-</div>
-<div class="bg-white p-6 rounded-lg border border-border">
+<section class="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary to-primary/85 text-white shadow-sm">
+    <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div class="min-w-0">
+            <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-inset ring-white/20">
+                <i class="ri-file-list-3-line"></i>
+                Hasil Import & Manajemen Soal
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $tryout->name }}</h1>
+            <p class="mt-2 text-sm text-white/80">{{ $tryout_detail->type_subtest == 'social culture' ? 'Sosial Kultural & Manajerial' : strtoupper($tryout_detail->type_subtest) }} · Durasi {{ $tryout_detail->duration }} menit</p>
+        </div>
+        <div class="flex shrink-0 items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-inset ring-white/15">
+            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary"><i class="ri-question-answer-line text-xl"></i></span>
+            <div><p class="text-2xl font-bold leading-none">{{ $questions->count() }}</p><p class="mt-1 text-xs font-medium text-white/80">soal tersedia</p></div>
+        </div>
+    </div>
+</section>
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-            <h2 class="text-xl font-bold text-gray-800">Daftar Soal</h2>
-            <p class="text-gray-600 text-sm mt-1">{{ $tryout_detail->type_subtest ?? 'Unknown' }} - {{
-                $questions->count() }} soal</p>
+            <h2 class="text-xl font-bold text-slate-900">Daftar Soal & Pembahasan</h2>
+            <p class="text-slate-500 text-sm mt-1">Tinjau soal, jawaban benar, dan pembahasan sebelum tryout dipublikasikan.</p>
         </div>
-        <div class="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             @if($canGenerateAi)
             <a href="{{ route('admin.question.ai-generator', $tryout_detail) }}"
-                class="w-full sm:w-auto justify-center px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2">
+                class="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700">
                 <i class="ri-sparkling-2-line"></i>
                 Generate AI
             </a>
@@ -48,25 +56,18 @@
 
             <!-- Import Excel Button -->
             <button type="button" id="importBtn"
-                class="w-full sm:w-auto justify-center px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                class="inline-flex items-center gap-2 rounded-lg bg-green px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700">
                 <i class="ri-file-excel-2-line"></i>
                 Import Excel
             </button>
 
-            <!-- Download Template Button -->
-            <a href="{{ asset('template/template_soal.xlsx') }}"
-                class="w-full sm:w-auto justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                <i class="ri-download-line"></i>
-                Download Template
-            </a>
-
-            <a href="{{ route('admin.question.create', $tryout_detail->tryout_detail_id) }}"
-                class="w-full sm:w-auto justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
-                <i class="ri-add-line"></i>
-                Tambah Soal
+            <a href="{{ route('admin.question.download', $tryout_detail->tryout_detail_id) }}"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
+                <i class="ri-download-2-line"></i>
+                Unduh Soal
             </a>
             <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
-                class="w-full sm:w-auto justify-center px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-2">
+                class="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5">
                 <i class="ri-folder-transfer-line"></i>
                 Ambil dari Bank
             </a>
@@ -106,6 +107,12 @@
                     </ul>
                 </div>
 
+                <a href="{{ route('admin.question-import.download-template', $tryout_detail->tryout_detail_id) }}"
+                    class="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100">
+                    <i class="ri-download-2-line"></i>
+                    Download Template Excel
+                </a>
+
                 <div class="flex gap-3">
                     <button type="button" id="cancelBtn"
                         class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
@@ -120,10 +127,10 @@
         </div>
     </div>
 
-    <div class="mt-4 space-y-4">
+    <div class="mt-5 space-y-4">
         @forelse ($questions as $index => $question)
-        <div class="bg-white border border-border rounded-xl p-6 flex flex-col">
-            <div class="flex items-center gap-2 mb-2">
+        <article class="question-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+            <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4">
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-[#0B2B9A]/10 text-[#0B2B9A] border border-[#0B2B9A]/10">
                     Soal #{{ $index + 1 }}
@@ -182,7 +189,7 @@
                 @endif
             </div>
 
-            <div class="question-rich-text font-semibold text-gray-900 leading-relaxed mb-2">
+            <div class="question-rich-text mt-5 font-semibold text-slate-900 leading-relaxed">
                 {!! $question->question_text !!}
             </div>
 
@@ -195,14 +202,14 @@
             </div>
             @endif
 
-            <div class="mb-2">
-                <div class="font-semibold text-gray-700 mb-1">Detail Jawaban:</div>
+            <div class="mt-5">
+                <div class="mb-3 flex items-center gap-2 font-semibold text-slate-800"><span class="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-sm text-primary"><i class="ri-list-check-2"></i></span> Detail Jawaban</div>
                 @switch($question->question_type)
                 @case('matching')
                 @php $pairs = isset($metadata['matching_pairs']) && is_array($metadata['matching_pairs']) ?
                 $metadata['matching_pairs'] : []; @endphp
                 @if(!empty($pairs))
-                <ul class="space-y-2 text-gray-600">
+                <ul class="space-y-1.5 text-gray-600">
                     @foreach($pairs as $pair)
                     <li class="flex items-center gap-2">
                         <span class="font-medium text-gray-800">{{ $pair['left'] ?? '-' }}</span>
@@ -352,7 +359,7 @@
                     $optionLabel = chr(65 + $optIndex);
                     $partialOptionScore = $option->is_correct ? $multipleAnswerPerCorrectScore : 0;
                     @endphp
-                    <li class="flex items-start gap-2 {{ $option->is_correct == 1 ? 'text-green font-medium' : '' }}">
+                    <li class="flex items-start gap-2 rounded-xl border px-3 py-2.5 {{ $option->is_correct ? 'border-green/20 bg-green/5 text-green font-medium' : 'border-slate-100 bg-slate-50/70 text-slate-700' }}">
                         <i
                             class="mt-0.5 {{ $option->is_correct == 1 ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line' }}"></i>
                         <div class="flex-1 min-w-0 flex items-start gap-1">
@@ -378,13 +385,13 @@
             </div>
 
             @if ($question->explanation)
-            <div class="bg-blue-50 border border-primary border-dashed rounded-lg p-4 mt-2">
-                <div class="font-semibold text-primary mb-1">Pembahasan</div>
-                <div class="text-primary">{!! $question->explanation !!}</div>
+            <div class="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div class="mb-2 flex items-center gap-2 font-semibold text-primary"><i class="ri-lightbulb-flash-line"></i> Pembahasan</div>
+                <div class="explanation-rich-text text-slate-700">{!! $question->explanation !!}</div>
             </div>
             @endif
 
-            <div class="flex flex-col sm:flex-row gap-3 mt-6">
+            <div class="flex flex-col gap-2 border-t border-slate-100 pt-5 sm:flex-row sm:gap-3">
                 <a href="{{ route('admin.question.edit', [$tryout_detail->tryout_detail_id, $question->question_id]) }}"
                     class="w-full sm:w-auto bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
                     <i class="ri-pencil-fill"></i>
@@ -411,7 +418,7 @@
                     </button>
                 </form>
             </div>
-        </div>
+        </article>
         @empty
         <div class="bg-white border border-border rounded-xl p-12 text-center">
             <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
@@ -427,6 +434,7 @@
         </div>
         @endforelse
     </div>
+</section>
 </div>
 @endsection
 
@@ -435,6 +443,24 @@
     .option-inline-text p {
         display: inline;
         margin: 0;
+    }
+
+    .question-rich-text > :first-child,
+    .explanation-rich-text > :first-child,
+    .option-inline-text > :first-child {
+        margin-top: 0;
+    }
+
+    .question-rich-text > :last-child,
+    .explanation-rich-text > :last-child,
+    .option-inline-text > :last-child {
+        margin-bottom: 0;
+    }
+
+    .option-inline-text ul,
+    .option-inline-text ol {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
     }
 </style>
 @endsection

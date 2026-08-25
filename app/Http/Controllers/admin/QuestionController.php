@@ -9,8 +9,10 @@ use App\Models\TryoutDetail;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
+use App\Services\TryoutQuestionDownloadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
@@ -44,6 +46,19 @@ class QuestionController extends Controller
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Data tidak ditemukan');
         }
+    }
+
+    public function download(int $tryout_detail_id, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    {
+        $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
+        $tryout = Tryout::findOrFail($tryoutDetail->tryout_id);
+        $questions = Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
+            ->orderBy('question_id')
+            ->get();
+
+        return $questionDownloadService->download($tryout, $questions);
     }
 
     public function create($tryout_detail_id)

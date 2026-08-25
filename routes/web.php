@@ -622,6 +622,7 @@ Route::prefix('{portal}')
         // Question Management Routes
         Route::prefix('soal')->name('question.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}', [QuestionController::class, 'index'])->name('index');
+            Route::get('/{tryout_detail_id}/download', [QuestionController::class, 'download'])->name('download');
             Route::get('/{tryout_detail_id}/tambah', [QuestionController::class, 'create'])->name('create');
             Route::post('/{tryout_detail_id}/store', [QuestionController::class, 'store'])->name('store');
             Route::get('/{tryoutDetail}/ai-generator', [TryoutAiQuestionGeneratorController::class, 'form'])->name('ai-generator');
@@ -673,6 +674,7 @@ Route::prefix('{portal}')
         Route::resource('tryout', AdminTryoutController::class)->middleware('tutor-content-owner');
         Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->middleware('tutor-content-owner')->name('tryout.clone');
         Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->middleware('tutor-content-owner')->name('tryout.preview');
+        Route::get('tryout/{tryout}/download-soal', [AdminTryoutController::class, 'downloadQuestions'])->middleware('tutor-content-owner')->name('tryout.download-questions');
         Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->middleware('tutor-content-owner')->name('tryout.release-utbk');
         Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->middleware('tutor-content-owner')->name('tryout.reset-utbk');
 
