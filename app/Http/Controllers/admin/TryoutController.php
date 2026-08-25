@@ -15,6 +15,7 @@ use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
+use App\Services\MultipleAnswerScoringService;
 use App\Services\UtbkResultReleaseService;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Http\Request;
@@ -1481,7 +1482,7 @@ class TryoutController extends Controller
             ->orderBy('user_answer_id')
             ->chunkById(200, function ($answers) {
                 foreach ($answers as $answer) {
-                    $answer->loadMissing(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption']);
+                    $answer->loadMissing(['tryoutDetail', 'userAnswerDetails.question.questionOptions', 'userAnswerDetails.questionOption']);
                     $detail = $answer->tryoutDetail;
                     if (! $detail) {
                         continue;
@@ -1504,7 +1505,7 @@ class TryoutController extends Controller
         $totalScore = 0.0;
 
         $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($details as $detail) {
@@ -1519,7 +1520,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
 
                 case 'matching':
@@ -1728,8 +1729,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
 
                 case 'matching':

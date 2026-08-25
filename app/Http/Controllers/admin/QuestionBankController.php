@@ -971,14 +971,11 @@ class QuestionBankController extends Controller
         }
 
         DB::transaction(function () use ($questionBank, $validated, $metadata, $questionType, $request, $soundPath) {
-            $correctAnswersCount = $questionType === 'multiple_answer'
-                ? max(1, count((array) $request->input('correct_answers', [])))
-                : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
             $mtfScoreCorrect = (float) ($metadata['multiple_true_false']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
-                ? max(0, $scoreCorrect) * $correctAnswersCount
+                ? $scoreCorrect
                 : ($questionType === 'matching'
                     ? max(0, $matchingScoreCorrect)
                     : ($questionType === 'multiple_true_false'
@@ -1070,14 +1067,11 @@ class QuestionBankController extends Controller
         }
 
         DB::transaction(function () use ($question, $validated, $metadata, $questionType, $request, $soundPath) {
-            $correctAnswersCount = $questionType === 'multiple_answer'
-                ? max(1, count((array) $request->input('correct_answers', [])))
-                : 0;
             $scoreCorrect = (float) $request->input('multiple_answer_score_correct', 1);
             $matchingScoreCorrect = (float) ($metadata['matching_scores']['score_correct'] ?? 1);
             $mtfScoreCorrect = (float) ($metadata['multiple_true_false']['score_correct'] ?? 1);
             $resolvedWeight = $questionType === 'multiple_answer'
-                ? max(0, $scoreCorrect) * $correctAnswersCount
+                ? $scoreCorrect
                 : ($questionType === 'matching'
                     ? max(0, $matchingScoreCorrect)
                     : ($questionType === 'multiple_true_false'

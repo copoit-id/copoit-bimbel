@@ -428,31 +428,8 @@
                 // Calculate score earned for this question
                 $scoreEarned = 0;
                 if (($question->question_type ?? '') === 'multiple_answer') {
-                    $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
-                    $correctOptionIds = $question->questionOptions
-                        ->where('is_correct', true)
-                        ->pluck('question_option_id')
-                        ->map(fn ($id) => (int) $id)
-                        ->values()
-                        ->all();
-                    $normalizedSelected = collect($selectedOptionIds)->map(fn ($id) => (int) $id)->unique()->values()->all();
-
-                    sort($correctOptionIds);
-                    sort($normalizedSelected);
-
-                    $matchedCorrect = count(array_intersect($normalizedSelected, $correctOptionIds));
-                    $totalCorrect = max(1, count($correctOptionIds));
-                    $isExactCorrect = ($normalizedSelected === $correctOptionIds);
-
-                    if ($multipleAnswerScoringMode === 'partial') {
-                        $scoreEarned = $matchedCorrect > 0
-                            ? ($matchedCorrect / $totalCorrect) * $multipleAnswerTotalScore
-                            : $scoreWrong;
-                    } else {
-                        $scoreEarned = $isExactCorrect ? $multipleAnswerTotalScore : $scoreWrong;
-                    }
-
-                    $scoreEarned = max(0, $scoreEarned);
+                    $scoreEarned = app(\App\Services\MultipleAnswerScoringService::class)
+                        ->scoreForDetail($question, $detail);
                 } elseif (($question->question_type ?? '') === 'multiple_true_false') {
                     $summary = is_array($answerMeta['summary'] ?? null) ? $answerMeta['summary'] : [];
                     $correctCount = (int) ($summary['correct'] ?? 0);
@@ -512,7 +489,7 @@
                     <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700' }} px-3 py-1 rounded-lg text-sm">
                         <i class="{{ $isCorrect ? 'ri-check-line' : 'ri-close-line' }}"></i>
                         {{ $isCorrect ? 'Benar' : 'Salah' }}
-                        @if($scoreEarned > 0)
+                        @if(($question->question_type ?? '') === 'multiple_answer' || $scoreEarned > 0)
                             ({{ $scoreEarned }} poin)
                         @endif
                     </span>

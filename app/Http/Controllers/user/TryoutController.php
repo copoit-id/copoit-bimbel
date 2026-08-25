@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
 use App\Services\ActivityLogger;
+use App\Services\MultipleAnswerScoringService;
 
 class TryoutController extends Controller
 {
@@ -205,38 +206,7 @@ class TryoutController extends Controller
             ]);
         }
 
-        $correctIds = $question->questionOptions()
-            ->where('is_correct', true)
-            ->pluck('question_option_id')
-            ->map(fn($id) => (int) $id)
-            ->values()
-            ->all();
-        sort($correctIds);
-
-        $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
-        $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? 1);
-        $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
-        $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
-            ? $multipleAnswerMeta['scoring_mode']
-            : 'fullscore';
-
-        $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
-        $isCorrect = $selectedIds === $correctIds;
-        $totalCorrect = max(1, count($correctIds));
-        $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
-        $missedCorrect = max(0, $totalCorrect - $matchedCorrect);
-        $wrongCount = $missedCorrect + $wrongSelected;
-        $fullScore = $scoreCorrect;
-        $scoreObtained = 0.0;
-        if ($scoringMode === 'partial') {
-            $scoreObtained = $matchedCorrect > 0
-                ? ($matchedCorrect / $totalCorrect) * $fullScore
-                : $scoreWrong;
-        } else {
-            $scoreObtained = $isCorrect ? $scoreCorrect : $scoreWrong;
-        }
-        $scoreObtained = max(0, $scoreObtained);
-        $ratio = $totalCorrect > 0 ? ($matchedCorrect / $totalCorrect) : 0;
+        $scoreResult = app(MultipleAnswerScoringService::class)->evaluate($question, $selectedIds);
 
         return [
             'detail' => [
@@ -244,21 +214,21 @@ class TryoutController extends Controller
                 'answer_text' => null,
                 'answer_json' => [
                     'selected_option_ids' => $selectedIds,
-                    'correct_matched' => $matchedCorrect,
-                    'correct_total' => $totalCorrect,
-                    'wrong_selected' => $wrongSelected,
-                    'wrong_count' => $wrongCount,
-                    'scoring_mode' => $scoringMode,
-                    'score_ratio' => $ratio,
-                    'score_obtained' => $scoreObtained,
+                    'correct_matched' => $scoreResult['correct_matched'],
+                    'correct_total' => $scoreResult['correct_total'],
+                    'wrong_selected' => $scoreResult['wrong_selected'],
+                    'wrong_count' => $scoreResult['wrong_count'],
+                    'scoring_mode' => $scoreResult['scoring_mode'],
+                    'score_ratio' => $scoreResult['score_ratio'],
+                    'score_obtained' => $scoreResult['score_obtained'],
                 ],
                 'answer_file_path' => null,
-                'is_correct' => $isCorrect,
+                'is_correct' => $scoreResult['is_correct'],
             ],
             'response' => [
                 'option_ids' => $selectedIds,
-                'is_correct' => $isCorrect,
-                'score_obtained' => $scoreObtained,
+                'is_correct' => $scoreResult['is_correct'],
+                'score_obtained' => $scoreResult['score_obtained'],
             ],
             'delete_file' => false,
         ];
@@ -1922,7 +1892,7 @@ class TryoutController extends Controller
         $totalScore = 0;
 
         $userAnswerDetails = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($userAnswerDetails as $detail) {
@@ -1937,7 +1907,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
@@ -2714,7 +2684,7 @@ class TryoutController extends Controller
     private function updateSingleSubtestStats($userAnswer)
     {
         $userAnswerDetails = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         $totalQuestions = Question::where('tryout_detail_id', $userAnswer->tryout_detail_id)->count();
@@ -2743,7 +2713,7 @@ class TryoutController extends Controller
                         $wrongAnswers++;
                     }
 
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     if ($detail->is_correct) {
@@ -2854,8 +2824,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'multiple_true_false':
                     $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];

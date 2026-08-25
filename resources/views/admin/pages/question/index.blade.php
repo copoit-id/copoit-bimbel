@@ -23,7 +23,7 @@
         icon="ri-add-fill">
     </x-btn>
 </div>
-<section class="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary to-primary/85 text-white shadow-sm">
+<section class="overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary to-primary/85 text-white">
     <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div class="min-w-0">
             <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-inset ring-white/20">
@@ -39,7 +39,7 @@
         </div>
     </div>
 </section>
-<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+<section class="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
     <div class="mb-6 flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="min-w-0 lg:flex-1">
             <h2 class="text-xl font-bold text-slate-900">Daftar Soal & Pembahasan</h2>
@@ -129,7 +129,7 @@
 
     <div class="mt-5 space-y-4">
         @forelse ($questions as $index => $question)
-        <article class="question-card rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+        <article class="question-card rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
             <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4">
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-[#0B2B9A]/10 text-[#0B2B9A] border border-[#0B2B9A]/10">

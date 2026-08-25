@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Services\MultipleAnswerScoringService;
 
 class DashboardController extends Controller
 {
@@ -85,7 +86,7 @@ class DashboardController extends Controller
                 $latest = $answers->sortByDesc('created_at')->first();
                 $answers->loadMissing([
                     'tryoutDetail',
-                    'userAnswerDetails.question',
+                    'userAnswerDetails.question.questionOptions',
                     'userAnswerDetails.questionOption',
                 ]);
                 $allCompleted = $answers->every(fn (UserAnswer $item) => $item->status === 'completed');
@@ -527,7 +528,7 @@ class DashboardController extends Controller
         $totalScore = 0.0;
 
         $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($details as $detail) {
@@ -542,7 +543,7 @@ class DashboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
@@ -751,8 +752,7 @@ class DashboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'multiple_true_false':
                     $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];

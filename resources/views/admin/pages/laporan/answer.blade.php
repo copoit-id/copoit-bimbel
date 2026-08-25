@@ -127,6 +127,9 @@
                 $statusClass = $answer === null
                     ? 'bg-gray-100 text-gray-600 border-gray-200'
                     : ($answer->is_correct ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200');
+                $awardedScore = $questionType === 'multiple_answer' && $answer
+                    ? app(\App\Services\MultipleAnswerScoringService::class)->scoreForDetail($question, $answer)
+                    : null;
             @endphp
             <article data-question-card class="overflow-hidden rounded-xl border border-border bg-white">
                 <div class="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -137,7 +140,12 @@
                             <p class="text-xs text-gray-500">Soal #{{ $question->question_id }}</p>
                         </div>
                     </div>
-                    <span class="inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if($awardedScore !== null)
+                            <span class="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Skor: {{ $awardedScore }}</span>
+                        @endif
+                        <span class="inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+                    </div>
                 </div>
 
                 <div class="p-5">

@@ -10,6 +10,7 @@ use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
 use App\Services\TryoutQuestionDownloadService;
+use App\Services\MultipleAnswerScoringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -186,7 +187,7 @@ class QuestionController extends Controller
                         ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
                         : [strtoupper((string) $request->input('correct_answer', 'A'))];
                     $multipleAnswerWeight = $isMultipleAnswer
-                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        ? (float) $multipleAnswerScores['score_correct']
                         : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
@@ -385,7 +386,7 @@ class QuestionController extends Controller
                         ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
                         : [strtoupper((string) $request->input('correct_answer', 'A'))];
                     $multipleAnswerWeight = $isMultipleAnswer
-                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        ? (float) $multipleAnswerScores['score_correct']
                         : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
@@ -1084,7 +1085,7 @@ class QuestionController extends Controller
             ->orderBy('user_answer_id')
             ->chunkById(200, function ($answers) use ($tryoutDetail, $totalQuestions) {
                 foreach ($answers as $answer) {
-                    $answer->loadMissing(['userAnswerDetails.question', 'userAnswerDetails.questionOption', 'tryoutDetail']);
+                    $answer->loadMissing(['userAnswerDetails.question.questionOptions', 'userAnswerDetails.questionOption', 'tryoutDetail']);
                     $details = $answer->userAnswerDetails;
                     $correctAnswers = 0;
                     $wrongAnswers = 0;
@@ -1119,7 +1120,7 @@ class QuestionController extends Controller
                                     $wrongAnswers++;
                                 }
 
-                                $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                                $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                                 break;
                             case 'matching':
                                 if ($detail->is_correct) {
@@ -1226,8 +1227,7 @@ class QuestionController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'matching':
                     $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];

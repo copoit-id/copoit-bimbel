@@ -9,6 +9,7 @@ use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
+use App\Services\MultipleAnswerScoringService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -329,7 +330,7 @@ class EssayReviewController extends Controller
     private function recalculateSubtestStats(UserAnswer $userAnswer): void
     {
         $userAnswerDetails = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         $totalQuestions = Question::where('tryout_detail_id', $userAnswer->tryout_detail_id)->count();
@@ -358,7 +359,7 @@ class EssayReviewController extends Controller
                         $wrongAnswers++;
                     }
 
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
 
                 case 'matching':
@@ -601,8 +602,7 @@ class EssayReviewController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
 
                 case 'matching':

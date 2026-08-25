@@ -10,6 +10,7 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Services\MultipleAnswerScoringService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -411,7 +412,7 @@ class LeaderboardController extends Controller
                 foreach ($attempt as $ranking) {
                     $ranking->loadMissing([
                         'tryoutDetail',
-                        'userAnswerDetails.question',
+                        'userAnswerDetails.question.questionOptions',
                         'userAnswerDetails.questionOption',
                         'userAnswerDetails.question.questionOptions',
                     ]);
@@ -452,7 +453,7 @@ class LeaderboardController extends Controller
         $details = $userAnswer->relationLoaded('userAnswerDetails')
             ? $userAnswer->userAnswerDetails
             : UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-                ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
                 ->get();
 
         foreach ($details as $detail) {
@@ -467,7 +468,7 @@ class LeaderboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
 
                 case 'matching':
@@ -679,8 +680,7 @@ class LeaderboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
 
                 case 'matching':
