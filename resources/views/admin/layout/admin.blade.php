@@ -47,7 +47,7 @@
     @include('components.flash-alert')
 
 
-    <div class="p-6 md:p-12 sm:ml-64 mt-16 md:mt-10">
+    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 mt-16 md:mt-10">
         @yield('content')
     </div>
 

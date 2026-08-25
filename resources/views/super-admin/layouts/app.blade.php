@@ -16,8 +16,8 @@
     @include('super-admin.components.navbar')
     @include('super-admin.components.sidebar')
 
-    <main class="pt-20 pl-0 sm:pl-64">
-        <div class="px-6 py-6">
+    <main class="responsive-shell pt-20 pl-0 sm:pl-64">
+        <div class="px-4 py-4 sm:px-6 sm:py-6">
             @yield('content')
         </div>
     </main>

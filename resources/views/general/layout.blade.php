@@ -164,7 +164,7 @@
         </nav>
     </header>
 
-    <main>
+    <main class="responsive-shell">
         @yield('content')
     </main>
 
