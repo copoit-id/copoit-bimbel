@@ -38,13 +38,12 @@ class ProfileController extends Controller
             'date_of_birth' => 'nullable|date|before:today',
             'education_level' => ['nullable', 'string', 'max:100'],
             'origin_institution' => ['nullable', 'string', 'max:255'],
-            'major_choice_1' => ['nullable', 'string', 'max:255'],
-            'major_choice_2' => ['nullable', 'string', 'max:255'],
         ]);
         $destinationPayload = $destinationSelectionService->validate(
             $request,
             $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         $user->update([
             'name' => $request->name,
@@ -52,9 +51,8 @@ class ProfileController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'education_level' => $request->education_level,
             'origin_institution' => $request->origin_institution,
-            'major_choice_1' => $request->major_choice_1,
-            'major_choice_2' => $request->major_choice_2,
             ...$destinationPayload,
+            ...$secondDestinationPayload,
         ]);
 
         ActivityLogger::log('profile_updated', 'success', $user, [], $request);

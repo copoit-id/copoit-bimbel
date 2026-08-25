@@ -98,78 +98,16 @@
                     <div class="space-y-4">
                         <x-ui.input name="education_level" label="Kelas / Level (Opsional)" placeholder="Contoh: Kelas 12" :value="old('education_level')" />
                         <x-ui.input name="origin_institution" label="Asal Sekolah / Instansi (Opsional)" placeholder="Contoh: SMA Negeri 1 Jakarta" :value="old('origin_institution')" />
-                        <x-ui.input name="major_choice_1" label="Pilihan Jurusan 1 (Opsional)" placeholder="Contoh: Teknik Informatika" :value="old('major_choice_1')" />
-                        <x-ui.input name="major_choice_2" label="Pilihan Jurusan 2 (Opsional)" placeholder="Contoh: Sistem Informasi" :value="old('major_choice_2')" />
                     </div>
                 </section>
 
                 <section class="space-y-4" data-register-step="3" hidden>
                     <div>
                         <h3 class="text-lg font-bold text-gray-900">Tujuan belajarmu</h3>
-                        <p class="mt-1 text-sm text-gray-500">Pilih tujuan jika tersedia, lalu selesaikan pendaftaran.</p>
+                        <p class="mt-1 text-sm text-gray-500">Pilih hingga dua instansi atau program studi tujuanmu.</p>
                     </div>
-                    <div>
-                        @php
-                            $selectedDestinationId = (int) old('participant_destination_category_id');
-                            $selectedDestinationSource = old('participant_destination_source', $selectedDestinationId ? 'db' : '');
-                            $selectedOfficialExternalId = old('participant_destination_external_id', '');
-                            $selectedOfficialInstitutionName = old('participant_destination_institution_name', '');
-                            $selectedOfficialProgramName = old('participant_destination_program_name', '');
-                            $officialApiEnabled = (bool) config('client.branding.participant_destination_api_enabled', false);
-                            $selectedDestination = $destinationCategories
-                                ->flatMap(fn($category) => collect([$category])->merge($category->activeChildren))
-                                ->firstWhere('id', $selectedDestinationId);
-                            $selectedInstitutionId = $selectedDestination?->parent_id ?: ($selectedDestination?->id ?? null);
-                            $selectedProgramId = $selectedDestination?->parent_id ? $selectedDestination?->id : null;
-                            $selectedInstitution = $selectedInstitutionId
-                                ? $destinationCategories->firstWhere('id', $selectedInstitutionId)
-                                : null;
-                            $selectedInstitutionHasPrograms = $selectedInstitutionId
-                                ? $selectedInstitution?->activeChildren->isNotEmpty()
-                                : false;
-                        @endphp
-                        <input type="hidden" id="participant_destination_category_id" name="participant_destination_category_id"
-                            value="{{ $selectedDestinationId ?: '' }}">
-                        <input type="hidden" id="participant_destination_source" name="participant_destination_source" value="{{ $selectedDestinationSource }}">
-                        <input type="hidden" id="participant_destination_external_id" name="participant_destination_external_id" value="{{ $selectedOfficialExternalId }}">
-                        <input type="hidden" id="participant_destination_institution_name" name="participant_destination_institution_name" value="{{ $selectedOfficialInstitutionName }}">
-                        <input type="hidden" id="participant_destination_program_name" name="participant_destination_program_name" value="{{ $selectedOfficialProgramName }}">
-                        <div class="grid grid-cols-1 gap-4">
-                            <x-ui.input.select name="destination_institution" label="Instansi Tujuan" :value="$selectedInstitutionId">
-                                <option value="">Pilih instansi</option>
-                                @foreach($destinationCategories as $category)
-                                    <option value="{{ $category->id }}" @selected((int) $selectedInstitutionId === (int) $category->id)>
-                                        {{ $category->name }}
-                                    </option>
-                                @endforeach
-                                @if($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '')
-                                    <option value="api:snpmb:{{ $selectedOfficialExternalId }}" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialInstitutionName }}" selected>
-                                        [Resmi] {{ $selectedOfficialInstitutionName }}
-                                    </option>
-                                @endif
-                            </x-ui.input.select>
-                            <x-ui.input.select name="destination_program" label="Program Studi / Sub Tujuan (Opsional)" :value="$selectedProgramId"
-                                :disabled="! $selectedInstitutionHasPrograms && ! ($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '')">
-                                <option value="">{{ $selectedInstitutionId ? 'Tidak ada prodi/sub' : 'Pilih instansi dulu' }}</option>
-                                @foreach(($selectedInstitution?->activeChildren ?? collect()) as $child)
-                                    <option value="{{ $child->id }}" @selected((int) $selectedProgramId === (int) $child->id)>
-                                        {{ $child->name }}
-                                    </option>
-                                @endforeach
-                                @if($selectedDestinationSource === 'snpmb' && $selectedOfficialProgramName !== '')
-                                    <option value="api:snpmb:{{ $selectedOfficialExternalId }}:program" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialProgramName }}" selected>
-                                        [Resmi] {{ $selectedOfficialProgramName }}
-                                    </option>
-                                @endif
-                            </x-ui.input.select>
-                            <span id="official_destination_status" class="text-xs text-gray-500"></span>
-                        </div>
-                        @if($destinationCategories->isEmpty() && !$officialApiEnabled)
-                            <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Hubungi admin.</p>
-                        @else
-                            <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
-                        @endif
-                    </div>
+                    <x-form.participant-destination-selector :destination-categories="$destinationCategories" :selected-destination-id="old('participant_destination_category_id')" :selected-source="old('participant_destination_source')" :selected-external-id="old('participant_destination_external_id')" :selected-institution-name="old('participant_destination_institution_name')" :selected-program-name="old('participant_destination_program_name')" :required="app(\App\Services\ParticipantDestinationSelectionService::class)->isRequired()" />
+                    <x-form.participant-destination-selector choice="2" :destination-categories="$destinationCategories" :selected-destination-id="old('second_participant_destination_category_id')" :selected-source="old('second_participant_destination_source')" :selected-external-id="old('second_participant_destination_external_id')" :selected-institution-name="old('second_participant_destination_institution_name')" :selected-program-name="old('second_participant_destination_program_name')" />
 
                     <x-ui.input name="affiliate_ref_code" label="Kode Referral (Opsional)" placeholder="Contoh: REFKODE" :value="old('affiliate_ref_code', $affiliateRefCode ?? '')" autocomplete="off" class="uppercase" helper="Masukkan kode referral dari teman atau promosi jika ada." />
                 </section>
@@ -277,6 +215,7 @@
         showStep(currentStep, false);
     });
 
+    {{-- Selector destination dirender dan dikelola oleh komponen form di atas.
     document.addEventListener('DOMContentLoaded', () => {
         const institution = document.getElementById('destination_institution');
         const program = document.getElementById('destination_program');
@@ -455,6 +394,7 @@
         renderProgramOptions(institution?.value || '');
         syncDestination();
     });
+    --}}
 </script>
 
 @if($recaptcha_enabled)

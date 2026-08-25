@@ -94,26 +94,21 @@ $primaryRgb = "$r, $g, $b";
                                 <span class="font-bold text-gray-600">Target PTN</span>
                             </div>
                             
-                            @php
-                                $targetUniversity = null;
-                                $targetMajor = null;
-                                if (!$isGuest) {
-                                    if ($user->participantDestinationCategory) {
-                                        $targetUniversity = $user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name;
-                                        $targetMajor = $user->participantDestinationCategory->parent ? $user->participantDestinationCategory->name : null;
-                                    } else {
-                                        $targetUniversity = $user->participant_destination_institution_name;
-                                        $targetMajor = $user->participant_destination_program_name;
-                                    }
-                                }
-                            @endphp
+                            @php $targetChoices = $targetChoices ?? collect(); @endphp
 
-                            <h3 class="font-extrabold text-gray-950 text-base leading-snug truncate">
-                                {{ $targetUniversity ?: 'Belum Memilih PTN' }}
-                            </h3>
-                            <p class="text-xs text-gray-500 font-semibold mt-0.5 truncate">
-                                {{ $targetMajor ?: 'Pilih jurusan impianmu' }}
-                            </p>
+                            @if($targetChoices->isNotEmpty())
+                                <div class="space-y-2">
+                                    @foreach($targetChoices as $choice)
+                                        <div class="min-w-0">
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $choice['label'] }}</p>
+                                            <h3 class="mt-0.5 truncate text-sm font-extrabold leading-snug text-gray-950">{{ $choice['name'] }}</h3>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <h3 class="font-extrabold text-gray-950 text-base leading-snug">Belum Memilih Target</h3>
+                                <p class="text-xs text-gray-500 font-semibold mt-0.5">Pilih tujuan belajar impianmu</p>
+                            @endif
                         </div>
 
                         <div class="relative z-10 pt-4 mt-auto">

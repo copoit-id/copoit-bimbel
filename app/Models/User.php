@@ -241,6 +241,11 @@ class User extends Authenticatable
         return $this->belongsTo(ParticipantDestinationCategory::class, 'participant_destination_category_id');
     }
 
+    public function secondParticipantDestinationCategory(): BelongsTo
+    {
+        return $this->belongsTo(ParticipantDestinationCategory::class, 'second_participant_destination_category_id');
+    }
+
     public function getParticipantDestinationDisplayNameAttribute(): ?string
     {
         if ($this->participantDestinationCategory) {
@@ -249,6 +254,24 @@ class User extends Authenticatable
 
         $institutionName = trim((string) ($this->participant_destination_institution_name ?? ''));
         $programName = trim((string) ($this->participant_destination_program_name ?? ''));
+
+        if ($institutionName === '' && $programName === '') {
+            return null;
+        }
+
+        return $programName !== ''
+            ? $institutionName.' - '.$programName
+            : $institutionName;
+    }
+
+    public function getSecondParticipantDestinationDisplayNameAttribute(): ?string
+    {
+        if ($this->secondParticipantDestinationCategory) {
+            return $this->secondParticipantDestinationCategory->display_name;
+        }
+
+        $institutionName = trim((string) ($this->second_participant_destination_institution_name ?? ''));
+        $programName = trim((string) ($this->second_participant_destination_program_name ?? ''));
 
         if ($institutionName === '' && $programName === '') {
             return null;

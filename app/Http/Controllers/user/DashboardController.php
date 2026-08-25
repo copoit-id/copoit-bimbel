@@ -12,11 +12,13 @@ use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class DashboardController extends Controller
@@ -47,6 +49,7 @@ class DashboardController extends Controller
                     'snbp' => 'Pilih Target',
                     'snbt' => 'Pilih Target',
                 ],
+                'targetChoices' => collect(),
                 'showStatisticsDashboard' => $showStatisticsDashboard,
                 'showLandingDashboard' => $showLandingDashboard,
                 'showBillingDashboard' => $showBillingDashboard,
@@ -146,10 +149,16 @@ class DashboardController extends Controller
             : collect();
 
         $activePackageIds = $activePackages->pluck('package_id');
-        $user->loadMissing('participantDestinationCategory');
+        $user->loadMissing([
+            'participantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.parent',
+        ]);
+        $targetChoices = $this->targetChoices($user);
         $destinationCategoryIds = collect([
             $user->participant_destination_category_id,
             $user->participantDestinationCategory?->parent_id,
+            $user->second_participant_destination_category_id,
+            $user->secondParticipantDestinationCategory?->parent_id,
         ])->filter()->map(fn ($id) => (int) $id)->values();
 
         $upcomingClassSessions = ClassSession::with([
@@ -272,6 +281,7 @@ class DashboardController extends Controller
             'unpaidInvoices',
             'upcomingClassSessions',
             'destinationKeketatan',
+            'targetChoices',
             'showStatisticsDashboard',
             'showLandingDashboard',
             'showBillingDashboard'
@@ -342,6 +352,20 @@ class DashboardController extends Controller
             trim($programName),
             trim((string) ($user->participant_destination_external_id ?? '')),
         ];
+    }
+
+    private function targetChoices(User $user): Collection
+    {
+        $firstChoice = trim((string) ($user->participant_destination_display_name ?? ($user->major_choice_1 ?? '')));
+        $secondChoice = trim((string) ($user->second_participant_destination_display_name ?? ($user->major_choice_2 ?? '')));
+
+        return collect([
+            ['label' => 'Pilihan 1', 'name' => $firstChoice],
+            ['label' => 'Pilihan 2', 'name' => $secondChoice],
+        ])
+            ->filter(fn (array $choice): bool => $choice['name'] !== '')
+            ->unique(fn (array $choice): string => Str::lower($choice['name']))
+            ->values();
     }
 
     private function resolveKeketatanLabel(string $source, string $institutionName, string $programName, string $externalProgramId): ?string
