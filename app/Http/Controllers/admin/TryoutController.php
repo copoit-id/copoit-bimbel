@@ -357,11 +357,10 @@ class TryoutController extends Controller
                 ...$this->accessDurationData($request),
             ]);
 
-            // If type changed, rebuild subtests based on new type; else update existing ones
+            // Saat tipe berubah, detail lama tidak boleh langsung dihapus karena relasi
+            // database akan ikut menghapus soal dan jawaban peserta secara cascade.
             if ($originalType !== $request->type_tryout) {
-                // Remove all existing details to avoid stale subtests
-                $tryout->tryoutDetails()->delete();
-                $this->createTryoutDetails($tryout, $request);
+                $this->rebuildTryoutDetailsPreservingContent($tryout, $request);
             } else {
                 $this->updateTryoutDetails($tryout, $request);
             }
@@ -526,7 +525,7 @@ class TryoutController extends Controller
         return $questionDownloadService->download($tryout, $questions, $type);
     }
 
-    private function createTryoutDetails(Tryout $tryout, Request $request): void
+    private function createTryoutDetails(Tryout $tryout, Request $request, bool $pruneStale = true, bool $reuseExisting = true): void
     {
         $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
 
@@ -540,7 +539,7 @@ class TryoutController extends Controller
 
         switch ($tryout->type_tryout) {
             case 'utbk_full':
-                $this->syncUtbkFullSubtests($tryout, $request);
+                $this->syncUtbkFullSubtests($tryout, $request, $pruneStale, $reuseExisting);
                 break;
             case 'skd_full':
                 $this->createSubtest($tryout->tryout_id, 'twk', $request->duration_twk ?? 35, $request->passing_score_twk ?? 65, $request->input('passing_type_twk', 'score'));
@@ -630,7 +629,7 @@ class TryoutController extends Controller
                 break;
             default:
                 if ($this->getUtbkSlugForType($tryout->type_tryout)) {
-                    $this->createUtbkSingleSubtest($tryout, $request);
+                    $this->createUtbkSingleSubtest($tryout, $request, false, $pruneStale);
                     break;
                 }
 
@@ -655,6 +654,50 @@ class TryoutController extends Controller
             'passing_score' => $passingScore,
             'passing_type' => $passingType,
         ]);
+    }
+
+    /**
+     * Buat struktur subtest baru tanpa menghilangkan konten tryout yang telah ada.
+     *
+     * Semua soal dan jawaban lama dipindahkan ke subtest pertama dari tipe terbaru.
+     * Penempatan ini deterministik agar tidak ada soal yang hilang; admin dapat
+     * mengatur ulang distribusi soal ke subtest lain setelahnya bila diperlukan.
+     */
+    private function rebuildTryoutDetailsPreservingContent(Tryout $tryout, Request $request): void
+    {
+        DB::transaction(function () use ($tryout, $request): void {
+            $previousDetailIds = $tryout->tryoutDetails()
+                ->pluck('tryout_detail_id');
+
+            if ($previousDetailIds->isEmpty()) {
+                $this->createTryoutDetails($tryout, $request);
+
+                return;
+            }
+
+            // Jangan gunakan detail lama sebagai target. Ini memastikan tipe subtest
+            // pada soal selalu mengikuti konfigurasi tryout yang terbaru.
+            $this->createTryoutDetails($tryout, $request, false, false);
+
+            $targetDetail = $tryout->tryoutDetails()
+                ->whereNotIn('tryout_detail_id', $previousDetailIds)
+                ->orderBy('tryout_detail_id')
+                ->firstOrFail();
+
+            Question::withoutGlobalScopes()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->update(['tryout_detail_id' => $targetDetail->tryout_detail_id]);
+
+            UserAnswer::query()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->update(['tryout_detail_id' => $targetDetail->tryout_detail_id]);
+
+            TryoutDetail::withoutGlobalScopes()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->delete();
+        });
+
+        $tryout->unsetRelation('tryoutDetails');
     }
 
     /**
@@ -840,7 +883,7 @@ class TryoutController extends Controller
         return $parentCategory?->children ?? collect();
     }
 
-    private function syncUtbkFullSubtests(Tryout $tryout, Request $request): void
+    private function syncUtbkFullSubtests(Tryout $tryout, Request $request, bool $pruneStale = true, bool $reuseExisting = true): void
     {
         $allowedTypes = array_keys(self::UTBK_SUBTESTS);
 
@@ -853,13 +896,19 @@ class TryoutController extends Controller
             $passing = $request->input($passingField, $config['default_passing']);
             $passingType = $request->input($passingTypeField, 'score');
 
-            $this->updateOrCreateSubtest($tryout, $type, $duration, $passing, $passingType);
+            if ($reuseExisting) {
+                $this->updateOrCreateSubtest($tryout, $type, $duration, $passing, $passingType);
+            } else {
+                $this->createSubtest($tryout->tryout_id, $type, $duration, $passing, $passingType);
+            }
         }
 
-        $tryout->tryoutDetails()->whereNotIn('type_subtest', $allowedTypes)->delete();
+        if ($pruneStale) {
+            $tryout->tryoutDetails()->whereNotIn('type_subtest', $allowedTypes)->delete();
+        }
     }
 
-    private function createUtbkSingleSubtest(Tryout $tryout, Request $request, bool $isUpdate = false): void
+    private function createUtbkSingleSubtest(Tryout $tryout, Request $request, bool $isUpdate = false, bool $pruneStale = true): void
     {
         $slug = $this->getUtbkSlugForType($tryout->type_tryout);
 
@@ -882,7 +931,9 @@ class TryoutController extends Controller
             $this->createSubtest($tryout->tryout_id, $slug, $duration, $passing, $passingType);
         }
 
-        $tryout->tryoutDetails()->where('type_subtest', '!=', $slug)->delete();
+        if ($pruneStale) {
+            $tryout->tryoutDetails()->where('type_subtest', '!=', $slug)->delete();
+        }
     }
 
     private function subtestLabel(?string $type): string

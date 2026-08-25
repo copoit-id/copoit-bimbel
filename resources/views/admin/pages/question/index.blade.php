@@ -144,12 +144,24 @@
                 $matchingMeta = is_array($metadata['matching_scores'] ?? null) ? $metadata['matching_scores'] : [];
                 $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
                 $displayWeight = ($maxWeight && $maxWeight > 0) ? $maxWeight : (float)($question->default_weight ?? 0);
+                $wrongScore = null;
                 if (($question->question_type ?? '') === 'multiple_answer' && isset($multipleAnswerMeta['score_correct'])) {
                     $displayWeight = (float) $multipleAnswerMeta['score_correct'];
+                    $wrongScore = array_key_exists('score_wrong', $multipleAnswerMeta)
+                        ? (float) $multipleAnswerMeta['score_wrong']
+                        : null;
                 } elseif (($question->question_type ?? '') === 'matching' && isset($matchingMeta['score_correct'])) {
                     $displayWeight = (float) $matchingMeta['score_correct'];
+                    $wrongScore = array_key_exists('score_wrong', $matchingMeta)
+                        ? (float) $matchingMeta['score_wrong']
+                        : null;
                 } elseif (($question->question_type ?? '') === 'multiple_true_false' && isset($mtfMeta['score_correct'])) {
                     $displayWeight = (float) $mtfMeta['score_correct'];
+                    $wrongScore = array_key_exists('score_wrong', $mtfMeta)
+                        ? (float) $mtfMeta['score_wrong']
+                        : null;
+                } elseif (($question->question_type ?? '') === 'essay' && ! is_null($question->essay_score_wrong)) {
+                    $wrongScore = (float) $question->essay_score_wrong;
                 }
                 $typeLabels = [
                 'multiple_choice' => 'Multiple Choice',
@@ -180,6 +192,12 @@
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
                     {{ (float) $displayWeight }} poin
                 </span>
+                @if(! is_null($wrongScore))
+                <span
+                    class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                    Salah: {{ $wrongScore }} poin
+                </span>
+                @endif
                 @if($question->sound)
                 <span
                     class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-200">
