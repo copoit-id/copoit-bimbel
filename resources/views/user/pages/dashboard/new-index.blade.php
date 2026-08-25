@@ -27,8 +27,8 @@ $unpaidInvoices = collect($unpaidInvoices ?? []);
 $upcomingClassSessions = collect($upcomingClassSessions ?? []);
 $packageProgress = $packageProgress ?? [];
 $destinationKeketatan = $destinationKeketatan ?? [
-    'snbp' => 'Pilih Target',
-    'snbt' => 'Pilih Target',
+    'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+    'snbt' => [['label' => null, 'value' => 'Pilih Target']],
 ];
 $totalAnswered = $totalAnswered ?? 0;
 $totalCorrect = $totalCorrect ?? 0;
@@ -78,9 +78,9 @@ $primaryRgb = "$r, $g, $b";
                 </div>
 
                 <!-- Inner Cards Row -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
                     <!-- Target PTN Card -->
-                    <div class="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between relative overflow-hidden group min-h-[160px] shadow-[0_8px_30px_rgb(0,0,0,0.035)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
+                    <div class="relative flex h-full min-h-[160px] flex-col justify-between overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
                         <!-- Decorative university watermark -->
                         <div class="absolute right-2 bottom-2 pointer-events-none" style="color: {{ $primaryColor }}; opacity: 0.06;">
                             <i class="ri-bank-line text-8xl"></i>
@@ -99,9 +99,9 @@ $primaryRgb = "$r, $g, $b";
                             @if($targetChoices->isNotEmpty())
                                 <div class="space-y-2">
                                     @foreach($targetChoices as $choice)
-                                        <div class="min-w-0">
-                                            <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $choice['label'] }}</p>
-                                            <h3 class="mt-0.5 truncate text-sm font-extrabold leading-snug text-gray-950">{{ $choice['name'] }}</h3>
+                                        <div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-start gap-2">
+                                            <span class="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $choice['label'] }}</span>
+                                            <p class="break-words text-sm font-extrabold leading-snug text-gray-950">{{ $choice['name'] }}</p>
                                         </div>
                                     @endforeach
                                 </div>
@@ -125,9 +125,9 @@ $primaryRgb = "$r, $g, $b";
                     </div>
 
                     <!-- Peluang Stack -->
-                    <div class="flex flex-col gap-3">
+                    <div class="flex h-full flex-col gap-3">
                         <!-- SNBP Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                        <div class="flex flex-1 items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all hover:bg-slate-50/50">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                                     <i class="ri-line-chart-line text-lg"></i>
@@ -137,13 +137,18 @@ $primaryRgb = "$r, $g, $b";
                                     <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg">
-                                {{ $destinationKeketatan['snbp'] ?? 'Pilih Target' }}
-                            </span>
+                            @php $snbpOpportunities = $destinationKeketatan['snbp'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
+                            <div class="shrink-0 space-y-1 text-right">
+                                @foreach($snbpOpportunities as $opportunity)
+                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
 
                         <!-- SNBT Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                        <div class="flex flex-1 items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all hover:bg-slate-50/50">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                                     <i class="ri-pulse-line text-lg"></i>
@@ -153,9 +158,14 @@ $primaryRgb = "$r, $g, $b";
                                     <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
-                                {{ $destinationKeketatan['snbt'] ?? 'Pilih Target' }}
-                            </span>
+                            @php $snbtOpportunities = $destinationKeketatan['snbt'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
+                            <div class="shrink-0 space-y-1 text-right">
+                                @foreach($snbtOpportunities as $opportunity)
+                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-amber-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>

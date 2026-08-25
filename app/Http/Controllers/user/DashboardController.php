@@ -46,8 +46,8 @@ class DashboardController extends Controller
                 'expiringSoon' => collect(),
                 'publicPackages' => $publicPackages,
                 'destinationKeketatan' => [
-                    'snbp' => 'Pilih Target',
-                    'snbt' => 'Pilih Target',
+                    'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+                    'snbt' => [['label' => null, 'value' => 'Pilih Target']],
                 ],
                 'targetChoices' => collect(),
                 'showStatisticsDashboard' => $showStatisticsDashboard,
@@ -263,8 +263,8 @@ class DashboardController extends Controller
         $destinationKeketatan = $showStatisticsDashboard
             ? $this->destinationKeketatan($user)
             : [
-                'snbp' => 'Pilih Target',
-                'snbt' => 'Pilih Target',
+                'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+                'snbt' => [['label' => null, 'value' => 'Pilih Target']],
             ];
 
         // Check if user wants new layout (default for now)
@@ -307,51 +307,78 @@ class DashboardController extends Controller
         return (bool) GeneralPage::findActiveByKey($pageKey);
     }
 
-    private function destinationKeketatan($user): array
+    private function destinationKeketatan(User $user): array
     {
         $result = [
-            'snbp' => 'Pilih Target',
-            'snbt' => 'Pilih Target',
+            'snbp' => [],
+            'snbt' => [],
         ];
 
-        [$institutionName, $programName, $externalProgramId] = $this->targetDestinationSnapshot($user);
-
-        if ($institutionName === '') {
-            return $result;
-        }
+        $destinations = $this->targetDestinationSnapshots($user);
 
         foreach (['snbp', 'snbt'] as $source) {
-            $result[$source] = $this->resolveKeketatanLabel(
-                $source,
-                $institutionName,
-                $programName,
-                $externalProgramId
-            ) ?? 'N/A';
+            $result[$source] = $destinations
+                ->map(fn (array $destination) => [
+                    'label' => $destination['label'],
+                    'value' => $this->resolveKeketatanLabel(
+                        $source,
+                        $destination['institution_name'],
+                        $destination['program_name'],
+                        $destination['external_program_id']
+                    ) ?? '-',
+                ])
+                ->values()
+                ->all();
+
+            if ($result[$source] === []) {
+                $result[$source] = [['label' => null, 'value' => 'Pilih Target']];
+            }
         }
 
         return $result;
     }
 
-    private function targetDestinationSnapshot($user): array
+    private function targetDestinationSnapshots(User $user): Collection
     {
-        $institutionName = '';
-        $programName = '';
+        return collect([
+            [
+                'label' => 'P1',
+                'category' => $user->participantDestinationCategory,
+                'institution_name' => (string) ($user->participant_destination_institution_name ?? ''),
+                'program_name' => (string) ($user->participant_destination_program_name ?? ''),
+                'external_program_id' => (string) ($user->participant_destination_external_id ?? ''),
+            ],
+            [
+                'label' => 'P2',
+                'category' => $user->secondParticipantDestinationCategory,
+                'institution_name' => (string) ($user->second_participant_destination_institution_name ?? ''),
+                'program_name' => (string) ($user->second_participant_destination_program_name ?? ''),
+                'external_program_id' => (string) ($user->second_participant_destination_external_id ?? ''),
+            ],
+        ])
+            ->map(function (array $destination): array {
+                $category = $destination['category'];
 
-        if ($user->participantDestinationCategory) {
-            $institutionName = (string) ($user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name);
-            $programName = $user->participantDestinationCategory->parent
-                ? (string) $user->participantDestinationCategory->name
-                : '';
-        } else {
-            $institutionName = (string) ($user->participant_destination_institution_name ?? '');
-            $programName = (string) ($user->participant_destination_program_name ?? '');
-        }
+                if ($category) {
+                    $destination['institution_name'] = (string) ($category->parent->name ?? $category->name);
+                    $destination['program_name'] = $category->parent
+                        ? (string) $category->name
+                        : '';
+                    $destination['external_program_id'] = '';
+                }
 
-        return [
-            trim($institutionName),
-            trim($programName),
-            trim((string) ($user->participant_destination_external_id ?? '')),
-        ];
+                $destination['institution_name'] = trim($destination['institution_name']);
+                $destination['program_name'] = trim($destination['program_name']);
+                $destination['external_program_id'] = trim($destination['external_program_id']);
+
+                return $destination;
+            })
+            ->filter(fn (array $destination): bool => $destination['institution_name'] !== '')
+            ->unique(fn (array $destination): string => Str::lower(implode('|', [
+                $destination['institution_name'],
+                $destination['program_name'],
+            ])))
+            ->values();
     }
 
     private function targetChoices(User $user): Collection
@@ -389,7 +416,7 @@ class DashboardController extends Controller
         $peminat = (int) ($latest['peminat'] ?? $program['peminat'] ?? 0);
 
         if ($dayaTampung <= 0 || $peminat <= 0) {
-            return 'N/A';
+            return '-';
         }
 
         return number_format(($dayaTampung / $peminat) * 100, 2, ',', '.').'%';
