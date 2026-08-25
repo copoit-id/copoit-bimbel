@@ -34,10 +34,9 @@ use App\Services\AffiliateService;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
+use App\Services\TryoutQuestionDownloadService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 
 class PackageController extends Controller
 {
@@ -3905,7 +3904,7 @@ class PackageController extends Controller
         ));
     }
 
-    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type)
+    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type, TryoutQuestionDownloadService $questionDownloadService)
     {
         abort_unless(in_array($type, ['soal', 'pembahasan'], true), 404);
 
@@ -3946,19 +3945,7 @@ class PackageController extends Controller
             ->orderBy('question_id')
             ->get();
 
-        $options = new Options;
-        $options->set('isRemoteEnabled', false);
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml(view('user.pages.package.tryout-download', compact('tryout', 'questions', 'type'))->render());
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
-
-        $filename = Str::slug($tryout->name).'-'.$type.'.pdf';
-
-        return response($dompdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ]);
+        return $questionDownloadService->download($tryout, $questions, $type);
     }
 
     public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)

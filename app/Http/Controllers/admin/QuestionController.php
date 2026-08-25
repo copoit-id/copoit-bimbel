@@ -48,8 +48,11 @@ class QuestionController extends Controller
         }
     }
 
-    public function download(int $tryout_detail_id, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    public function download(Request $request, int $tryout_detail_id, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
     {
+        $type = $request->validate([
+            'type' => ['nullable', 'in:soal,pembahasan'],
+        ])['type'] ?? 'soal';
         $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
         $tryout = Tryout::findOrFail($tryoutDetail->tryout_id);
         $questions = Question::query()
@@ -58,7 +61,7 @@ class QuestionController extends Controller
             ->orderBy('question_id')
             ->get();
 
-        return $questionDownloadService->download($tryout, $questions);
+        return $questionDownloadService->download($tryout, $questions, $type);
     }
 
     public function create($tryout_detail_id)

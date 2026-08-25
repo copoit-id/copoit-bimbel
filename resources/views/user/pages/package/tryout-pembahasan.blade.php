@@ -15,7 +15,6 @@
         $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiLearningHistoryEndpointUrl = route('user.package.tryout.pembahasan.ai-tools.history', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
-        $downloadQuestionsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'soal']);
         $downloadExplanationsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'pembahasan']);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
@@ -302,14 +301,12 @@
         </div>
         <div class="mt-5 border-t border-gray-200 pt-4">
             <p class="text-sm font-semibold text-gray-700">Unduh Materi</p>
-            <p class="mt-1 text-xs text-gray-500">Simpan soal atau pembahasannya untuk dipelajari kembali.</p>
-            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                <x-ui.button :href="$downloadQuestionsUrl" variant="outline" size="sm" icon="ri-download-2-line" :full-width="true" class="sm:w-auto">
-                    Unduh Soal
-                </x-ui.button>
-                <x-ui.button :href="$downloadExplanationsUrl" size="sm" icon="ri-file-download-line" :full-width="true" class="sm:w-auto">
-                    Unduh Pembahasan
-                </x-ui.button>
+            <p class="mt-1 text-xs text-gray-500">Simpan soal beserta pembahasannya untuk dipelajari kembali.</p>
+            <div class="mt-3">
+                <a href="{{ $downloadExplanationsUrl }}" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto">
+                    <i class="ri-download-2-line"></i>
+                    Unduh Soal & Pembahasan
+                </a>
             </div>
         </div>
     </div>

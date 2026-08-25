@@ -40,15 +40,15 @@
     </div>
 </section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
+    <div class="mb-6 flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="min-w-0 lg:flex-1">
             <h2 class="text-xl font-bold text-slate-900">Daftar Soal & Pembahasan</h2>
             <p class="text-slate-500 text-sm mt-1">Tinjau soal, jawaban benar, dan pembahasan sebelum tryout dipublikasikan.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex max-w-full flex-wrap items-center gap-2 sm:flex-nowrap lg:shrink-0">
             @if($canGenerateAi)
             <a href="{{ route('admin.question.ai-generator', $tryout_detail) }}"
-                class="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700">
+                class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700">
                 <i class="ri-sparkling-2-line"></i>
                 Generate AI
             </a>
@@ -56,18 +56,18 @@
 
             <!-- Import Excel Button -->
             <button type="button" id="importBtn"
-                class="inline-flex items-center gap-2 rounded-lg bg-green px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700">
+                class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-green px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700">
                 <i class="ri-file-excel-2-line"></i>
                 Import Excel
             </button>
 
-            <a href="{{ route('admin.question.download', $tryout_detail->tryout_detail_id) }}"
-                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
+            <a href="{{ route('admin.question.download', ['tryout_detail_id' => $tryout_detail->tryout_detail_id, 'type' => 'pembahasan']) }}"
+                class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
                 <i class="ri-download-2-line"></i>
-                Unduh Soal
+                Unduh Soal & Pembahasan
             </a>
             <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
-                class="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5">
+                class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5">
                 <i class="ri-folder-transfer-line"></i>
                 Ambil dari Bank
             </a>

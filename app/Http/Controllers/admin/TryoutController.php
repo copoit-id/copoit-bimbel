@@ -510,8 +510,11 @@ class TryoutController extends Controller
         }
     }
 
-    public function downloadQuestions(Tryout $tryout, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    public function downloadQuestions(Request $request, Tryout $tryout, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
     {
+        $type = $request->validate([
+            'type' => ['nullable', 'in:soal,pembahasan'],
+        ])['type'] ?? 'soal';
         $questions = Question::query()
             ->with(['questionOptions', 'tryoutDetail'])
             ->whereHas('tryoutDetail', fn ($query) => $query->where('tryout_id', $tryout->tryout_id))
@@ -519,7 +522,7 @@ class TryoutController extends Controller
             ->orderBy('question_id')
             ->get();
 
-        return $questionDownloadService->download($tryout, $questions);
+        return $questionDownloadService->download($tryout, $questions, $type);
     }
 
     private function createTryoutDetails(Tryout $tryout, Request $request): void
