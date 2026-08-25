@@ -1,49 +1,63 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Ranking Tryout')
+@section('container_width', 'max-w-7xl')
 @section('content')
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
     @endphp
-    <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
-        <x-page-desc title="Ranking - {{ $tryout->name }}" description="Leaderboard peserta tryout"
-            name_link="Kembali ke Tryout">
-        </x-page-desc>
-
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-4 mb-5">
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
-                    Semua Peserta
-                    <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
-                </a>
-                @if($profileNeedsCompletion)
-                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
-                        class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
-                        Ranking Sesuai Profil
-                    </a>
-                @else
-                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
-                        class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
-                        Sesuai Profil Saya
-                        <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
-                    </a>
-                @endif
+    <div class="package-bimbel space-y-6">
+        <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <i class="ri-trophy-line text-xl"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <h1 class="truncate text-xl font-bold text-dark sm:text-2xl">Ranking - {{ $tryout->name }}</h1>
+                        <p class="mt-1 text-sm text-gray-500">Leaderboard peserta tryout</p>
+                    </div>
+                </div>
+                <x-ui.button :href="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-arrow-left-line">
+                    Kembali ke Hasil
+                </x-ui.button>
             </div>
 
-            @if($activeRankingTab === 'profile' && $profileDestinationLabel)
-                <div class="text-sm text-gray-500">
-                    Filter: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
+            <div class="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                        Semua Peserta
+                        <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
+                    </a>
+                    @if($profileNeedsCompletion)
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
+                            Ranking Sesuai Profil
+                        </a>
+                    @else
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                            Sesuai Profil Saya
+                            <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
+                        </a>
+                    @endif
                 </div>
-            @elseif($profileNeedsCompletion)
-                <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Lengkapi instansi/prodi tujuan di profil untuk membuka ranking sesuai profil.
-                </div>
-            @endif
-        </div>
+
+                @if($activeRankingTab === 'profile' && $profileDestinationLabel)
+                    <div class="text-sm text-gray-500">
+                        Filter: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
+                    </div>
+                @elseif($profileNeedsCompletion)
+                    <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Lengkapi instansi/prodi tujuan di profil untuk membuka ranking sesuai profil.
+                    </div>
+                @endif
+            </div>
+        </section>
 
         <!-- Statistics Cards -->
         @if($rankings->count() > 0)
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-4">
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
@@ -97,7 +111,7 @@
             </div>
         @endif
 
-        <div class="relative mt-4 overflow-x-auto rounded-lg border border-gray-200">
+        <div class="relative overflow-x-auto rounded-lg border border-gray-200">
             <table class="w-full min-w-[640px] text-left text-sm text-gray-600">
                 <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-600">
                     <tr>

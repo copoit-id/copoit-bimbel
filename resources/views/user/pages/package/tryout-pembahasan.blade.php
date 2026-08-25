@@ -936,44 +936,38 @@
     </div>
 
     <!-- Action Buttons -->
-    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <div class="flex flex-wrap justify-center gap-3">
         @if($package)
-            <a href="{{ route('user.package.tryout', $package->package_id) }}"
-                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
-            </a>
+            <x-ui.button :href="route('user.package.tryout', $package->package_id)" variant="outline" size="md" icon="ri-arrow-left-line">
+                Kembali ke Tryout
+            </x-ui.button>
         @else
-            <a href="{{ route('user.event.index') }}"
-                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-            </a>
+            <x-ui.button :href="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-arrow-left-line">
+                Kembali ke Hasil
+            </x-ui.button>
         @endif
 
         @if($package)
-        <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
-            class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
-            <i class="ri-history-line mr-2"></i>Lihat Riwayat
-        </a>
+        <x-ui.button :href="route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id])" variant="outline" size="md" icon="ri-history-line">
+            Lihat Riwayat
+        </x-ui.button>
         @endif
 
-        @if($package && $tryout->show_leaderboard)
-        <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
-            class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
-            <i class="ri-trophy-line mr-2"></i>Lihat Ranking
-        </a>
+        @if($tryout->show_leaderboard)
+        <x-ui.button :href="route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-trophy-line">
+            Lihat Ranking
+        </x-ui.button>
         @endif
 
         @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
-        <a href="{{ route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token]) }}"
-            class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
-            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
-        </a>
+        <x-ui.button :href="route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token])" variant="outline" size="md" icon="ri-award-line">
+            Unduh Sertifikat
+        </x-ui.button>
         @endif
 
-        <a href="{{ route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id]) }}"
-            class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">
-            <i class="ri-refresh-line mr-2"></i>Coba Lagi
-        </a>
+        <x-ui.button :href="route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-refresh-line">
+            Coba Lagi
+        </x-ui.button>
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
