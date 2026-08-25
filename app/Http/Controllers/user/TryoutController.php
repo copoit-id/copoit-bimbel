@@ -2707,13 +2707,15 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    if ($detail->is_correct) {
+                    $multipleAnswerScoring = app(MultipleAnswerScoringService::class);
+                    $multipleAnswerResult = $multipleAnswerScoring->evaluateDetail($question, $detail);
+                    if ($detail->is_correct || $multipleAnswerScoring->isPartiallyCorrect($multipleAnswerResult)) {
                         $correctAnswers++;
                     } else {
                         $wrongAnswers++;
                     }
 
-                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
+                    $totalScore += $multipleAnswerResult['score_obtained'];
                     break;
                 case 'multiple_true_false':
                     if ($detail->is_correct) {

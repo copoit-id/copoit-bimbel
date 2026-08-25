@@ -63,19 +63,53 @@ class MultipleAnswerScoringService
 
     public function scoreForDetail(Question $question, UserAnswerDetail $detail): float
     {
+        return $this->evaluateDetail($question, $detail)['score_obtained'];
+    }
+
+    /**
+     * Evaluate a persisted response so score and presentation use one source of truth.
+     *
+     * @return array{selected_option_ids: array<int, int>, correct_option_ids: array<int, int>, correct_matched: int, correct_total: int, wrong_selected: int, wrong_count: int, scoring_mode: string, score_ratio: float, score_obtained: float, is_correct: bool}
+     */
+    public function evaluateDetail(Question $question, UserAnswerDetail $detail): array
+    {
         $answerMeta = is_array($detail->answer_json) ? $detail->answer_json : [];
 
         if (array_key_exists('selected_option_ids', $answerMeta)) {
-            return $this->evaluate($question, (array) $answerMeta['selected_option_ids'])['score_obtained'];
-        }
-
-        if (is_numeric($answerMeta['score_obtained'] ?? null)) {
-            return (float) $answerMeta['score_obtained'];
+            return $this->evaluate($question, (array) $answerMeta['selected_option_ids']);
         }
 
         $config = $this->config($question);
+        $correctMatched = max(0, (int) ($answerMeta['correct_matched'] ?? 0));
+        $correctTotal = max(0, (int) ($answerMeta['correct_total'] ?? 0));
+        $isCorrect = (bool) $detail->is_correct;
 
-        return $detail->is_correct ? $config['score_correct'] : $config['score_wrong'];
+        return [
+            'selected_option_ids' => [],
+            'correct_option_ids' => [],
+            'correct_matched' => $correctMatched,
+            'correct_total' => $correctTotal,
+            'wrong_selected' => max(0, (int) ($answerMeta['wrong_selected'] ?? 0)),
+            'wrong_count' => max(0, (int) ($answerMeta['wrong_count'] ?? 0)),
+            'scoring_mode' => $config['scoring_mode'],
+            'score_ratio' => $correctTotal > 0 ? $correctMatched / $correctTotal : 0.0,
+            'score_obtained' => is_numeric($answerMeta['score_obtained'] ?? null)
+                ? (float) $answerMeta['score_obtained']
+                : ($isCorrect ? $config['score_correct'] : $config['score_wrong']),
+            'is_correct' => $isCorrect,
+        ];
+    }
+
+    /**
+     * A partial response has at least one correct answer, but is not fully correct.
+     *
+     * @param array{correct_matched: int, scoring_mode: string, is_correct: bool} $result
+     */
+    public function isPartiallyCorrect(array $result): bool
+    {
+        return $result['scoring_mode'] === 'partial'
+            && $result['correct_matched'] > 0
+            && ! $result['is_correct'];
     }
 
     /**

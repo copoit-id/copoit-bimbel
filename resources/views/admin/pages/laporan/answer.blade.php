@@ -123,13 +123,21 @@
                     ? collect($answerMeta['selected_option_ids'] ?? [])->map(fn ($id) => (int) $id)->all()
                     : array_filter([(int) ($answer?->question_option_id ?? 0)]);
                 $isOptionQuestion = in_array($questionType, ['multiple_choice', 'multiple_answer', 'true_false'], true);
-                $status = $answer === null ? 'Kosong' : ($answer->is_correct ? 'Benar' : 'Salah');
+                $multipleAnswerResult = $questionType === 'multiple_answer' && $answer
+                    ? app(\App\Services\MultipleAnswerScoringService::class)->evaluateDetail($question, $answer)
+                    : null;
+                $isPartiallyCorrect = $multipleAnswerResult
+                    ? app(\App\Services\MultipleAnswerScoringService::class)->isPartiallyCorrect($multipleAnswerResult)
+                    : false;
+                $status = $answer === null
+                    ? 'Kosong'
+                    : ($isPartiallyCorrect ? 'Sebagian Benar' : ($answer->is_correct ? 'Benar' : 'Salah'));
                 $statusClass = $answer === null
                     ? 'bg-gray-100 text-gray-600 border-gray-200'
-                    : ($answer->is_correct ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200');
-                $awardedScore = $questionType === 'multiple_answer' && $answer
-                    ? app(\App\Services\MultipleAnswerScoringService::class)->scoreForDetail($question, $answer)
-                    : null;
+                    : ($isPartiallyCorrect
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : ($answer->is_correct ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'));
+                $awardedScore = $multipleAnswerResult['score_obtained'] ?? null;
             @endphp
             <article data-question-card class="overflow-hidden rounded-xl border border-border bg-white">
                 <div class="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

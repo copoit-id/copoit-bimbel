@@ -53,6 +53,21 @@ class MultipleAnswerScoringServiceTest extends TestCase
         $this->assertSame(-1.0, app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail));
     }
 
+    public function test_detail_result_marks_partial_response_without_calling_it_wrong(): void
+    {
+        $question = $this->question('partial', 10, 0);
+        $detail = new UserAnswerDetail([
+            'answer_json' => ['selected_option_ids' => [1]],
+            'is_correct' => false,
+        ]);
+        $service = app(MultipleAnswerScoringService::class);
+
+        $result = $service->evaluateDetail($question, $detail);
+
+        $this->assertSame(5.0, $result['score_obtained']);
+        $this->assertTrue($service->isPartiallyCorrect($result));
+    }
+
     private function question(string $mode, float $scoreCorrect, float $scoreWrong): Question
     {
         $question = new Question([

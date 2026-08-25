@@ -150,9 +150,6 @@
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
-                @if($aiDiscussionEnabled)
-                    <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-pushpin-2-line mr-1"></i>Catatan Dipin</a>
-                @endif
             </div>
             <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
             <span
@@ -342,6 +339,15 @@
         $selectedOptionIds = collect($answerMeta['selected_option_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
             ->all();
+        $multipleAnswerResult = null;
+        $isPartiallyCorrect = false;
+        if (($question->question_type ?? '') === 'multiple_answer' && ! $isUnanswered) {
+            $multipleAnswerResult = app(\App\Services\MultipleAnswerScoringService::class)
+                ->evaluateDetail($question, $detail);
+            $isCorrect = $multipleAnswerResult['is_correct'];
+            $isPartiallyCorrect = app(\App\Services\MultipleAnswerScoringService::class)
+                ->isPartiallyCorrect($multipleAnswerResult);
+        }
         $matchingPairs = isset($questionMeta['matching_pairs']) && is_array($questionMeta['matching_pairs'])
             ? $questionMeta['matching_pairs']
             : [];
@@ -359,6 +365,18 @@
         $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
         $mtfScoreWrong = (float) ($mtfMeta['score_wrong'] ?? 0);
         $mtfPerStatementScore = count($mtfStatements) > 0 ? ($mtfScoreCorrect / count($mtfStatements)) : $mtfScoreCorrect;
+        $scoringModeInfo = null;
+        if (($question->question_type ?? '') === 'multiple_answer') {
+            $scoringModeInfo = [
+                'type' => 'Multiple Answer',
+                'mode' => $multipleAnswerScoringMode === 'partial' ? 'Partial' : 'Full Score',
+            ];
+        } elseif (($question->question_type ?? '') === 'multiple_true_false') {
+            $scoringModeInfo = [
+                'type' => 'Multiple True/False',
+                'mode' => $mtfScoringMode === 'partial' ? 'Partial' : 'Full Score',
+            ];
+        }
         @endphp
 
         {{-- Subtest Header --}}
@@ -381,6 +399,8 @@
                 $cardBorderClass = 'border-amber-400 bg-amber-50/30';
             } elseif ($isUnanswered) {
                 $cardBorderClass = 'border-red bg-red-light/30';
+            } elseif ($isPartiallyCorrect) {
+                $cardBorderClass = 'border-amber-400 bg-amber-50/30';
             } elseif ($isCorrect) {
                 $cardBorderClass = 'border-green bg-green-light/30';
             } else {
@@ -391,11 +411,17 @@
              data-question-number="{{ $index + 1 }}"
              data-question-id="{{ $question->question_id }}" 
              data-pending="{{ $isPendingReview ? 'true' : 'false' }}">
-            <div class="flex items-center justify-start gap-4">
+            <div class="flex flex-wrap items-center justify-start gap-4">
                 <p class="font-semibold">Soal {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
                     {{ strtoupper($detail->subtest_type) }}
                 </span>
+                @if($scoringModeInfo)
+                <span class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">
+                    <i class="ri-calculator-line"></i>
+                    {{ $scoringModeInfo['type'] }} · {{ $scoringModeInfo['mode'] }}
+                </span>
+                @endif
                 @php
                     $evalMode = $answerMeta['evaluation_mode'] ?? 'manual';
                     if ($isPendingReview && $evalMode === 'auto') {
@@ -410,6 +436,10 @@
                         $statusBadgeClass = 'bg-red text-white';
                         $statusText = 'Tidak Dijawab';
                         $statusIcon = 'ri-close-circle-fill';
+                    } elseif ($isPartiallyCorrect) {
+                        $statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                        $statusText = 'Sebagian Benar';
+                        $statusIcon = 'ri-checkbox-circle-line';
                     } elseif ($isCorrect) {
                         $statusBadgeClass = 'bg-green text-white';
                         $statusText = 'Benar';
@@ -428,8 +458,8 @@
                 // Calculate score earned for this question
                 $scoreEarned = 0;
                 if (($question->question_type ?? '') === 'multiple_answer') {
-                    $scoreEarned = app(\App\Services\MultipleAnswerScoringService::class)
-                        ->scoreForDetail($question, $detail);
+                    $scoreEarned = $multipleAnswerResult['score_obtained']
+                        ?? app(\App\Services\MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                 } elseif (($question->question_type ?? '') === 'multiple_true_false') {
                     $summary = is_array($answerMeta['summary'] ?? null) ? $answerMeta['summary'] : [];
                     $correctCount = (int) ($summary['correct'] ?? 0);
@@ -486,9 +516,9 @@
                     </span>
                 @else
                     {{-- Sudah dikoreksi - tampilkan nilai --}}
-                    <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700' }} px-3 py-1 rounded-lg text-sm">
-                        <i class="{{ $isCorrect ? 'ri-check-line' : 'ri-close-line' }}"></i>
-                        {{ $isCorrect ? 'Benar' : 'Salah' }}
+                    <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : ($isPartiallyCorrect ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-red-200 bg-red-50 text-red-700') }} px-3 py-1 rounded-lg text-sm">
+                        <i class="{{ $isCorrect ? 'ri-check-line' : ($isPartiallyCorrect ? 'ri-checkbox-circle-line' : 'ri-close-line') }}"></i>
+                        {{ $isCorrect ? 'Benar' : ($isPartiallyCorrect ? 'Sebagian Benar' : 'Salah') }}
                         @if(($question->question_type ?? '') === 'multiple_answer' || $scoreEarned > 0)
                             ({{ $scoreEarned }} poin)
                         @endif

@@ -2220,6 +2220,21 @@ class PackageController extends Controller
         return $totalScore;
     }
 
+    private function isPartiallyCorrectMultipleAnswerDetail($detail): bool
+    {
+        $question = $detail->question;
+
+        if (! $question || ($question->question_type ?? '') !== 'multiple_answer') {
+            return false;
+        }
+
+        $scoringService = app(MultipleAnswerScoringService::class);
+
+        return $scoringService->isPartiallyCorrect(
+            $scoringService->evaluateDetail($question, $detail)
+        );
+    }
+
     private function resolveMultipleAnswerAwardedScore($question, $detail): float
     {
         $defaultWeight = (float) ($question->default_weight ?? 1);
@@ -3742,7 +3757,7 @@ class PackageController extends Controller
                         continue;
                     }
 
-                    if ($detail->is_correct) {
+                    if ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)) {
                         $correctAnswers++;
                     } else {
                         $wrongAnswers++;
@@ -3833,11 +3848,14 @@ class PackageController extends Controller
                         : ($max > 0 ? ($passingScore / $max) * 100 : null);
                     $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                        return empty($meta['pending_review']) && $detail->is_correct;
+                        return empty($meta['pending_review'])
+                            && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail));
                     })->count();
                     $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                        return empty($meta['pending_review']) && !$detail->is_correct;
+                        return empty($meta['pending_review'])
+                            && !$detail->is_correct
+                            && !$this->isPartiallyCorrectMultipleAnswerDetail($detail);
                     })->count();
 
                     return [
