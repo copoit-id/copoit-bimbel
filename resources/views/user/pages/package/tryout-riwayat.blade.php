@@ -6,6 +6,7 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
+$showPassingGrade = $tryout->shouldShowPassingGrade();
 @endphp
 
 <div class="mb-6 rounded-2xl border border-gray-100 bg-white p-5">
@@ -34,7 +35,7 @@ $bestAttempt = collect($attemptHistory)->sortByDesc('score')->first();
 $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 @endphp
 
-<div class="grid grid-cols-1 gap-3 md:grid-cols-3 mb-5">
+<div class="grid grid-cols-1 gap-3 mb-5 {{ $showPassingGrade ? 'md:grid-cols-3' : 'md:grid-cols-2' }}">
     <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <p class="text-sm text-primary">Total Percobaan</p>
         <p class="mt-1 text-2xl font-bold text-primary">{{ $totalAttempts }}</p>
@@ -43,10 +44,12 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
         <p class="text-sm text-primary">Nilai Terbaik</p>
         <p class="mt-1 text-2xl font-bold text-primary">{{ $bestAttempt['display_score']['formatted'] ?? $bestAttempt['score'] ?? 0 }}</p>
     </div>
-    <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-        <p class="text-sm text-primary">Lulus</p>
-        <p class="mt-1 text-2xl font-bold text-primary">{{ $passedAttempts }}</p>
-    </div>
+    @if($showPassingGrade)
+        <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <p class="text-sm text-primary">Lulus</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ $passedAttempts }}</p>
+        </div>
+    @endif
 </div>
 
 <div class="space-y-4">
@@ -67,9 +70,11 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
                         @if($isLatestAttempt)
                         <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">Terbaru</span>
                         @endif
-                        <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $attempt['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                            {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
-                        </span>
+                        @if($showPassingGrade)
+                            <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $attempt['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
+                            </span>
+                        @endif
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
                         <i class="ri-calendar-line mr-1"></i>{{ $attempt['created_at']->format('d M Y, H:i') }}

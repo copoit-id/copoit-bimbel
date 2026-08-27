@@ -427,8 +427,8 @@
                                 class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            Tampilkan Passing Grade di User
-                            <x-ui.tooltip>Atur tampilan passing grade secara terpisah. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
+                            Tampilkan Passing Grade & Status Kelulusan di User
+                            <x-ui.tooltip>Jika dimatikan, passing grade serta status lulus/tidak lulus tidak ditampilkan ke peserta. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
                         </span>
                     </label>
 

@@ -5,6 +5,7 @@
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
         $usesIrtScoreScale = $tryout->requiresIrtScoring();
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
     @endphp
     <div class="package-bimbel space-y-6">
         <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
@@ -58,7 +59,7 @@
 
         <!-- Statistics Cards -->
         @if($rankings->count() > 0)
-            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-4' : 'md:grid-cols-3' }}">
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
@@ -103,19 +104,21 @@
                         <i class="ri-trophy-line text-3xl text-dark"></i>
                     </div>
                 </div>
-                <div class="bg-white p-4 rounded-lg border border-border">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
-                            @php
-                                $passedCount = $rankings->where('is_passed', true)->count();
-                                $passRate = $rankings->count() > 0 ? ($passedCount / $rankings->count()) * 100 : 0;
-                            @endphp
-                            <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
+                @if($showPassingGrade)
+                    <div class="bg-white p-4 rounded-lg border border-border">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
+                                @php
+                                    $passedCount = $rankings->where('is_passed', true)->count();
+                                    $passRate = $rankings->count() > 0 ? ($passedCount / $rankings->count()) * 100 : 0;
+                                @endphp
+                                <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
+                            </div>
+                            <i class="ri-check-double-line text-3xl text-dark"></i>
                         </div>
-                        <i class="ri-check-double-line text-3xl text-dark"></i>
                     </div>
-                </div>
+                @endif
             </div>
         @endif
 
@@ -155,7 +158,9 @@
                         <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $hasMultipleSubtests ? 'Final Score' : 'Skor' }}
                         </th>
                         <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">Selesai</th>
-                        <th scope="col" class="px-3 py-2.5 text-center">Status</th>
+                        @if($showPassingGrade)
+                            <th scope="col" class="px-3 py-2.5 text-center">Status</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -270,9 +275,10 @@
                                         </div>
                                     </td>
 
-                                    <td class="px-3 py-2.5">
-                                        <div class="flex justify-center items-center">
-                                            @if($ranking['is_passed'])
+                                    @if($showPassingGrade)
+                                        <td class="px-3 py-2.5">
+                                            <div class="flex justify-center items-center">
+                                                @if($ranking['is_passed'])
                                                 <span
                                                     class="flex items-center gap-1 rounded-md border border-green bg-green-light px-2 py-1 text-xs">
                                                     <i class="ri-checkbox-circle-fill text-green"></i>
@@ -287,13 +293,14 @@
                                                         Belum Lulus
                                                     </span>
                                                 </span>
-                                            @endif
-                                        </div>
-                                    </td>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    @endif
                                 </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ 5 + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
+                            <td colspan="{{ ($showPassingGrade ? 5 : 4) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
                                     <p>Belum ada peserta yang menyelesaikan tryout ini</p>

@@ -152,11 +152,13 @@
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
             </div>
             <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
-            <span
-                class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
-                <i class="ri-checkbox-circle-fill text-lg"></i>
-                <span>{{ $overallStats['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}</span>
-            </span>
+            @if($showPassingGrade)
+                <span
+                    class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
+                    <i class="ri-checkbox-circle-fill text-lg"></i>
+                    <span>{{ $overallStats['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}</span>
+                </span>
+            @endif
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <div class="mt-2">
                 <span class="inline-flex px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
@@ -219,18 +221,21 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @foreach($subtestSummaries as $summary)
             <div
-                class="p-4 border rounded-lg {{ $summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50' }}">
+                class="p-4 border rounded-lg {{ $showPassingGrade ? ($summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50') : 'border-gray-200 bg-white' }}">
                 <div class="text-center mb-3">
                     <h4 class="font-semibold text-gray-800">{{ strtoupper($summary['type']) }}
                     </h4>
                     <p class="text-sm text-gray-600">{{ $summary['name'] }}</p>
                 </div>
                 <div class="text-center">
-                    <div class="text-2xl font-bold {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
+                    <div class="text-2xl font-bold {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-800' }}">
                         {{ $formatScore($summary['score']) }}/{{ $formatScore($summary['max_score']) }}
                     </div>
-                    <div class="text-sm {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                    <div class="text-sm {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-600' }}">
+                        {{ number_format($summary['percentage'], 1) }}%
+                        @if($showPassingGrade)
+                            - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                        @endif
                     </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-600 text-center">
@@ -882,16 +887,18 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Persentase:</span>
-                        <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
+                        <span class="font-semibold {{ $showPassingGrade ? ($overallStats['is_passed'] ? 'text-green' : 'text-red') : 'text-gray-800' }}">
                             {{ number_format($overallStats['percentage'], 1) }}%
                         </span>
                     </div>
+                    @if($showPassingGrade)
                     <div class="flex justify-between">
                         <span class="text-gray-600">Status:</span>
                         <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
                             {{ $overallStats['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
                         </span>
                     </div>
+                    @endif
                 </div>
             </div>
 

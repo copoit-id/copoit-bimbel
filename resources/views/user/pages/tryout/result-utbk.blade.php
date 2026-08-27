@@ -5,6 +5,7 @@
 @section('content')
 @php
     $showResultScores = $tryout->shouldShowResultScores();
+    $showPassingGrade = $tryout->shouldShowPassingGrade();
     $showTotalResultScore = $tryout->shouldShowTotalResultScore();
 @endphp
 <div class="min-h-screen bg-gray-50 pt-30 pb-10">
@@ -24,7 +25,7 @@
                     @elseif(! $showResultScores)
                         <p class="text-sm text-gray-500">Nilai tidak ditampilkan</p>
                     @endif
-                    @if($showTotalResultScore || ! $showResultScores)
+                    @if($showPassingGrade && ($showTotalResultScore || ! $showResultScores))
                         <span class="inline-flex mt-2 px-3 py-1 rounded-full text-xs font-semibold {{ $overallPassed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                             {{ $overallPassed ? 'Lulus' : 'Tidak Lulus' }}
                         </span>
@@ -46,7 +47,9 @@
                             @if($showResultScores)
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Skor Subtest</th>
                             @endif
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            @if($showPassingGrade)
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -64,11 +67,13 @@
                                     <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ $subtest['display_score']['formatted'] }}</span>
                                 </td>
                             @endif
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $subtest['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                    {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
-                                </span>
-                            </td>
+                            @if($showPassingGrade)
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $subtest['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                        {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
+                                    </span>
+                                </td>
+                            @endif
                         </tr>
                         @endforeach
                     </tbody>

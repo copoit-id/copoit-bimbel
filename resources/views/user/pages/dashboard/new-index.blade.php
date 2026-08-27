@@ -570,9 +570,11 @@ $primaryRgb = "$r, $g, $b";
             </div>
             <div class="text-right">
                 <span class="text-lg font-bold" style="color: {{ $primaryColor }}">{{ $attempt->score ?? 0 }}</span>
-                <span class="text-xs {{ ($attempt->is_passed ?? false) ? 'text-green-500' : 'text-red-500' }} block">
-                    {{ ($attempt->is_passed ?? false) ? 'Lulus' : 'Belum Lulus' }}
-                </span>
+                @if($attempt->tryout?->shouldShowPassingGrade())
+                    <span class="text-xs {{ ($attempt->is_passed ?? false) ? 'text-green-500' : 'text-red-500' }} block">
+                        {{ ($attempt->is_passed ?? false) ? 'Lulus' : 'Belum Lulus' }}
+                    </span>
+                @endif
             </div>
         </div>
         <?php endforeach; ?>

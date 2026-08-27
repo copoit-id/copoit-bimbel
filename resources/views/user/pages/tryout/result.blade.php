@@ -29,7 +29,7 @@
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
                         @endif
-                        @if (isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
+                        @if ($showPassingGrade && isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
                             @if (($pendingReviewCount ?? 0) > 0)
                                 <p class="mb-4 text-sm text-gray-600">
                                     {{ $pendingReviewCount }} jawaban masih menunggu koreksi AI
@@ -281,7 +281,7 @@
                                         <span class="inline-flex px-3 py-1 text-sm font-medium rounded bg-gray-300 text-gray-700">
                                             Menunggu
                                         </span>
-                                    @else
+                                    @elseif ($showPassingGrade)
                                         <span class="inline-flex px-3 py-1 text-sm font-medium rounded {{ $result['is_passed'] ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
                                             {{ $result['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
                                         </span>
@@ -291,6 +291,7 @@
                         @endforeach
                     </div>
 
+                    @if ($showPassingGrade)
                     <!-- Overall SKD Status -->
                     @php
                         $passedSubtests = collect($subtestResults)->where('is_passed', true)->count();
@@ -307,6 +308,7 @@
                             @endif
                         </p>
                     </div>
+                    @endif
                 </div>
             @endif
 
