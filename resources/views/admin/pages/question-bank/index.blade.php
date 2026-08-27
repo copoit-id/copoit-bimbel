@@ -7,16 +7,18 @@
             <h1 class="text-2xl font-bold text-gray-900">Bank Soal</h1>
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
-        {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
-        <x-plan-quota-button
-            feature="question_bank"
-            href="#"
-            icon="ri-add-circle-line"
-            label="Tambah Bank"
-            variant="primary"
-            size="md"
-            tooltipPosition="bottom"
-            id="openCreateBank" />
+        @unless ($tryoutDetail)
+            {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
+            <x-plan-quota-button
+                feature="question_bank"
+                href="#"
+                icon="ri-add-circle-line"
+                label="Tambah Bank"
+                variant="primary"
+                size="md"
+                tooltipPosition="bottom"
+                id="openCreateBank" />
+        @endunless
     </div>
 
     @if (session('success'))
@@ -57,14 +59,6 @@
                 </div>
             </div>
         </div>
-    @endif
-
-    @if ($tryoutDetail)
-    <div class="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
-        Kamu sedang memilih soal untuk tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span>
-        (Subtest: <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>). Pilih bank dan
-        gunakan soal yang sesuai.
-    </div>
     @endif
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -126,16 +120,18 @@
                     <span class="rounded-full bg-gray-100 px-3 py-1">Sub bank: {{ $bank->children->count() }}</span>
                     <span class="rounded-full bg-gray-100 px-3 py-1">Dibuat: {{ optional($bank->created_at)->format('d M Y') }}</span>
                 </div>
-                <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
-                    <button type="button" onclick="editBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', '{{ addslashes($bank->description ?? '') }}')"
-                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
-                        <i class="ri-edit-line mr-1"></i>Edit
-                    </button>
-                    <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
-                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
-                        <i class="ri-delete-bin-line mr-1"></i>Hapus
-                    </button>
-                </div>
+                @unless ($tryoutDetail)
+                    <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+                        <button type="button" onclick="editBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', '{{ addslashes($bank->description ?? '') }}')"
+                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
+                            <i class="ri-edit-line mr-1"></i>Edit
+                        </button>
+                        <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
+                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                            <i class="ri-delete-bin-line mr-1"></i>Hapus
+                        </button>
+                    </div>
+                @endunless
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
                     class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
                     {{ $tryoutDetail ? 'Pilih Bank' : 'Kelola Bank' }}
