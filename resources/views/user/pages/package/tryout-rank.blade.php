@@ -72,7 +72,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Rata-rata {{ $usesIrtScoreScale ? 'Nilai' : 'Skor' }}</p>
-                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankings->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1).(($rankings->first()['display_score']['scale'] ?? null) === 'percentage' ? '%' : '') : number_format($rankings->avg('raw_score'), 1) }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankings->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1) : number_format($rankings->avg('raw_score'), 1) }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>

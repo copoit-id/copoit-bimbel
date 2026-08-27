@@ -8,7 +8,7 @@ class TryoutScoreDisplayService
 {
     public const SCALE_RAW = 'raw';
 
-    public const SCALE_PERCENTAGE = 'percentage';
+    public const SCALE_HUNDRED = 'scale_100';
 
     /**
      * Present an IRT score without changing the score persisted for scoring,
@@ -20,16 +20,16 @@ class TryoutScoreDisplayService
     {
         $score = (float) ($rawScore ?? 0);
 
-        if ($this->usesPercentageScale($tryout)) {
+        if ($this->usesHundredScale($tryout)) {
             $value = min(100, max(0, $score / 10));
 
             return [
                 'value' => $value,
                 'maximum' => 100,
-                'formatted' => $this->formatNumber($value).'%',
-                'formatted_maximum' => '100%',
-                'label' => 'Persentase (0 - 100)',
-                'scale' => self::SCALE_PERCENTAGE,
+                'formatted' => $this->formatNumber($value),
+                'formatted_maximum' => '100',
+                'label' => 'Skala 0 - 100',
+                'scale' => self::SCALE_HUNDRED,
             ];
         }
 
@@ -43,10 +43,10 @@ class TryoutScoreDisplayService
         ];
     }
 
-    public function usesPercentageScale(Tryout $tryout): bool
+    public function usesHundredScale(Tryout $tryout): bool
     {
         return $tryout->requiresIrtScoring()
-            && ($tryout->result_score_scale ?? self::SCALE_RAW) === self::SCALE_PERCENTAGE;
+            && ($tryout->result_score_scale ?? self::SCALE_RAW) === self::SCALE_HUNDRED;
     }
 
     private function formatNumber(float $value): string

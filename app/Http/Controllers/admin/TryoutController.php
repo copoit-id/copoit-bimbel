@@ -1076,7 +1076,7 @@ class TryoutController extends Controller
             'show_passing_grade' => 'boolean',
             'show_result_scores' => 'boolean',
             'result_score_display' => ['nullable', Rule::in(['total_and_subtest', 'subtest_only'])],
-            'result_score_scale' => ['nullable', Rule::in(['raw', 'percentage'])],
+            'result_score_scale' => ['nullable', Rule::in(['raw', 'scale_100'])],
             'enable_anti_copy' => 'boolean',
             'enable_tab_switch_detection' => 'boolean',
             'enable_webcam_check' => 'boolean',

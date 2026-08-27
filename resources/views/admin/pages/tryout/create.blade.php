@@ -490,11 +490,11 @@
                                     </span>
                                 </label>
                                 <label class="cursor-pointer">
-                                    <input type="radio" name="result_score_scale" value="percentage"
-                                        @checked($resultScoreScale === 'percentage') class="peer sr-only">
+                                    <input type="radio" name="result_score_scale" value="scale_100"
+                                        @checked($resultScoreScale === 'scale_100') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Persentase (0 - 100)</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Hanya mengubah tampilan: skor 850 ditampilkan sebagai 85%.</span>
+                                        <span class="block font-semibold">Skala 0 - 100</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Hanya mengubah tampilan: skor 850 ditampilkan sebagai 85.</span>
                                     </span>
                                 </label>
                             </div>

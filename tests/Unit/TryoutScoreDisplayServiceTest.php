@@ -26,24 +26,24 @@ class TryoutScoreDisplayServiceTest extends TestCase
     {
         $tryout = new Tryout([
             'scoring_method' => 'irt_utbk',
-            'result_score_scale' => 'percentage',
+            'result_score_scale' => 'scale_100',
         ]);
 
         $presentation = app(TryoutScoreDisplayService::class)->present($tryout, 856);
 
-        $this->assertSame('percentage', $presentation['scale']);
+        $this->assertSame('scale_100', $presentation['scale']);
         $this->assertSame(85.6, $presentation['value']);
-        $this->assertSame('85.6%', $presentation['formatted']);
-        $this->assertSame('Persentase (0 - 100)', $presentation['label']);
+        $this->assertSame('85.6', $presentation['formatted']);
+        $this->assertSame('Skala 0 - 100', $presentation['label']);
     }
 
-    public function test_percentage_scale_is_only_applied_to_irt_tryouts(): void
+    public function test_hundred_scale_is_only_applied_to_irt_tryouts(): void
     {
         $tryout = new Tryout([
             'scoring_method' => 'normal',
-            'result_score_scale' => 'percentage',
+            'result_score_scale' => 'scale_100',
         ]);
 
-        $this->assertFalse(app(TryoutScoreDisplayService::class)->usesPercentageScale($tryout));
+        $this->assertFalse(app(TryoutScoreDisplayService::class)->usesHundredScale($tryout));
     }
 }
