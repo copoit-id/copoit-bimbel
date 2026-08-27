@@ -36,6 +36,7 @@ use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutScoreDisplayService;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
 
@@ -2041,6 +2042,7 @@ class PackageController extends Controller
 
         // Prepare attempt data dengan perhitungan yang benar
         $attemptHistory = [];
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
             $firstAnswer = $userAnswers->first();
             $lastAnswer = $userAnswers->sortByDesc('finished_at')->first();
@@ -2118,12 +2120,20 @@ class PackageController extends Controller
             $endTime = Carbon::parse($lastAnswer->finished_at);
             $duration = $endTime->diff($startTime);
 
+            $displayScore = $tryout->requiresIrtScoring()
+                ? $scoreDisplayService->present($tryout, $totalScore)
+                : [
+                    'formatted' => (string) round($totalScore, 0),
+                    'label' => 'Skor',
+                ];
+
             $attemptHistory[] = [
                 'id' => $token,
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
                 'score' => round($totalScore, 0),
+                'display_score' => $displayScore,
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -3442,7 +3452,9 @@ class PackageController extends Controller
             ];
         }
 
-        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout) {
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
+        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout, $scoreDisplayService) {
             return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
                 ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
@@ -3470,7 +3482,7 @@ class PackageController extends Controller
                 if ($usesUtbkIrt) {
                     $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                    $bestAttempt = $attemptGroups->map(function ($attempt) {
+                    $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
                         $attempt->loadMissing('tryoutDetail');
@@ -3483,10 +3495,17 @@ class PackageController extends Controller
                             $subtestScores[$userAnswer->tryout_detail_id] = (float) ($userAnswer->score ?? 0);
                         }
 
+                        $displayScore = $scoreDisplayService->present($tryout, $score);
+                        $displaySubtestScores = collect($subtestScores)
+                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
+                            ->all();
+
                         return [
                             'user' => $representative->user,
                             'raw_score' => $score,
                             'max_score' => 1000,
+                            'display_score' => $displayScore,
+                            'display_subtest_scores' => $displaySubtestScores,
                             'percentage' => $score / 10,
                             'finished_at' => $attempt->max('finished_at'),
                             'correct_answers' => $attempt->sum('correct_answers'),

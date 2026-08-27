@@ -35,6 +35,7 @@ class Tryout extends Model
         'show_passing_grade' => 'boolean',
         'show_result_scores' => 'boolean',
         'result_score_display' => 'string',
+        'result_score_scale' => 'string',
         'section_break_duration' => 'integer',
         'max_attempts' => 'integer',
         'start_date' => 'datetime',

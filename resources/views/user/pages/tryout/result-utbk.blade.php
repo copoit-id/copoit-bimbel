@@ -19,8 +19,8 @@
                 <div class="text-center">
                     @if($showTotalResultScore)
                         <p class="text-sm text-gray-500">Nilai Total</p>
-                        <p class="text-4xl font-bold text-primary">{{ number_format($totalScore) }}</p>
-                        <p class="text-xs text-gray-400 mt-1">Skala 0 - 1000</p>
+                        <p class="text-4xl font-bold text-primary">{{ $totalDisplayScore['formatted'] }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ $totalDisplayScore['label'] }}</p>
                     @elseif(! $showResultScores)
                         <p class="text-sm text-gray-500">Nilai tidak ditampilkan</p>
                     @endif
@@ -61,7 +61,7 @@
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['unanswered'] }}</td>
                             @if($showResultScores)
                                 <td class="px-4 py-3 text-center">
-                                    <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ number_format($subtest['score']) }}</span>
+                                    <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ $subtest['display_score']['formatted'] }}</span>
                                 </td>
                             @endif
                             <td class="px-4 py-3 text-center">

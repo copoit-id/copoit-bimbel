@@ -30,6 +30,7 @@ use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
 use App\Services\ActivityLogger;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutScoreDisplayService;
 
 class TryoutController extends Controller
 {
@@ -2394,7 +2395,9 @@ class TryoutController extends Controller
 
         $sortedAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
 
-        $subtests = $sortedAnswers->map(function ($answer) {
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
+        $subtests = $sortedAnswers->map(function ($answer) use ($tryout, $scoreDisplayService) {
             $detail = $answer->tryoutDetail;
             $passingScore = $detail->passing_score ?? null;
             $passingType = $detail->passing_type ?? 'score';
@@ -2410,6 +2413,7 @@ class TryoutController extends Controller
             $correctCount = $answer->userAnswerDetails->where('is_correct', true)->count();
             $wrongCount = max(0, $answeredCount - $correctCount);
             $unansweredCount = max(0, $totalQuestions - $answeredCount);
+            $displayScore = $scoreDisplayService->present($tryout, $subtestScore);
 
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
@@ -2418,6 +2422,7 @@ class TryoutController extends Controller
                 'wrong' => $wrongCount,
                 'unanswered' => $unansweredCount,
                 'score' => $subtestScore,
+                'display_score' => $displayScore,
                 'passing_score' => $passingScore,
                 'passing_type' => $passingType,
                 'is_passed' => $isPassed,
@@ -2425,6 +2430,7 @@ class TryoutController extends Controller
         })->values();
 
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
+        $totalDisplayScore = $scoreDisplayService->present($tryout, $totalScore);
         $overallPassed = $subtests->every('is_passed');
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
@@ -2434,6 +2440,7 @@ class TryoutController extends Controller
             'tryout' => $tryout,
             'subtests' => $subtests,
             'totalScore' => $totalScore,
+            'totalDisplayScore' => $totalDisplayScore,
             'attemptToken' => $latestAttemptToken,
             'overallPassed' => $overallPassed,
         ], $feedbackContext));

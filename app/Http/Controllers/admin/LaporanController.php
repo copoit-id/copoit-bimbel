@@ -12,6 +12,7 @@ use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
 use App\Services\MultipleAnswerScoringService;
 use App\Support\Pagination;
+use App\Services\TryoutScoreDisplayService;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -74,7 +75,7 @@ class LaporanController extends Controller
             'Peserta',
             'Selesai',
             'Completion (%)',
-            $scoreDisplay === 'percentage' ? 'Rata-rata Persentase' : 'Rata-rata Skor',
+            'Rata-rata Nilai',
             'Status',
         ];
 
@@ -92,7 +93,7 @@ class LaporanController extends Controller
                 $tryout->total_participants,
                 $tryout->completed_participants,
                 $tryout->completion_rate,
-                $this->formatReportScore($tryout->report_score, $scoreDisplay),
+                $tryout->report_score_display,
                 $tryout->is_active ? 'Aktif' : 'Tidak Aktif',
             ], null, 'A'.$row);
 
@@ -162,12 +163,12 @@ class LaporanController extends Controller
                 $participant['email'],
             ];
             foreach ($report['subtests'] as $subtest) {
-                $values[] = $this->formatNumericScore($participant['subtests'][$subtest['id']]['score'] ?? 0);
+                $values[] = $participant['subtests'][$subtest['id']]['display'] ?? '0';
             }
 
             $sheet->fromArray([
                 ...$values,
-                $this->formatNumericScore($participant['total_score']),
+                $participant['total_score_display'],
                 $this->formatExportDuration($participant['started_at'], $participant['finished_at']),
                 $participant['status_label'],
             ], null, 'A'.$row++);
@@ -233,6 +234,7 @@ class LaporanController extends Controller
                 SUM(wrong_answers) as total_wrong,
                 SUM(unanswered) as total_unanswered,
                 SUM(score) as total_score,
+                MAX(utbk_total_score) as irt_total_score,
                 MAX(status) as attempt_status
             ')
             ->where('tryout_id', $tryout->tryout_id)
@@ -278,8 +280,10 @@ class LaporanController extends Controller
             ],
         ]);
 
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
         $participants = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions) {
+            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions, $tryout, $scoreDisplayService) {
                 $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
                 $latest = $sortedAttempts->first();
                 $latestSubtestRows = $subtestSummariesByAttempt->get($latest->user_id.'|'.$latest->attempt_token, collect())
@@ -292,26 +296,38 @@ class LaporanController extends Controller
                     $status = 'selesai';
                 }
 
-                $subtests = $subtestDefinitions->map(function (array $definition, int $detailId) use ($answerStatsBySubtest, $latest, $latestSubtestRows) {
+                $subtests = $subtestDefinitions->map(function (array $definition, int $detailId) use ($answerStatsBySubtest, $latest, $latestSubtestRows, $tryout, $scoreDisplayService) {
                     $row = $latestSubtestRows->get($detailId);
                     $answerStats = $answerStatsBySubtest->get($latest->user_id.'|'.$latest->attempt_token.'|'.$detailId);
                     $answered = min((int) $definition['total_questions'], (int) ($answerStats->answered_questions ?? 0));
                     $correct = min($answered, (int) ($answerStats->correct_answers ?? 0));
                     $wrong = max(0, $answered - $correct);
 
+                    $score = round((float) ($row->score ?? 0), 1);
+
                     return [
                         ...$definition,
-                        'score' => round((float) ($row->score ?? 0), 1),
+                        'score' => $score,
+                        'score_display' => $tryout->requiresIrtScoring()
+                            ? $scoreDisplayService->present($tryout, $score)['formatted']
+                            : $this->formatNumericScore($score),
                         'correct' => $correct,
                         'wrong' => $wrong,
                         'unanswered' => max(0, (int) $definition['total_questions'] - $answered),
                     ];
                 })->values();
 
+                $latestScore = $tryout->requiresIrtScoring()
+                    ? (float) ($latest->irt_total_score ?? 0)
+                    : (float) ($latest->total_score ?? 0);
+
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
-                    'latest_score' => round($latest->total_score ?? 0, 1),
+                    'latest_score' => round($latestScore, 1),
+                    'latest_score_display' => $tryout->requiresIrtScoring()
+                        ? $scoreDisplayService->present($tryout, $latestScore)['formatted']
+                        : $this->formatNumericScore($latestScore),
                     'last_finished' => $latest->finished_at,
                     'latest_attempt' => $latest,
                     'total_correct' => $subtests->sum('correct'),
@@ -348,6 +364,16 @@ class LaporanController extends Controller
         $statistics['completion_rate'] = $statistics['total_participants'] > 0
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
+
+        if ($tryout->requiresIrtScoring()) {
+            $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
+            $statistics['average_score_display'] = $scoreDisplayService->present($tryout, $statistics['average_score'])['formatted'];
+            $statistics['highest_score_display'] = $scoreDisplayService->present($tryout, $statistics['highest_score'])['formatted'];
+        } else {
+            $statistics['score_label'] = 'Skor';
+            $statistics['average_score_display'] = $this->formatNumericScore($statistics['average_score']);
+            $statistics['highest_score_display'] = $this->formatNumericScore($statistics['highest_score']);
+        }
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 
@@ -718,7 +744,7 @@ class LaporanController extends Controller
             ]);
 
         $attemptSummaries = UserAnswer::query()
-            ->selectRaw('user_id, attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(score) as total_score, MAX(status) as attempt_status')
+            ->selectRaw('user_id, attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(score) as total_score, MAX(utbk_total_score) as irt_total_score, MAX(status) as attempt_status')
             ->where('tryout_id', $tryout->tryout_id)
             ->groupBy('user_id', 'attempt_token')
             ->orderByDesc('last_activity_at')
@@ -733,27 +759,40 @@ class LaporanController extends Controller
             ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token)
             ->map(fn ($answers) => $answers->keyBy('tryout_detail_id'));
 
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
         $participants = $attemptSummaries
             ->groupBy('user_id')
-            ->map(function ($attempts) use ($subtests, $subtestScores) {
+            ->map(function ($attempts) use ($subtests, $subtestScores, $tryout, $scoreDisplayService) {
                 $latest = $attempts->sortByDesc('last_activity_at')->first();
                 $attemptKey = $latest->user_id.'|'.$latest->attempt_token;
                 $scores = $subtestScores->get($attemptKey, collect());
                 $isInProgress = $attempts->contains('attempt_status', 'in_progress');
 
-                $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores) {
+                $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores, $tryout, $scoreDisplayService) {
                     $score = $scores->get($detailId);
+                    $rawScore = round((float) ($score->score ?? 0), 2);
 
                     return [$detailId => [
-                        'score' => round((float) ($score->score ?? 0), 2),
+                        'score' => $rawScore,
+                        'display' => $tryout->requiresIrtScoring()
+                            ? $scoreDisplayService->present($tryout, $rawScore)['formatted']
+                            : $this->formatNumericScore($rawScore),
                     ]];
                 });
+
+                $totalScore = $tryout->requiresIrtScoring()
+                    ? (float) ($latest->irt_total_score ?? 0)
+                    : (float) ($latest->total_score ?? 0);
 
                 return [
                     'name' => $latest->user?->name ?? 'Peserta',
                     'email' => $latest->user?->email ?? '-',
                     'status_label' => $isInProgress ? 'Sedang Mengerjakan' : 'Selesai',
-                    'total_score' => round((float) ($latest->total_score ?? 0), 2),
+                    'total_score' => round($totalScore, 2),
+                    'total_score_display' => $tryout->requiresIrtScoring()
+                        ? $scoreDisplayService->present($tryout, $totalScore)['formatted']
+                        : $this->formatNumericScore($totalScore),
                     'started_at' => $latest->started_at ? Carbon::parse($latest->started_at) : null,
                     'finished_at' => $latest->finished_at ? Carbon::parse($latest->finished_at) : null,
                     'subtests' => $subtestValues,
@@ -883,23 +922,34 @@ class LaporanController extends Controller
         $globalProctoringSettings = PlanQuotaService::getDefaultProctoringSettings();
         $tryoutIds = $tryouts->pluck('tryout_id')->filter()->values();
         $scoreStatsByTryout = UserAnswer::query()
-            ->selectRaw('tryout_id, AVG(score) as average_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
+            ->selectRaw('tryout_id, AVG(COALESCE(utbk_total_score, score)) as average_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
             ->whereIn('tryout_id', $tryoutIds)
             ->where('status', 'completed')
             ->groupBy('tryout_id')
             ->get()
             ->keyBy('tryout_id');
 
-        $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings, $scoreStatsByTryout, $scoreDisplay) {
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
+        $tryouts->transform(function (Tryout $tryout) use ($globalProctoringSettings, $scoreStatsByTryout, $scoreDisplay, $scoreDisplayService) {
             $scoreStats = $scoreStatsByTryout->get($tryout->tryout_id);
             $tryout->avg_score = round((float) ($scoreStats->average_score ?? 0), 1);
             $tryout->avg_percentage = $this->percentageFromCorrectAnswers(
                 (int) ($scoreStats->total_correct ?? 0),
                 (int) ($scoreStats->total_questions ?? 0)
             );
-            $tryout->report_score = $scoreDisplay === 'percentage'
-                ? $tryout->avg_percentage
-                : $tryout->avg_score;
+            if ($tryout->requiresIrtScoring()) {
+                $scorePresentation = $scoreDisplayService->present($tryout, $tryout->avg_score);
+                $tryout->report_score = $scorePresentation['value'];
+                $tryout->report_score_display = $scorePresentation['formatted'];
+                $tryout->report_score_label = $scorePresentation['label'];
+            } else {
+                $tryout->report_score = $scoreDisplay === 'percentage'
+                    ? $tryout->avg_percentage
+                    : $tryout->avg_score;
+                $tryout->report_score_display = $this->formatReportScore($tryout->report_score, $scoreDisplay);
+                $tryout->report_score_label = $scoreDisplay === 'percentage' ? 'Persentase' : 'Skor';
+            }
             $tryout->completion_rate = $tryout->total_participants > 0
                 ? round(($tryout->completed_participants / $tryout->total_participants) * 100)
                 : 0;

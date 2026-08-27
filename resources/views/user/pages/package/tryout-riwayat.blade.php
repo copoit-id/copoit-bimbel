@@ -30,7 +30,7 @@ $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
 @if(count($attemptHistory) > 0)
 @php
 $totalAttempts = count($attemptHistory);
-$bestScore = collect($attemptHistory)->max('score');
+$bestAttempt = collect($attemptHistory)->sortByDesc('score')->first();
 $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 @endphp
 
@@ -41,7 +41,7 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
     </div>
     <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <p class="text-sm text-primary">Nilai Terbaik</p>
-        <p class="mt-1 text-2xl font-bold text-primary">{{ $bestScore }}</p>
+        <p class="mt-1 text-2xl font-bold text-primary">{{ $bestAttempt['display_score']['formatted'] ?? $bestAttempt['score'] ?? 0 }}</p>
     </div>
     <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <p class="text-sm text-primary">Lulus</p>
@@ -79,8 +79,8 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 
             <div class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:min-w-[560px] lg:justify-end">
                 <div class="rounded-xl bg-gray-50 px-4 py-2 text-center sm:min-w-[92px]">
-                    <p class="text-xs text-gray-400">Skor</p>
-                    <p class="font-bold text-lg" style="color: {{ $primaryColor }}">{{ $attempt['score'] }}</p>
+                    <p class="text-xs text-gray-400">{{ $attempt['display_score']['label'] ?? 'Skor' }}</p>
+                    <p class="font-bold text-lg" style="color: {{ $primaryColor }}">{{ $attempt['display_score']['formatted'] ?? $attempt['score'] }}</p>
                 </div>
                 <div class="rounded-xl bg-green-50 px-4 py-2 text-center sm:min-w-[92px]">
                     <p class="text-xs text-gray-400">Benar</p>

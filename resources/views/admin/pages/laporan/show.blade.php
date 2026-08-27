@@ -59,9 +59,9 @@
             <p class="text-sm text-gray-400">{{ $statistics['completion_rate'] }}% selesai</p>
         </div>
         <div class="rounded-xl border border-border bg-white p-5">
-            <p class="text-sm text-gray-500">Rata-rata skor</p>
-            <p class="text-3xl font-bold text-gray-900">{{ $statistics['average_score'] }}</p>
-            <p class="text-sm text-gray-400">Tertinggi {{ $statistics['highest_score'] }}</p>
+            <p class="text-sm text-gray-500">Rata-rata {{ $statistics['score_label'] }}</p>
+            <p class="text-3xl font-bold text-gray-900">{{ $statistics['average_score_display'] }}</p>
+            <p class="text-sm text-gray-400">Tertinggi {{ $statistics['highest_score_display'] }}</p>
         </div>
     </div>
 
@@ -126,14 +126,14 @@
                             </td>
                             @foreach ($subtests as $subtest)
                                 <td class="px-4 py-4 text-center">
-                                    <p class="font-bold text-gray-900">{{ $subtest['score'] }}</p>
+                                    <p class="font-bold text-gray-900">{{ $subtest['score_display'] }}</p>
                                     <p class="mt-1 whitespace-nowrap text-xs font-medium text-gray-500">
                                         B {{ $subtest['correct'] }} · S {{ $subtest['wrong'] }} · K {{ $subtest['unanswered'] }}
                                     </p>
                                 </td>
                             @endforeach
                             <td class="px-4 py-4 text-center">
-                                <p class="font-bold text-primary">{{ $participant['latest_score'] }}</p>
+                                <p class="font-bold text-primary">{{ $participant['latest_score_display'] }}</p>
                                 <p class="mt-1 whitespace-nowrap text-xs font-medium text-gray-500">
                                     B {{ $participant['total_correct'] }} · S {{ $participant['total_wrong'] }} · K {{ $participant['total_unanswered'] }}
                                 </p>

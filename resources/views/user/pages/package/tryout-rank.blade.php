@@ -4,6 +4,7 @@
 @section('content')
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
+        $usesIrtScoreScale = $tryout->requiresIrtScoring();
     @endphp
     <div class="package-bimbel space-y-6">
         <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
@@ -70,8 +71,8 @@
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-600">Rata-rata Skor</p>
-                            <p class="text-2xl font-bold text-dark">{{ number_format($rankings->avg('raw_score'), 1) }}</p>
+                            <p class="text-sm text-gray-600">Rata-rata {{ $usesIrtScoreScale ? 'Nilai' : 'Skor' }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankings->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1).(($rankings->first()['display_score']['scale'] ?? null) === 'percentage' ? '%' : '') : number_format($rankings->avg('raw_score'), 1) }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>
@@ -81,11 +82,18 @@
                         <div>
                             <p class="text-sm text-gray-600">Skor Tertinggi</p>
                             @php
-                                $highestScore = $rankings->max('raw_score');
-                                $highestMaxScore = $rankings->max('max_score');
+                                $highestScore = $usesIrtScoreScale
+                                    ? $rankings->max(fn ($ranking) => $ranking['display_score']['value'] ?? 0)
+                                    : $rankings->max('raw_score');
+                                $highestScoreDisplay = $usesIrtScoreScale
+                                    ? ($rankings->sortByDesc(fn ($ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
+                                    : number_format($highestScore ?? 0, 0);
+                                $highestMaxScore = $usesIrtScoreScale
+                                    ? ($rankings->first()['display_score']['maximum'] ?? null)
+                                    : $rankings->max('max_score');
                             @endphp
                             <p class="text-2xl font-bold text-dark">
-                                {{ number_format($highestScore ?? 0, 0) }}
+                                {{ $highestScoreDisplay }}
                                 @if($highestMaxScore)
                                     <span class="text-base font-semibold text-gray-500">/ {{ number_format($highestMaxScore, 0)
                                                                                                     }}</span>
@@ -156,14 +164,16 @@
                                     $rank = $index + 1;
                                     $rawScoreValue = $ranking['raw_score'] ?? 0;
                                     $maxScoreValue = $ranking['max_score'] ?? null;
-                                    $rawScoreDisplay = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                                    $rawScoreDisplay = $ranking['display_score']['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
                                         ? number_format($rawScoreValue, 0)
-                                        : number_format($rawScoreValue, 2);
-                                    $maxScoreDisplay = $maxScoreValue
+                                        : number_format($rawScoreValue, 2));
+                                    $maxScoreDisplay = isset($ranking['display_score'])
+                                        ? $ranking['display_score']['formatted_maximum']
+                                        : ($maxScoreValue
                                         ? (abs($maxScoreValue - round($maxScoreValue)) < 0.01
                                             ? number_format($maxScoreValue, 0)
                                             : number_format($maxScoreValue, 2))
-                                        : null;
+                                        : null);
                                     $bgClass = '';
                                     if ($rank == 1)
                                         $bgClass = 'bg-yellow-50/50';
@@ -226,9 +236,9 @@
                                         @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
                                             @php
                                                 $subscoreValue = (float) ($ranking['subtest_scores'][$subtest->tryout_detail_id] ?? 0);
-                                                $subscoreDisplay = abs($subscoreValue - round($subscoreValue)) < 0.01
+                                                $subscoreDisplay = $ranking['display_subtest_scores'][$subtest->tryout_detail_id]['formatted'] ?? (abs($subscoreValue - round($subscoreValue)) < 0.01
                                                     ? number_format($subscoreValue, 0)
-                                                    : number_format($subscoreValue, 2);
+                                                    : number_format($subscoreValue, 2));
                                             @endphp
                                             <td class="px-3 py-2.5 text-center">
                                                 <span class="font-semibold">{{ $subscoreDisplay }}</span>
