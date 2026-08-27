@@ -48,7 +48,9 @@
                 @if($activeRankingTab === 'profile')
                     <div class="flex flex-wrap items-center gap-2">
                         @foreach($profileChoices as $choice => $profileChoice)
-                            @php($isSelectedChoice = $selectedProfileChoice === $choice)
+                            @php
+                                $isSelectedChoice = $selectedProfileChoice === $choice;
+                            @endphp
                             @if($profileChoice['needs_completion'])
                                 <a href="{{ route('user.profile.index') }}" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100">
                                     Pilihan {{ $choice }} · Lengkapi Profil
@@ -77,13 +79,13 @@
         </section>
 
         <!-- Statistics Cards -->
-        @if($rankings->count() > 0)
+        @if($rankingSummary->isNotEmpty())
             <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-4' : 'md:grid-cols-3' }}">
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Total Peserta</p>
-                            <p class="text-2xl font-bold text-dark">{{ $rankings->count() }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $rankingSummary->count() }}</p>
                         </div>
                         <i class="ri-group-line text-3xl text-dark"></i>
                     </div>
@@ -92,7 +94,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Rata-rata {{ $usesIrtScoreScale ? 'Nilai' : 'Skor' }}</p>
-                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankings->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1) : number_format($rankings->avg('raw_score'), 1) }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankingSummary->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1) : number_format($rankingSummary->avg('raw_score'), 1) }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>
@@ -103,14 +105,14 @@
                             <p class="text-sm text-gray-600">Skor Tertinggi</p>
                             @php
                                 $highestScore = $usesIrtScoreScale
-                                    ? $rankings->max(fn ($ranking) => $ranking['display_score']['value'] ?? 0)
-                                    : $rankings->max('raw_score');
+                                    ? $rankingSummary->max(fn ($ranking) => $ranking['display_score']['value'] ?? 0)
+                                    : $rankingSummary->max('raw_score');
                                 $highestScoreDisplay = $usesIrtScoreScale
-                                    ? ($rankings->sortByDesc(fn ($ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
+                                    ? ($rankingSummary->sortByDesc(fn ($ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
                                     : number_format($highestScore ?? 0, 0);
                                 $highestMaxScore = $usesIrtScoreScale
-                                    ? ($rankings->first()['display_score']['maximum'] ?? null)
-                                    : $rankings->max('max_score');
+                                    ? ($rankingSummary->first()['display_score']['maximum'] ?? null)
+                                    : $rankingSummary->max('max_score');
                             @endphp
                             <p class="text-2xl font-bold text-dark">
                                 {{ $highestScoreDisplay }}
@@ -129,8 +131,8 @@
                             <div>
                                 <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
                                 @php
-                                    $passedCount = $rankings->where('is_passed', true)->count();
-                                    $passRate = $rankings->count() > 0 ? ($passedCount / $rankings->count()) * 100 : 0;
+                                    $passedCount = $rankingSummary->where('is_passed', true)->count();
+                                    $passRate = $rankingSummary->isNotEmpty() ? ($passedCount / $rankingSummary->count()) * 100 : 0;
                                 @endphp
                                 <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
                             </div>
@@ -185,7 +187,7 @@
                 <tbody>
                     @forelse($rankings as $index => $ranking)
                                 @php
-                                    $rank = $index + 1;
+                                    $rank = ($rankings->firstItem() ?? 1) + $index;
                                     $rawScoreValue = $ranking['raw_score'] ?? 0;
                                     $maxScoreValue = $ranking['max_score'] ?? null;
                                     $rawScoreDisplay = $ranking['display_score']['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
@@ -331,11 +333,14 @@
             </table>
         </div>
 
-        @if($rankings->count() > 0)
-            <div class="flex justify-between items-center mt-4">
-                <p class="text-gray-500 text-sm">
-                    Menampilkan {{ $rankings->count() }} peserta
+        @if($rankingSummary->isNotEmpty())
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-gray-500">
+                    Menampilkan {{ $rankings->firstItem() }}–{{ $rankings->lastItem() }} dari {{ $rankings->total() }} peserta
                 </p>
+                <div>
+                    {{ $rankings->onEachSide(1)->links() }}
+                </div>
             </div>
         @endif
     </div>

@@ -37,6 +37,8 @@ use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
 use App\Services\TryoutScoreDisplayService;
+use App\Support\Pagination;
+use Illuminate\Pagination\LengthAwarePaginator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
 
@@ -3494,9 +3496,20 @@ class PackageController extends Controller
         $buildRankings = function () use ($id_tryout, $tryout, $scoreDisplayService) {
             return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
+                ->select([
+                    'user_id',
+                    'tryout_detail_id',
+                    'attempt_token',
+                    'started_at',
+                    'finished_at',
+                    'score',
+                    'utbk_total_score',
+                    'correct_answers',
+                    'wrong_answers',
+                    'unanswered',
+                ])
                 ->with([
-                    'user.participantDestinationCategory.parent',
-                    'user.secondParticipantDestinationCategory.parent',
+                    'user:id,name,email,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
                     'tryoutDetail',
                 ])
                 ->get()
@@ -3648,12 +3661,25 @@ class PackageController extends Controller
                 : $allRankings->filter(fn (array $ranking) => $matchesProfileChoice($ranking, $profileChoice))->values()];
         });
         $profileRankings = $profileRankingsByChoice->get($selectedProfileChoice, collect());
-        $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+        $rankingSummary = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+        $perPage = Pagination::perPage(20);
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $rankings = new LengthAwarePaginator(
+            $rankingSummary->forPage($currentPage, $perPage)->values(),
+            $rankingSummary->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
 
         return view('user.pages.package.tryout-rank', compact(
             'package',
             'tryout',
             'rankings',
+            'rankingSummary',
             'allRankings',
             'profileRankings',
             'profileRankingsByChoice',
