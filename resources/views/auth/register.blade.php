@@ -96,8 +96,10 @@
                         <p class="mt-1 text-sm text-gray-500">Semua data pada langkah ini opsional dan bisa dilengkapi nanti.</p>
                     </div>
                     <div class="space-y-4">
-                        <x-ui.input name="education_level" label="Kelas / Level (Opsional)" placeholder="Contoh: Kelas 12" :value="old('education_level')" />
-                        <x-ui.input name="origin_institution" label="Asal Sekolah / Instansi (Opsional)" placeholder="Contoh: SMA Negeri 1 Jakarta" :value="old('origin_institution')" />
+                        <x-ui.input.select name="education_level" label="Kelas" placeholder="Pilih kelas"
+                            :options="['SD' => 'SD', 'SMP' => 'SMP', 'SMA' => 'SMA', 'ALUMNI' => 'ALUMNI']"
+                            :value="old('education_level')" />
+                        <x-ui.input name="origin_institution" label="Asal Sekolah" placeholder="Contoh: SMA Negeri 1 Jakarta" :value="old('origin_institution')" />
                     </div>
                 </section>
 
@@ -109,7 +111,7 @@
                     <x-form.participant-destination-selector :destination-categories="$destinationCategories" :selected-destination-id="old('participant_destination_category_id')" :selected-source="old('participant_destination_source')" :selected-external-id="old('participant_destination_external_id')" :selected-institution-name="old('participant_destination_institution_name')" :selected-program-name="old('participant_destination_program_name')" :required="app(\App\Services\ParticipantDestinationSelectionService::class)->isRequired()" />
                     <x-form.participant-destination-selector choice="2" :destination-categories="$destinationCategories" :selected-destination-id="old('second_participant_destination_category_id')" :selected-source="old('second_participant_destination_source')" :selected-external-id="old('second_participant_destination_external_id')" :selected-institution-name="old('second_participant_destination_institution_name')" :selected-program-name="old('second_participant_destination_program_name')" />
 
-                    <x-ui.input name="affiliate_ref_code" label="Kode Referral (Opsional)" placeholder="Contoh: REFKODE" :value="old('affiliate_ref_code', $affiliateRefCode ?? '')" autocomplete="off" class="uppercase" helper="Masukkan kode referral dari teman atau promosi jika ada." />
+                    <x-ui.input name="affiliate_ref_code" label="Kode Referral" placeholder="Contoh: REFKODE" :value="old('affiliate_ref_code', $affiliateRefCode ?? '')" autocomplete="off" class="uppercase" helper="Masukkan kode referral dari teman atau promosi jika ada." />
                 </section>
 
                 <!-- Hidden field for reCAPTCHA v3 token -->

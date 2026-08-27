@@ -36,7 +36,12 @@
     data-selected-official-program="{{ $selectedProgramName }}"
     data-official-api-enabled="{{ $officialApiEnabled ? '1' : '0' }}"
     class="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-    <legend class="px-1 text-sm font-semibold text-gray-800">Tujuan {{ $choice }}{{ $required ? '' : ' (Opsional)' }}</legend>
+    <legend class="px-1 text-sm font-semibold text-gray-800">
+        Tujuan {{ $choice }}
+        @if ($required)
+            <x-form.required-indicator />
+        @endif
+    </legend>
     <input type="hidden" name="{{ $fieldPrefix }}_category_id" data-destination-category-id value="{{ $selectedDestinationId ?: '' }}">
     <input type="hidden" name="{{ $fieldPrefix }}_source" data-destination-source value="{{ $selectedSource }}">
     <input type="hidden" name="{{ $fieldPrefix }}_external_id" data-destination-external-id value="{{ $selectedExternalId }}">
@@ -45,7 +50,12 @@
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-            <label for="{{ $fieldPrefix }}_institution" class="mb-1 block text-sm font-medium text-gray-700">Instansi Tujuan{{ $required ? '' : ' (Opsional)' }}</label>
+            <label for="{{ $fieldPrefix }}_institution" class="mb-1 block text-sm font-medium text-gray-700">
+                Instansi Tujuan
+                @if ($required)
+                    <x-form.required-indicator />
+                @endif
+            </label>
             <select id="{{ $fieldPrefix }}_institution" data-destination-institution
                 class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                 {{ $required ? 'required' : '' }}>

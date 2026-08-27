@@ -65,7 +65,9 @@ $user = auth()->user();
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Nama Lengkap <x-form.required-indicator />
+                    </label>
                     <input type="text" name="name" value="{{ old('name', $user->name) }}" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -88,13 +90,24 @@ $user = auth()->user();
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                        <label for="education_level" class="block text-sm font-medium text-gray-700 mb-1">Kelas / Level <span class="text-gray-400">(Opsional)</span></label>
-                        <input id="education_level" name="education_level" type="text" value="{{ old('education_level', $user->education_level ?? '') }}" placeholder="Contoh: Kelas 12"
+                        @php
+                            $educationLevel = old('education_level', $user->education_level ?? '');
+                        @endphp
+                        <label for="education_level" class="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
+                        <select id="education_level" name="education_level"
                             class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                             style="--tw-ring-color: {{ $primaryColor }}40">
+                            <option value="">Pilih kelas</option>
+                            @foreach(['SD', 'SMP', 'SMA', 'ALUMNI'] as $level)
+                                <option value="{{ $level }}" @selected($educationLevel === $level)>{{ $level }}</option>
+                            @endforeach
+                            @if($educationLevel !== '' && !in_array($educationLevel, ['SD', 'SMP', 'SMA', 'ALUMNI'], true))
+                                <option value="{{ $educationLevel }}" selected>{{ $educationLevel }}</option>
+                            @endif
+                        </select>
                     </div>
                     <div>
-                        <label for="origin_institution" class="block text-sm font-medium text-gray-700 mb-1">Asal Sekolah / Instansi <span class="text-gray-400">(Opsional)</span></label>
+                        <label for="origin_institution" class="block text-sm font-medium text-gray-700 mb-1">Asal Sekolah</label>
                         <input id="origin_institution" name="origin_institution" type="text" value="{{ old('origin_institution', $user->origin_institution ?? '') }}" placeholder="Contoh: SMA Negeri 1 Jakarta"
                             class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                             style="--tw-ring-color: {{ $primaryColor }}40">
@@ -108,8 +121,7 @@ $user = auth()->user();
                         :selected-source="old('participant_destination_source', $user->participant_destination_source ?? '')"
                         :selected-external-id="old('participant_destination_external_id', $user->participant_destination_external_id ?? '')"
                         :selected-institution-name="old('participant_destination_institution_name', $user->participant_destination_institution_name ?? '')"
-                        :selected-program-name="old('participant_destination_program_name', $user->participant_destination_program_name ?? '')"
-                        :required="app(\App\Services\ParticipantDestinationSelectionService::class)->isRequired()" />
+                        :selected-program-name="old('participant_destination_program_name', $user->participant_destination_program_name ?? '')" />
                     <x-form.participant-destination-selector
                         choice="2"
                         :destination-categories="$destinationCategories"
@@ -138,7 +150,9 @@ $user = auth()->user();
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Saat Ini</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Password Saat Ini <x-form.required-indicator />
+                    </label>
                     <input type="password" name="current_password" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -146,7 +160,9 @@ $user = auth()->user();
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Baru</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Password Baru <x-form.required-indicator />
+                    </label>
                     <input type="password" name="password" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -154,7 +170,9 @@ $user = auth()->user();
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Password Baru</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Konfirmasi Password Baru <x-form.required-indicator />
+                    </label>
                     <input type="password" name="password_confirmation" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"

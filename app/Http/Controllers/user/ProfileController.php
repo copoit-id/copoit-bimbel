@@ -39,10 +39,7 @@ class ProfileController extends Controller
             'education_level' => ['nullable', 'string', 'max:100'],
             'origin_institution' => ['nullable', 'string', 'max:255'],
         ]);
-        $destinationPayload = $destinationSelectionService->validate(
-            $request,
-            $destinationSelectionService->isRequired()
-        );
+        $destinationPayload = $destinationSelectionService->validate($request, false);
         $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         $user->update([

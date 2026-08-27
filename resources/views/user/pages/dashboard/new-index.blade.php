@@ -214,11 +214,40 @@ $primaryRgb = "$r, $g, $b";
 
 @if(!$isGuest)
 <!-- Akses Cepat -->
-<?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
+@php
+    $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
+    $quickAccessCount = ($canShowMaterial ? 1 : 0)
+        + ($canShowTryout ? 1 : 0)
+        + ($canShowSchedule ? 1 : 0)
+        + ($canShowMaterial && $liveSessionAvailable ? 1 : 0)
+        + ($canShowPackage ? 2 : 0);
+    $usesQuickAccessCarousel = $quickAccessCount > 6;
+@endphp
 @if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+<section x-data class="mb-6">
+    <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-bold text-gray-800">Akses Cepat</h2>
+        @if($usesQuickAccessCarousel)
+        <div class="flex items-center gap-2">
+            <button type="button" @click="$refs.quickAccess.scrollBy({ left: -($refs.quickAccess.clientWidth * 0.85), behavior: 'smooth' })"
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800"
+                aria-label="Lihat akses sebelumnya">
+                <i class="ri-arrow-left-s-line text-lg"></i>
+            </button>
+            <button type="button" @click="$refs.quickAccess.scrollBy({ left: $refs.quickAccess.clientWidth * 0.85, behavior: 'smooth' })"
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800"
+                aria-label="Lihat akses berikutnya">
+                <i class="ri-arrow-right-s-line text-lg"></i>
+            </button>
+        </div>
+        @endif
+    </div>
+    <div @if($usesQuickAccessCarousel) x-ref="quickAccess" @endif
+        class="{{ $usesQuickAccessCarousel
+            ? 'flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'grid w-full grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6' }}">
     @if($canShowMaterial)
-    <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.videos') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-video-line text-xl"></i>
         </div>
@@ -227,7 +256,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowTryout)
-    <a href="{{ route('user.package.tryout.list') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.tryout.list') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
@@ -236,7 +265,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowSchedule)
-    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.class-schedule.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-calendar-check-line text-xl"></i>
         </div>
@@ -245,7 +274,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowMaterial && $liveSessionAvailable)
-    <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.live-sessions') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-live-line text-xl"></i>
         </div>
@@ -254,14 +283,14 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowPackage)
-    <a href="{{ route('user.package.my') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.my') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-road-map-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Paket Saya</h3>
     </a>
     
-    <a href="{{ route('user.package.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line text-xl"></i>
         </div>
@@ -269,6 +298,7 @@ $primaryRgb = "$r, $g, $b";
     </a>
     @endif
 </div>
+</section>
 @endif
 
 <?php if ($hasUnpaid): ?>
