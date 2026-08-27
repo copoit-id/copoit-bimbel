@@ -35,7 +35,7 @@
     <x-website-translation-head />
 </head>
 
-<body>
+<body data-app-selects>
     @include('components.login-as-header')
     @include('user.components.navbar')
     @include('user.components.sidebar')

@@ -59,7 +59,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen" data-app-selects>
     @include('components.login-as-header')
     @include('user.components.new-navbar')
     

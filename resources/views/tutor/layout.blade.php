@@ -11,7 +11,7 @@
     @include('components.favicon-link')
     <x-website-translation-head />
 </head>
-<body class="min-h-screen bg-slate-50 text-gray-800">
+<body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
     @php
         $planModules = app(\App\Services\PlanModuleService::class);
         $canShowTutorProfile = $planModules->allows('profile');

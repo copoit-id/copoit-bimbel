@@ -12,7 +12,7 @@
     <x-website-translation-head />
     @stack('styles')
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50" data-app-selects>
     @include('super-admin.components.navbar')
     @include('super-admin.components.sidebar')
 

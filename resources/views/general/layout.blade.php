@@ -33,7 +33,7 @@
     @stack('styles')
 </head>
 
-<body class="min-h-screen bg-slate-50 text-slate-900">
+<body class="min-h-screen bg-slate-50 text-slate-900" data-app-selects>
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
             <a href="{{ $homeRoute }}" class="flex min-w-0 items-center gap-3">
@@ -185,6 +185,7 @@
         </div>
     </footer>
     @endif
+    @vite('resources/js/app.js')
     <x-website-translator />
 </body>
 

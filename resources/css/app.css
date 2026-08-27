@@ -157,7 +157,7 @@ form label > span.text-red-500:hover::after {
 }
 
 /* ---------------------------------------------------------------------------
-   Admin select
+   Global select
    --------------------------------------------------------------------------- */
 .admin-select__native {
     position: absolute !important;

@@ -12,7 +12,7 @@
     @include('components.favicon-link')
     @stack('styles')
 </head>
-<body class="min-h-screen bg-slate-50 text-gray-800">
+<body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
     @php
         $currentRoute = request()->route()?->getName();
         $selectedChildId = $child?->id;

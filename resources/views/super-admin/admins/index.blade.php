@@ -55,6 +55,19 @@
                 <input type="text" name="username" value="{{ old('username') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2">
             </div>
             <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Level Sekolah (opsional)</label>
+                <select name="education_level" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                    <option value="">Pilih level sekolah</option>
+                    @foreach (['SD', 'SMP', 'SMA', 'ALUMNI'] as $educationLevel)
+                        <option value="{{ $educationLevel }}" @selected(old('education_level') === $educationLevel)>{{ $educationLevel }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Asal Sekolah (opsional)</label>
+                <input type="text" name="origin_institution" value="{{ old('origin_institution') }}" placeholder="Contoh: SMA Negeri 1 Jakarta" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+            </div>
+            <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                 <input type="password" name="password" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
             </div>
@@ -169,6 +182,14 @@
                                     <i class="ri-time-line text-base"></i>
                                     Perpanjang
                                 </button>
+                                <form method="POST" action="{{ route('super-admin.admins.reset-password', $admin) }}" class="inline-block"
+                                    onsubmit="return confirm('Reset password {{ $admin->name }} ke password default (password123)?');">
+                                    @csrf
+                                    <button type="submit" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-amber-500 text-amber-700 hover:bg-amber-500 hover:text-white transition">
+                                        <i class="ri-lock-password-line text-base"></i>
+                                        Reset Password
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty
@@ -224,6 +245,21 @@
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
                                         <input type="text" name="username" value="{{ old('username', $admin->username) }}" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Level Sekolah (opsional)</label>
+                                            <select name="education_level" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                                <option value="">Pilih level sekolah</option>
+                                                @foreach (['SD', 'SMP', 'SMA', 'ALUMNI'] as $educationLevel)
+                                                    <option value="{{ $educationLevel }}" @selected(old('education_level', $admin->education_level) === $educationLevel)>{{ $educationLevel }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Asal Sekolah (opsional)</label>
+                                            <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: SMA Negeri 1 Jakarta" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                        </div>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>

@@ -24,7 +24,7 @@
     <noscript><style>[data-register-step] { display: block !important; margin-top: 1.5rem; } #nextStepWrap, #previousStepWrap { display: none !important; } #submitStepWrap { display: block !important; width: 100%; } #submitBtn { display: flex !important; width: 100%; }</style></noscript>
 </head>
 
-<body class="auth-page bg-gray-50">
+<body class="auth-page bg-gray-50" data-app-selects>
     @include('components.flash-alert')
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-lg w-full space-y-6">
