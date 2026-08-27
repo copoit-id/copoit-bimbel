@@ -2044,7 +2044,9 @@ class PackageController extends Controller
         $attemptHistory = [];
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
-            $firstAnswer = $userAnswers->first();
+            $firstAnswer = $userAnswers
+                ->sortBy(fn ($answer) => $answer->started_at ?? $answer->created_at)
+                ->first();
             $lastAnswer = $userAnswers->sortByDesc('finished_at')->first();
 
             if ($tryout->requiresIrtScoring()) {
@@ -2143,8 +2145,21 @@ class PackageController extends Controller
             ];
         }
 
-        // Sort by newest first
-        $attemptHistory = collect($attemptHistory)->sortByDesc('created_at')->values();
+        // Nomor percobaan mengikuti waktu pengerjaan, dari yang paling awal.
+        // Status "Terbaru" tetap diberikan pada percobaan terakhir agar tidak
+        // tertukar dengan urutan nomor percobaannya.
+        $attemptHistory = collect($attemptHistory)
+            ->sortBy(fn (array $attempt) => $attempt['started_at'] ?? $attempt['created_at'])
+            ->values();
+
+        $lastAttemptIndex = $attemptHistory->count() - 1;
+        $attemptHistory = $attemptHistory
+            ->map(function (array $attempt, int $index) use ($lastAttemptIndex): array {
+                $attempt['attempt_number'] = $index + 1;
+                $attempt['is_latest'] = $index === $lastAttemptIndex;
+
+                return $attempt;
+            });
 
         return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory', 'packageRouteId'));
     }

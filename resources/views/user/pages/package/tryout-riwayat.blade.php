@@ -50,10 +50,10 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 </div>
 
 <div class="space-y-4">
-    @foreach($attemptHistory as $index => $attempt)
+    @foreach($attemptHistory as $attempt)
     @php
-    $attemptNumber = $loop->iteration;
-    $isLatestAttempt = $index === 0;
+    $attemptNumber = $attempt['attempt_number'];
+    $isLatestAttempt = $attempt['is_latest'];
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
