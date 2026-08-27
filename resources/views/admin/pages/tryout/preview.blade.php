@@ -11,11 +11,10 @@
     </x-breadcrumb>
 
     <div class="flex flex-wrap items-center justify-end gap-2">
-        <a href="{{ route('admin.tryout.download-questions', ['tryout' => $tryout, 'type' => 'pembahasan']) }}"
-            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-            <i class="ri-download-2-line"></i>
-            Unduh Soal & Pembahasan
-        </a>
+        <x-tryout.question-download-menu
+            :questions-url="route('admin.tryout.download-questions', ['tryout' => $tryout, 'type' => 'soal'])"
+            :explanations-url="route('admin.tryout.download-questions', ['tryout' => $tryout, 'type' => 'pembahasan'])"
+            label="Unduh Laporan" />
         <a href="{{ route('admin.tryout.index') }}"
             class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
             <i class="ri-arrow-left-line"></i>

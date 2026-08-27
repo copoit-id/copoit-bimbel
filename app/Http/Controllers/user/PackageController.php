@@ -3427,68 +3427,78 @@ class PackageController extends Controller
         $currentUser->loadMissing([
             'participantDestinationCategory.parent',
             'participantDestinationCategory.activeChildren',
+            'secondParticipantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.activeChildren',
         ]);
         $activeRankingTab = request('tab', 'all') === 'profile' ? 'profile' : 'all';
-        $profileCategory = $currentUser->participantDestinationCategory;
-        $profileOfficialInstitution = trim((string) ($currentUser->participant_destination_institution_name ?? ''));
-        $profileOfficialProgram = trim((string) ($currentUser->participant_destination_program_name ?? ''));
-        $hasOfficialDestination = $currentUser->participant_destination_source === 'snpmb'
-            && $profileOfficialInstitution !== '';
-        $profileNeedsCompletion = !$hasOfficialDestination
-            && (
-                !$profileCategory
-                || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists())
-            );
+        $requestedProfileChoice = (string) request('profile_choice', '');
+        $selectedProfileChoice = in_array($requestedProfileChoice, ['1', '2'], true)
+            ? (int) $requestedProfileChoice
+            : 1;
+
+        $buildProfileChoice = function ($category, string $source, string $institution, string $program, ?string $label): array {
+            $hasOfficialDestination = $source === 'snpmb' && $institution !== '';
+            $needsCompletion = !$hasOfficialDestination
+                && (
+                    !$category
+                    || (!$category->parent_id && $category->activeChildren->isNotEmpty())
+                );
+
+            return [
+                'label' => $label,
+                'destination_ids' => $category
+                    ? ($category->parent_id
+                        ? [$category->id]
+                        : $category->activeChildren->pluck('id')->prepend($category->id)->unique()->values()->all())
+                    : [],
+                'destination_snapshot' => $hasOfficialDestination
+                    ? [
+                        'source' => 'snpmb',
+                        'institution_name' => $institution,
+                        'program_name' => $program,
+                    ]
+                    : null,
+                'needs_completion' => $needsCompletion,
+            ];
+        };
+
+        $profileChoices = [
+            1 => $buildProfileChoice(
+                $currentUser->participantDestinationCategory,
+                (string) ($currentUser->participant_destination_source ?? ''),
+                trim((string) ($currentUser->participant_destination_institution_name ?? '')),
+                trim((string) ($currentUser->participant_destination_program_name ?? '')),
+                $currentUser->participant_destination_display_name,
+            ),
+            2 => $buildProfileChoice(
+                $currentUser->secondParticipantDestinationCategory,
+                (string) ($currentUser->second_participant_destination_source ?? ''),
+                trim((string) ($currentUser->second_participant_destination_institution_name ?? '')),
+                trim((string) ($currentUser->second_participant_destination_program_name ?? '')),
+                $currentUser->second_participant_destination_display_name,
+            ),
+        ];
+        if ($requestedProfileChoice === '' && $profileChoices[1]['needs_completion'] && ! $profileChoices[2]['needs_completion']) {
+            $selectedProfileChoice = 2;
+        }
+        $profileNeedsCompletion = $profileChoices[$selectedProfileChoice]['needs_completion'];
 
         if ($activeRankingTab === 'profile' && $profileNeedsCompletion) {
             return redirect()->route('user.profile.index')
-                ->with('error', 'Lengkapi instansi/prodi tujuan di profil terlebih dahulu untuk melihat ranking berdasarkan profil.');
+                ->with('error', "Lengkapi instansi/prodi tujuan Pilihan {$selectedProfileChoice} di profil terlebih dahulu untuk melihat ranking berdasarkan profil.");
         }
-
-        $profileDestinationIds = [];
-        $profileDestinationLabel = null;
-        $profileDestinationSnapshot = null;
-        if ($profileCategory) {
-            $profileDestinationLabel = $profileCategory->display_name;
-            $profileDestinationIds = $profileCategory->parent_id
-                ? [$profileCategory->id]
-                : $profileCategory->activeChildren
-                    ->pluck('id')
-                    ->prepend($profileCategory->id)
-                    ->unique()
-                    ->values()
-                    ->all();
-        } elseif ($hasOfficialDestination) {
-            $profileDestinationLabel = $currentUser->participant_destination_display_name;
-            $profileDestinationSnapshot = [
-                'source' => 'snpmb',
-                'institution_name' => $profileOfficialInstitution,
-                'program_name' => $profileOfficialProgram,
-            ];
-        }
+        $profileDestinationLabel = $profileChoices[$selectedProfileChoice]['label'];
 
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
 
-        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout, $scoreDisplayService) {
+        $buildRankings = function () use ($id_tryout, $tryout, $scoreDisplayService) {
             return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
-                ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
-                    $query->whereHas('user', function ($userQuery) use ($destinationIds) {
-                        $userQuery->whereIn('participant_destination_category_id', $destinationIds);
-                    });
-                })
-                ->when(!empty($destinationSnapshot), function ($query) use ($destinationSnapshot) {
-                    $query->whereHas('user', function ($userQuery) use ($destinationSnapshot) {
-                        $userQuery
-                            ->where('participant_destination_source', $destinationSnapshot['source'])
-                            ->where('participant_destination_institution_name', $destinationSnapshot['institution_name']);
-
-                        if (!empty($destinationSnapshot['program_name'])) {
-                            $userQuery->where('participant_destination_program_name', $destinationSnapshot['program_name']);
-                        }
-                    });
-                })
-                ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
+                ->with([
+                    'user.participantDestinationCategory.parent',
+                    'user.secondParticipantDestinationCategory.parent',
+                    'tryoutDetail',
+                ])
                 ->get()
                 ->groupBy('user_id')
                 ->map(function ($userAnswers) use ($tryout) {
@@ -3605,9 +3615,39 @@ class PackageController extends Controller
         };
 
         $allRankings = $buildRankings();
-        $profileRankings = !$profileNeedsCompletion
-            ? $buildRankings($profileDestinationIds, $profileDestinationSnapshot)
-            : collect();
+        $matchesProfileChoice = function (array $ranking, array $profileChoice): bool {
+            $user = $ranking['user'];
+            $destinationIds = $profileChoice['destination_ids'];
+
+            if ($destinationIds !== []) {
+                return in_array((int) $user->participant_destination_category_id, $destinationIds, true)
+                    || in_array((int) $user->second_participant_destination_category_id, $destinationIds, true);
+            }
+
+            $destination = $profileChoice['destination_snapshot'];
+            if ($destination === null) {
+                return false;
+            }
+
+            $matchesSnapshot = function (string $prefix) use ($user, $destination): bool {
+                $source = (string) $user->{$prefix.'_source'};
+                $institution = trim((string) $user->{$prefix.'_institution_name'});
+                $program = trim((string) $user->{$prefix.'_program_name'});
+
+                return $source === $destination['source']
+                    && $institution === $destination['institution_name']
+                    && ($destination['program_name'] === '' || $program === $destination['program_name']);
+            };
+
+            return $matchesSnapshot('participant_destination')
+                || $matchesSnapshot('second_participant_destination');
+        };
+        $profileRankingsByChoice = collect($profileChoices)->mapWithKeys(function (array $profileChoice, int $choice) use ($allRankings, $matchesProfileChoice) {
+            return [$choice => $profileChoice['needs_completion']
+                ? collect()
+                : $allRankings->filter(fn (array $ranking) => $matchesProfileChoice($ranking, $profileChoice))->values()];
+        });
+        $profileRankings = $profileRankingsByChoice->get($selectedProfileChoice, collect());
         $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
 
         return view('user.pages.package.tryout-rank', compact(
@@ -3616,7 +3656,10 @@ class PackageController extends Controller
             'rankings',
             'allRankings',
             'profileRankings',
+            'profileRankingsByChoice',
             'activeRankingTab',
+            'selectedProfileChoice',
+            'profileChoices',
             'profileDestinationLabel',
             'profileNeedsCompletion',
             'packageRouteId'

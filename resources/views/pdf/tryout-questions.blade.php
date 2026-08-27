@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 0; }
+        @page { margin: 12mm 12mm 16mm; }
         body { margin: 0; color: #1f2937; font-family: DejaVu Sans, sans-serif; font-size: 10pt; line-height: 1.55; }
         .document-header { width: 100%; margin: 0; border: 0; background: {{ $brandPrimaryColor }}; color: #ffffff; }
         .document-header td { vertical-align: middle; }
@@ -22,8 +22,8 @@
         .header-meta { margin-top: 10px; }
         .header-meta-item { display: inline-block; margin-right: 5px; padding: 3px 8px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 10px; background: rgba(255, 255, 255, 0.10); color: #ffffff; font-size: 7.5pt; font-weight: bold; letter-spacing: 0.4px; }
         .header-note { padding: 8px 18px; border-top: 1px solid {{ $brandPrimaryDarkColor }}; background: {{ $brandPrimaryDarkColor }}; color: #ffffff; font-size: 8.5pt; }
-        .document-body { padding: 10mm 12mm 14mm; }
-        .question { margin: 0 0 14px; padding: 0 0 13px; border-bottom: 1px solid #e5e7eb; page-break-inside: auto; }
+        .document-body { padding: 8mm 0 0; }
+        .question { margin: 0 0 16px; padding: 0 0 15px; border-bottom: 1px solid #e5e7eb; page-break-inside: avoid; }
         .question:last-child { margin-bottom: 0; border-bottom: 0; }
         .number { color: #047857; font-weight: bold; }
         .subtest { margin-top: 2px; color: #6b7280; font-size: 8.5pt; }

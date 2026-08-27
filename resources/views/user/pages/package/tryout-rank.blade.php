@@ -32,12 +32,12 @@
                         <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
                     </a>
                     @if($profileNeedsCompletion)
-                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $selectedProfileChoice]) }}"
                             class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
                             Ranking Sesuai Profil
                         </a>
                     @else
-                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $selectedProfileChoice]) }}"
                             class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
                             Sesuai Profil Saya
                             <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
@@ -45,16 +45,35 @@
                     @endif
                 </div>
 
-                @if($activeRankingTab === 'profile' && $profileDestinationLabel)
-                    <div class="text-sm text-gray-500">
-                        Filter: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
+                @if($activeRankingTab === 'profile')
+                    <div class="flex flex-wrap items-center gap-2">
+                        @foreach($profileChoices as $choice => $profileChoice)
+                            @php($isSelectedChoice = $selectedProfileChoice === $choice)
+                            @if($profileChoice['needs_completion'])
+                                <a href="{{ route('user.profile.index') }}" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+                                    Pilihan {{ $choice }} · Lengkapi Profil
+                                </a>
+                            @else
+                                <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $choice]) }}"
+                                    class="rounded-lg border px-3 py-2 text-xs font-semibold transition {{ $isSelectedChoice ? 'border-primary bg-primary text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-primary hover:text-primary' }}">
+                                    Pilihan {{ $choice }}
+                                    <span class="ml-1 font-normal opacity-80">({{ $profileRankingsByChoice->get($choice, collect())->count() }})</span>
+                                </a>
+                            @endif
+                        @endforeach
                     </div>
                 @elseif($profileNeedsCompletion)
                     <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        Lengkapi instansi/prodi tujuan di profil untuk membuka ranking sesuai profil.
+                        Lengkapi instansi/prodi tujuan di profil untuk membuka ranking berdasarkan profil.
                     </div>
                 @endif
             </div>
+
+            @if($activeRankingTab === 'profile' && $profileDestinationLabel)
+                <div class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                    Filter Pilihan {{ $selectedProfileChoice }}: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
+                </div>
+            @endif
         </section>
 
         <!-- Statistics Cards -->

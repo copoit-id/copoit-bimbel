@@ -61,11 +61,10 @@
                 Import Excel
             </button>
 
-            <a href="{{ route('admin.question.download', ['tryout_detail_id' => $tryout_detail->tryout_detail_id, 'type' => 'pembahasan']) }}"
-                class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-                <i class="ri-download-2-line"></i>
-                Unduh Soal & Pembahasan
-            </a>
+            <x-tryout.question-download-menu
+                :questions-url="route('admin.question.download', ['tryout_detail_id' => $tryout_detail->tryout_detail_id, 'type' => 'soal'])"
+                :explanations-url="route('admin.question.download', ['tryout_detail_id' => $tryout_detail->tryout_detail_id, 'type' => 'pembahasan'])"
+                label="Unduh Soal" />
             <a href="{{ route('admin.question-bank.index', ['import_for' => $tryout_detail->tryout_detail_id]) }}"
                 class="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/5">
                 <i class="ri-folder-transfer-line"></i>
