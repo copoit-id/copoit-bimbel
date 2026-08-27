@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -74,7 +75,7 @@ class SuperAdminController extends Controller
                     default => $query->orderByDesc('created_at'),
                 };
             })
-            ->paginate(20)
+            ->paginate(Pagination::perPage(20))
             ->withQueryString();
 
         return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status'));

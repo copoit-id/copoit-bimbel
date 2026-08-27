@@ -214,8 +214,9 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        $search = trim((string) $request->query('search', ''));
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
                 $query->withCount('questions');
@@ -238,6 +239,14 @@ class LaporanController extends Controller
                 MAX(status) as attempt_status
             ')
             ->where('tryout_id', $tryout->tryout_id)
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->whereHas('user', function ($userQuery) use ($search): void {
+                    $userQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
             ->groupBy('user_id', 'tryout_id', 'attempt_token')
             ->orderByDesc('last_activity_at')
             ->with('user:id,name,email')
@@ -365,6 +374,19 @@ class LaporanController extends Controller
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
 
+        $perPage = Pagination::perPage(10);
+        $currentPage = max(1, $request->integer('page', 1));
+        $participants = new LengthAwarePaginator(
+            $participants->forPage($currentPage, $perPage)->values(),
+            $participants->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
         if ($tryout->requiresIrtScoring()) {
             $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
             $statistics['average_score_display'] = $scoreDisplayService->present($tryout, $statistics['average_score'])['formatted'];
@@ -385,7 +407,8 @@ class LaporanController extends Controller
             'participants',
             'subtestDefinitions',
             'leaderboardPackageId',
-            'hasSnapshotProctoring'
+            'hasSnapshotProctoring',
+            'search'
         ));
     }
 

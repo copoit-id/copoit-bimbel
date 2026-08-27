@@ -1,4 +1,6 @@
-@if ($paginator->hasPages())
+@php($paginator->withQueryString())
+
+@if ($paginator->count() > 0)
     <nav role="navigation" aria-label="Pagination Navigation" class="mt-6 flex flex-wrap items-center justify-between gap-3">
         <form method="GET" class="flex items-center gap-2 text-sm text-gray-600">
             @foreach (request()->query() as $key => $value)
@@ -14,6 +16,7 @@
             </select>
             <span class="whitespace-nowrap">per halaman</span>
         </form>
+        @if ($paginator->hasPages())
         <ul class="inline-flex items-center gap-1 rounded-2xl border border-gray-200 bg-white px-2 py-1 text-sm font-medium text-gray-600 shadow-sm">
             {{-- Previous Page Link --}}
             @if ($paginator->onFirstPage())
@@ -80,5 +83,6 @@
                 </li>
             @endif
         </ul>
+        @endif
     </nav>
 @endif

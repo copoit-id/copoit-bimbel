@@ -72,11 +72,16 @@
                 <h3 class="mt-1 text-lg font-semibold text-gray-900">Ringkasan Pengerjaan</h3>
                 <p class="mt-1 text-sm text-gray-500">Menampilkan attempt terakhir setiap peserta beserta hasil seluruh subtest.</p>
             </div>
-            <div class="relative w-full lg:w-72">
-                <input type="search" id="participant-search" placeholder="Cari peserta..."
-                    class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10">
-                <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            </div>
+            <form method="GET" class="flex w-full gap-2 lg:w-auto">
+                <div class="relative flex-1 lg:w-80">
+                    <input type="search" name="search" value="{{ $search }}" placeholder="Cari nama, email, username, atau nomor HP..."
+                        class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10">
+                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
+                    Cari
+                </button>
+            </form>
         </div>
 
         <div class="mt-6 overflow-x-auto rounded-lg border border-gray-100">
@@ -116,7 +121,7 @@
                                 default => 'border-gray-200 bg-gray-50 text-gray-700',
                             };
                         @endphp
-                        <tr data-participant-row data-name="{{ strtolower($user->name ?? '') }}" class="border-b border-gray-100 transition hover:bg-gray-50/70">
+                        <tr class="border-b border-gray-100 transition hover:bg-gray-50/70">
                             <td class="px-4 py-4">
                                 <p class="font-semibold text-gray-900">{{ $user->name ?? 'User' }}</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $user->email ?? '-' }}</p>
@@ -189,6 +194,7 @@
             </table>
         </div>
         <p class="mt-3 text-xs text-gray-500"><span class="font-semibold text-gray-700">B</span> benar · <span class="font-semibold text-gray-700">S</span> salah · <span class="font-semibold text-gray-700">K</span> kosong</p>
+        {{ $participants->links() }}
     </section>
 
     <div id="time-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
@@ -215,13 +221,6 @@
 @section('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('participant-search')?.addEventListener('input', (event) => {
-                const term = event.target.value.toLowerCase();
-                document.querySelectorAll('[data-participant-row]').forEach((row) => {
-                    row.classList.toggle('hidden', !(row.dataset.name || '').includes(term));
-                });
-            });
-
             const timeModal = document.getElementById('time-modal');
             document.querySelectorAll('[data-open-time-modal]').forEach((button) => {
                 button.addEventListener('click', () => {
