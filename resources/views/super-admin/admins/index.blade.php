@@ -64,16 +64,7 @@
                 <input type="text" name="username" value="{{ old('username') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2">
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Level Sekolah (opsional)</label>
-                <select name="education_level" class="w-full border border-gray-200 rounded-lg px-4 py-2">
-                    <option value="">Pilih level sekolah</option>
-                    @foreach (['SD', 'SMP', 'SMA', 'ALUMNI'] as $educationLevel)
-                        <option value="{{ $educationLevel }}" @selected(old('education_level') === $educationLevel)>{{ $educationLevel }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Instansi <span class="text-red-600">*</span></label>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Asal Bimbel <span class="text-red-600">*</span></label>
                 <input type="text" name="origin_institution" value="{{ old('origin_institution') }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
             </div>
             <div>
@@ -154,7 +145,7 @@
                         <th class="min-w-[280px] px-4 py-3 text-left">Nama</th>
                         <th class="px-4 py-3 text-left">Email</th>
                         <th class="px-4 py-3 text-left">WhatsApp</th>
-                        <th class="px-4 py-3 text-left">Instansi</th>
+                        <th class="px-4 py-3 text-left">Asal Bimbel</th>
                         <th class="px-4 py-3 text-left">Catatan</th>
                         <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
@@ -279,20 +270,9 @@
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
                                         <input type="text" name="username" value="{{ old('username', $admin->username) }}" class="w-full border border-gray-200 rounded-lg px-4 py-2">
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Level Sekolah (opsional)</label>
-                                            <select name="education_level" class="w-full border border-gray-200 rounded-lg px-4 py-2">
-                                                <option value="">Pilih level sekolah</option>
-                                                @foreach (['SD', 'SMP', 'SMA', 'ALUMNI'] as $educationLevel)
-                                                    <option value="{{ $educationLevel }}" @selected(old('education_level', $admin->education_level) === $educationLevel)>{{ $educationLevel }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Instansi <span class="text-red-600">*</span></label>
-                                            <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
-                                        </div>
+                                    <div>
+                                        <label class="mb-2 block text-sm font-semibold text-gray-700">Asal Bimbel <span class="text-red-600">*</span></label>
+                                        <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
                                     </div>
                                     <div>
                                         <label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
@@ -303,12 +283,12 @@
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Password Baru <span class="text-red-600">*</span></label>
-                                            <input type="password" name="password" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Password Baru (opsional)</label>
+                                            <input type="password" name="password" class="w-full rounded-lg border border-gray-200 px-4 py-2">
                                         </div>
                                         <div>
-                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Konfirmasi Password <span class="text-red-600">*</span></label>
-                                            <input type="password" name="password_confirmation" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Konfirmasi Password</label>
+                                            <input type="password" name="password_confirmation" class="w-full rounded-lg border border-gray-200 px-4 py-2">
                                         </div>
                                     </div>
                                     <div class="flex justify-end gap-2 pt-2">

@@ -39,7 +39,7 @@ class SuperAdminController extends Controller
 
         $now = now();
         $baseQuery = User::query()
-            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'education_level', 'origin_institution', 'admin_expires_at', 'created_at'])
+            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'origin_institution', 'demo_note', 'admin_expires_at', 'created_at'])
             ->where('role', 'admin_demo')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
@@ -102,7 +102,6 @@ class SuperAdminController extends Controller
             'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
-            'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
             'origin_institution' => ['required', 'string', 'max:255'],
             'demo_note' => ['nullable', 'string', 'max:100000'],
             'expiry_type' => 'required|in:date,duration',
@@ -146,7 +145,6 @@ class SuperAdminController extends Controller
             'username' => $username,
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
-            'education_level' => $request->input('education_level'),
             'origin_institution' => $request->input('origin_institution'),
             'demo_note' => $this->sanitizeDemoNote($request->input('demo_note')),
             'role' => 'admin_demo',
@@ -183,8 +181,7 @@ class SuperAdminController extends Controller
             'email' => 'required|email|max:255|unique:users,email,'.$admin->id,
             'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username,'.$admin->id,
-            'password' => 'required|string|min:8|confirmed',
-            'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
+            'password' => 'nullable|string|min:8|confirmed',
             'origin_institution' => ['required', 'string', 'max:255'],
             'demo_note' => ['nullable', 'string', 'max:100000'],
         ], [
@@ -198,11 +195,12 @@ class SuperAdminController extends Controller
         $admin->email = $request->email;
         $admin->phone = $request->phone;
         $admin->username = $username;
-        $admin->education_level = $request->input('education_level');
         $admin->origin_institution = $request->input('origin_institution');
         $admin->demo_note = $this->sanitizeDemoNote($request->input('demo_note'));
 
-        $admin->password = Hash::make($request->password);
+        if ($request->filled('password')) {
+            $admin->password = Hash::make($request->password);
+        }
 
         $admin->save();
 
@@ -289,7 +287,7 @@ class SuperAdminController extends Controller
                 'Email',
                 'WhatsApp',
                 'Username',
-                'Instansi',
+                'Asal Bimbel',
                 'Catatan',
                 'Masa Berlaku',
                 'Status Akses',
