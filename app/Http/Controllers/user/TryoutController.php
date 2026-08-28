@@ -1550,6 +1550,75 @@ class TryoutController extends Controller
         return array_values($decoded);
     }
 
+    /**
+     * Ignore blank client-cache entries. A blank answer is valid for an unfinished
+     * tryout, but must never be passed to the type-specific answer validators.
+     */
+    private function hasPersistableAnswerPayload(array $answer, Question $question): bool
+    {
+        $type = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
+
+        return match ($type) {
+            'multiple_answer' => is_array($answer['option_ids'] ?? null) && count($answer['option_ids']) > 0,
+            'multiple_choice', 'true_false' => filled($answer['option_id'] ?? null),
+            'short_answer', 'essay' => filled(trim((string) ($answer['answer_text'] ?? ''))),
+            'matching' => $this->hasCompleteMatchingAnswer($answer, $question),
+            'multiple_true_false' => $this->hasMultipleTrueFalseAnswer($answer),
+            'audio' => filled($answer['answer_audio_base64'] ?? null) || isset($answer['answer_audio_file']),
+            default => false,
+        };
+    }
+
+    private function hasCompleteMatchingAnswer(array $answer, Question $question): bool
+    {
+        $matches = $answer['matching_answers'] ?? null;
+
+        if (is_string($matches)) {
+            $matches = json_decode($matches, true);
+        }
+
+        if (!is_array($matches)) {
+            return false;
+        }
+
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $pairs = is_array($metadata['matching_pairs'] ?? null) ? $metadata['matching_pairs'] : [];
+
+        foreach ($pairs as $index => $pair) {
+            $left = trim((string) ($pair['left'] ?? ''));
+            if ($left === '') {
+                $left = 'stmt_' . ($index + 1);
+            }
+
+            if (!array_key_exists($left, $matches) || trim((string) $matches[$left]) === '') {
+                return false;
+            }
+        }
+
+        return !empty($pairs);
+    }
+
+    private function hasMultipleTrueFalseAnswer(array $answer): bool
+    {
+        $answers = $answer['mtf_answers'] ?? null;
+
+        if (is_string($answers)) {
+            $answers = json_decode($answers, true);
+        }
+
+        if (!is_array($answers)) {
+            return false;
+        }
+
+        foreach ($answers as $value) {
+            if (in_array(strtolower(trim((string) $value)), ['true', 'false'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function persistAnswersPayload(
         int $tryoutId,
         string $attemptToken,
@@ -1571,6 +1640,10 @@ class TryoutController extends Controller
 
                 $question = Question::with('tryoutDetail')->find($answer['question_id']);
                 if (!$question) {
+                    continue;
+                }
+
+                if (!$this->hasPersistableAnswerPayload($answer, $question)) {
                     continue;
                 }
 

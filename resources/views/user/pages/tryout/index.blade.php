@@ -1241,23 +1241,49 @@
             function isAnswered(qid) {
                 const ans = answerCache[qid];
                 if (!ans) return false;
-                if (ans.answered === true) return true;
+                return hasAnswerContent(ans);
+            }
 
-                // Compatibility check for various types
-                if (ans.option_id) return true;
-                if (ans.option_ids && ans.option_ids.length > 0) return true;
-                if (ans.answer_text && ans.answer_text.trim() !== '') return true;
-                if (ans.mtf_answers && Object.values(ans.mtf_answers).some(v => v !== '')) return true;
-                if (ans.matching_answers && Object.values(ans.matching_answers).some(v => v !== '')) return true;
-                if (ans.answer_audio_base64 || ans.answer_audio_remote) return true;
-                return false;
+            function hasAnswerContent(answer) {
+                if (!answer || typeof answer !== 'object') return false;
+
+                switch (answer.type) {
+                    case 'multiple_answer':
+                        return Array.isArray(answer.option_ids) && answer.option_ids.length > 0;
+                    case 'multiple_choice':
+                    case 'true_false':
+                        return Boolean(answer.option_id);
+                    case 'matching':
+                        return answer.matching_answers &&
+                            Object.values(answer.matching_answers).length > 0 &&
+                            Object.values(answer.matching_answers).every(value => String(value).trim() !== '');
+                    case 'multiple_true_false':
+                        return answer.mtf_answers &&
+                            Object.values(answer.mtf_answers).some(value => ['true', 'false'].includes(String(value).toLowerCase()));
+                    case 'short_answer':
+                    case 'essay':
+                        return typeof answer.answer_text === 'string' && answer.answer_text.trim() !== '';
+                    case 'audio':
+                        return Boolean(answer.answer_audio_base64 || answer.answer_audio_remote);
+                    default:
+                        // Compatibility for answers stored by earlier versions of the tryout page.
+                        return Boolean(
+                            answer.option_id ||
+                            (Array.isArray(answer.option_ids) && answer.option_ids.length > 0) ||
+                            (typeof answer.answer_text === 'string' && answer.answer_text.trim() !== '') ||
+                            (answer.mtf_answers && Object.values(answer.mtf_answers).some(value => value !== '')) ||
+                            (answer.matching_answers && Object.values(answer.matching_answers).some(value => value !== '')) ||
+                            answer.answer_audio_base64 ||
+                            answer.answer_audio_remote
+                        );
+                }
             }
 
             function setAnswer(qid, data) {
                 answerCache[qid] = {
                     question_id: qid,
                     ...data,
-                    answered: true,
+                    answered: hasAnswerContent(data),
                     synced: false,
                     updated_at: Date.now()
                 };
@@ -1465,8 +1491,11 @@
                 const subtestQuestions = Array.from(document.querySelectorAll(
                         `.question-wrapper[data-subtest-detail-id="${detailId}"]`))
                     .map(w => w.dataset.questionId);
-                const payload = Object.values(answerCache).filter(a => subtestQuestions.includes(a
-                    .question_id) && !a.synced);
+                const payload = Object.values(answerCache).filter(answer =>
+                    subtestQuestions.includes(answer.question_id) &&
+                    !answer.synced &&
+                    hasAnswerContent(answer)
+                );
 
                 const response = await fetch(
                     '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/subtest/flush') }}', {
@@ -1510,7 +1539,9 @@
                 isLeavingTryout = true;
                 capturePendingTextAnswers();
 
-                const unsynced = Object.values(answerCache).filter(answer => !answer.synced);
+                const unsynced = Object.values(answerCache).filter(answer =>
+                    !answer.synced && hasAnswerContent(answer)
+                );
                 document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
                 document.getElementById('currentQuestionNumberInput').value = currentNumber;
                 setTryoutSubmissionOverlay(true);
