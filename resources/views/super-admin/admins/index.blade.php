@@ -124,10 +124,43 @@
                             </ul>
                         </div>
                     @endif
-                    <p class="mb-4 text-sm leading-6 text-gray-500">Akun dibuat dengan password awal <strong class="text-gray-700">password123</strong>. Tentukan masa akses sebelum menyetujui.</p>
                     <form method="POST" action="{{ route('super-admin.admins.requests.approve', $demoRequest) }}" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                         @csrf
                         <input type="hidden" name="form_context" value="approve-request-{{ $demoRequest->id }}">
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <p class="mb-3 text-sm font-semibold text-slate-800">Data Pengaju</p>
+                            <dl class="grid grid-cols-1 gap-x-5 gap-y-3 text-sm sm:grid-cols-2">
+                                <div>
+                                    <dt class="text-slate-500">Nama</dt>
+                                    <dd class="mt-1 font-medium text-slate-900">{{ $demoRequest->name }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Email</dt>
+                                    <dd class="mt-1 break-all font-medium text-slate-900">{{ $demoRequest->email }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">WhatsApp</dt>
+                                    <dd class="mt-1 font-medium text-slate-900">{{ $demoRequest->phone }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Asal Bimbel</dt>
+                                    <dd class="mt-1 font-medium text-slate-900">{{ $demoRequest->origin_institution }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Diajukan</dt>
+                                    <dd class="mt-1 font-medium text-slate-900">{{ $demoRequest->created_at?->format('d M Y H:i') }}</dd>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <dt class="text-slate-500">Keterangan</dt>
+                                    <dd class="mt-1 whitespace-pre-line break-words font-medium text-slate-900">{{ $demoRequest->request_note ?: '-' }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-gray-700">Password Akun Demo</label>
+                            <input type="text" name="password" value="{{ old('password', \Illuminate\Support\Str::before($demoRequest->email, '@')) }}" autocomplete="new-password" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                            <p class="mt-1 text-xs text-gray-500">Bisa diubah manual. Default diambil dari bagian email sebelum tanda @.</p>
+                        </div>
                         <div>
                             <label class="mb-2 block text-sm font-semibold text-gray-700">Cara menentukan akses</label>
                             <select name="expiry_type" class="w-full rounded-lg border border-gray-200 px-4 py-2" data-expiry-select>

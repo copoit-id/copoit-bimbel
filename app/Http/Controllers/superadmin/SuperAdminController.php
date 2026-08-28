@@ -311,11 +311,12 @@ class SuperAdminController extends Controller
             return back()->with('error', 'Pengajuan demo ini sudah diproses.');
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'expiry_type' => ['required', Rule::in(['date', 'duration'])],
             'expires_at' => ['nullable', 'date'],
             'duration_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'duration_hours' => ['nullable', 'integer', 'min:0', 'max:720'],
+            'password' => ['required', 'string', 'max:255'],
         ]);
 
         if ($request->input('expiry_type') === 'date') {
@@ -341,7 +342,7 @@ class SuperAdminController extends Controller
             return back()->withErrors(['email' => 'Email pengaju sudah terdaftar sebagai pengguna.'])->withInput();
         }
 
-        DB::transaction(function () use ($demoRequest, $expiresAt, $request): void {
+        DB::transaction(function () use ($demoRequest, $expiresAt, $request, $validated): void {
             $lockedRequest = DemoRequest::query()->lockForUpdate()->findOrFail($demoRequest->id);
             if ($lockedRequest->status !== 'pending') {
                 abort(409, 'Pengajuan demo ini sudah diproses.');
@@ -352,7 +353,7 @@ class SuperAdminController extends Controller
                 'email' => $lockedRequest->email,
                 'username' => $this->availableUsername($lockedRequest->name),
                 'phone' => $lockedRequest->phone,
-                'password' => Hash::make(self::DEFAULT_ADMIN_PASSWORD),
+                'password' => Hash::make($validated['password']),
                 'origin_institution' => $lockedRequest->origin_institution,
                 'demo_note' => $this->sanitizeDemoNote($lockedRequest->request_note),
                 'demo_deal_status' => 'baru',
@@ -376,7 +377,7 @@ class SuperAdminController extends Controller
         });
 
         return redirect()->route('super-admin.admins.index', ['tab' => 'requests'])
-            ->with('success', 'Pengajuan disetujui dan akun admin demo berhasil dibuat. Password awal: password123.');
+            ->with('success', 'Pengajuan disetujui dan akun admin demo berhasil dibuat.');
     }
 
     public function rejectRequest(DemoRequest $demoRequest): RedirectResponse
