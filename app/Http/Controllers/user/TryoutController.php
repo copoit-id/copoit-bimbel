@@ -2609,7 +2609,13 @@ class TryoutController extends Controller
             $correctCount = $answer->userAnswerDetails->where('is_correct', true)->count();
             $wrongCount = max(0, $answeredCount - $correctCount);
             $unansweredCount = max(0, $totalQuestions - $answeredCount);
-            $displayScore = $scoreDisplayService->present($tryout, $subtestScore);
+            $displayScore = $scoreDisplayService->present(
+                $tryout,
+                $subtestScore,
+                $correctCount,
+                $totalQuestions,
+                1000
+            );
 
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
@@ -2626,7 +2632,13 @@ class TryoutController extends Controller
         })->values();
 
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
-        $totalDisplayScore = $scoreDisplayService->present($tryout, $totalScore);
+        $totalDisplayScore = $scoreDisplayService->present(
+            $tryout,
+            $totalScore,
+            $subtests->sum('correct'),
+            $subtests->sum(fn (array $subtest) => $subtest['correct'] + $subtest['wrong'] + $subtest['unanswered']),
+            1000
+        );
         $overallPassed = $subtests->every('is_passed');
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
@@ -2703,6 +2715,19 @@ class TryoutController extends Controller
 
         // Calculate overall percentage
         $overallPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $displayScore = $scoreDisplayService->present($tryout, $rawScore, $correctAnswers, $totalQuestions, $maxScore);
+        $subtestResults = collect($subtestResults)->map(function (array $result) use ($tryout, $scoreDisplayService) {
+            $result['display_score'] = $scoreDisplayService->present(
+                $tryout,
+                $result['raw_score'],
+                $result['correct_answers'],
+                $result['total_questions'],
+                $result['max_score']
+            );
+
+            return $result;
+        })->values()->all();
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
 
@@ -2722,6 +2747,7 @@ class TryoutController extends Controller
             'subtestResults',
             'singleIsPassed',
             'overallPercentage'
+            ,'displayScore'
         ), $feedbackContext));
     }
 

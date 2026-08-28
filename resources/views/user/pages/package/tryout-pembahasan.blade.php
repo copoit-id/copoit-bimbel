@@ -151,7 +151,7 @@
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
             </div>
-            <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
+            <p class="text-5xl font-medium">{{ $overallStats['display_score'] ?? $formatScore($overallStats['total_score']) }}</p>
             @if($showPassingGrade)
                 <span
                     class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
@@ -229,7 +229,7 @@
                 </div>
                 <div class="text-center">
                     <div class="text-2xl font-bold {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-800' }}">
-                        {{ $formatScore($summary['score']) }}/{{ $formatScore($summary['max_score']) }}
+                        {{ $summary['display_score'] ?? $formatScore($summary['score']) }}/{{ $summary['display_maximum'] ?? $formatScore($summary['max_score']) }}
                     </div>
                     <div class="text-sm {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-600' }}">
                         {{ number_format($summary['percentage'], 1) }}%
@@ -882,8 +882,7 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Total Skor:</span>
-                        <span class="font-semibold">{{ number_format($overallStats['total_score'], 0) }}/{{
-                            number_format($overallStats['max_score'], 0) }}</span>
+                        <span class="font-semibold">{{ $overallStats['display_score'] ?? number_format($overallStats['total_score'], 0) }}/{{ $overallStats['display_maximum'] ?? number_format($overallStats['max_score'], 0) }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Persentase:</span>

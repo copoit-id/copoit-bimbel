@@ -32,7 +32,6 @@
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
     $showPassingGradeChecked = old('show_passing_grade', $tryout->show_passing_grade ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
-    $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
     $resultScoreScale = old('result_score_scale', $tryout->result_score_scale ?? 'raw');
     $securityOptions = [
         'enable_anti_copy' => [
@@ -474,36 +473,16 @@
                             </label>
                         </div>
 
-                        <fieldset id="resultScoreDisplayOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
-                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Jenis nilai yang ditampilkan</legend>
-                            <div class="grid gap-2 sm:grid-cols-2">
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="result_score_display" value="total_and_subtest"
-                                        @checked($resultScoreDisplay === 'total_and_subtest') class="peer sr-only">
-                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Total + subtest</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Tampilkan nilai keseluruhan dan setiap subtest.</span>
-                                    </span>
-                                </label>
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="result_score_display" value="subtest_only"
-                                        @checked($resultScoreDisplay === 'subtest_only') class="peer sr-only">
-                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Subtest saja</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Sembunyikan nilai total, tampilkan nilai tiap subtest.</span>
-                                    </span>
-                                </label>
-                            </div>
-                        </fieldset>
-                        <fieldset id="resultScoreScaleOptions" class="mt-4 {{ $showResultScoresChecked && $selectedScoringMethod === 'irt_utbk' ? '' : 'hidden' }}">
-                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Skala nilai IRT yang ditampilkan</legend>
+                        <input type="hidden" name="result_score_display" value="total_and_subtest">
+                        <fieldset id="resultScoreScaleOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Skala nilai yang ditampilkan</legend>
                             <div class="grid gap-2 sm:grid-cols-2">
                                 <label class="cursor-pointer">
                                     <input type="radio" name="result_score_scale" value="raw"
                                         @checked($resultScoreScale === 'raw') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Skor asli (0 - 1000)</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Default. Nilai IRT ditampilkan tanpa konversi.</span>
+                                        <span class="block font-semibold">Skor asli</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Menampilkan total poin sesuai bobot soal.</span>
                                     </span>
                                 </label>
                                 <label class="cursor-pointer">
@@ -511,7 +490,7 @@
                                         @checked($resultScoreScale === 'scale_100') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
                                         <span class="block font-semibold">Skala 0 - 100</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Hanya mengubah tampilan: skor 850 ditampilkan sebagai 85.</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Dihitung dari jumlah jawaban benar dibanding jumlah soal.</span>
                                     </span>
                                 </label>
                             </div>
@@ -1208,7 +1187,6 @@
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
       const showResultScoresCheckbox = root.querySelector('#show_result_scores');
-      const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
       const resultScoreScaleOptions = root.querySelector('#resultScoreScaleOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
@@ -1477,9 +1455,7 @@
     }
 
     function syncResultScoreDisplay() {
-      resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
-      const isIrt = scoringMethodSelect?.value === 'irt_utbk';
-      resultScoreScaleOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked || !isIrt);
+      resultScoreScaleOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
     }
 
     function syncCertificateTemplateField() {

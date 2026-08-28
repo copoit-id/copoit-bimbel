@@ -127,16 +127,14 @@ class LeaderboardController extends Controller
             'duration' => (int) $tryout->tryoutDetails->sum('duration')
         ];
 
-        if ($tryout->requiresIrtScoring()) {
-            $scoreDisplayService = app(TryoutScoreDisplayService::class);
-            $statistics['average_score_display'] = $scoreDisplayService->present($tryout, $statistics['average_score'])['formatted'];
-            $statistics['highest_score_display'] = $scoreDisplayService->present($tryout, $statistics['highest_score'])['formatted'];
-            $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
-        } else {
-            $statistics['average_score_display'] = $this->formatScore($statistics['average_score']);
-            $statistics['highest_score_display'] = $this->formatScore($statistics['highest_score']);
-            $statistics['score_label'] = 'Skor';
-        }
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $statistics['average_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
+            ? number_format($rankingRows->avg(fn ($row) => $row->display_score['value'] ?? 0) ?? 0, 1)
+            : $scoreDisplayService->present($tryout, $statistics['average_score'], 0, 0, $rankingRows->max('max_score'))['formatted'];
+        $statistics['highest_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
+            ? number_format($rankingRows->max(fn ($row) => $row->display_score['value'] ?? 0) ?? 0, 1)
+            : $scoreDisplayService->present($tryout, $statistics['highest_score'], 0, 0, $rankingRows->max('max_score'))['formatted'];
+        $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
 
         return view('admin.pages.leaderboard.show', compact(
             'package',
@@ -426,6 +424,8 @@ class LeaderboardController extends Controller
             $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
                 $totalScore = 0.0;
                 $totalMaxScore = 0.0;
+                $totalCorrect = 0;
+                $totalQuestions = 0;
                 $allSubtestsPassed = true;
                 $subtestScores = [];
 
@@ -449,6 +449,8 @@ class LeaderboardController extends Controller
                     $totalScore += $rawScore;
                     $totalMaxScore += $maxScore;
                     $subtestScores[$ranking->tryout_detail_id] = $rawScore;
+                    $totalCorrect += $ranking->userAnswerDetails->where('is_correct', true)->count();
+                    $totalQuestions += (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count());
                 }
 
                 $representative = $attempt->first();
@@ -461,12 +463,9 @@ class LeaderboardController extends Controller
                 $representative->max_score = $totalMaxScore;
                 $representative->is_passed = $allSubtestsPassed;
                 $representative->subtest_scores = $subtestScores;
-                if ($tryout->requiresIrtScoring()) {
-                    $representative->display_score = $scoreDisplayService->present($tryout, $totalScore);
-                    $representative->display_subtest_scores = collect($subtestScores)
-                        ->map(fn (float $score) => $scoreDisplayService->present($tryout, $score))
-                        ->all();
-                }
+                $representative->display_score = $scoreDisplayService->present(
+                    $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore
+                );
                 $representative->started_at = $attempt->min('started_at');
                 $representative->finished_at = $attempt->max('finished_at');
 

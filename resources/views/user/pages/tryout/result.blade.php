@@ -23,8 +23,8 @@
                         <p class="text-xl font-semibold text-gray-900 mb-2">{{ $tryout->name }}</p>
                         @if ($showTotalResultScore && isset($rawScore) && isset($maxScore))
                             <div class="flex justify-center items-end text-center gap-2 my-6">
-                                <p class="text-5xl font-semibold text-gray-900">{{ $rawScore }}</p>
-                                <p class="text-xl text-gray-500">/ {{ $maxScore }}</p>
+                                <p class="text-5xl font-semibold text-gray-900">{{ $displayScore['formatted'] ?? $rawScore }}</p>
+                                <p class="text-xl text-gray-500">/ {{ $displayScore['formatted_maximum'] ?? $maxScore }}</p>
                             </div>
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
@@ -256,7 +256,7 @@
                                                 @if ($showResultScores || $showPassingGrade)
                                                     @if ($showResultScores)
                                                         <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                            {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                            {{ $result['display_score']['formatted'] ?? $result['raw_score'] }}@if(($result['display_score']['scale'] ?? 'raw') === 'raw')/{{ $result['display_score']['formatted_maximum'] ?? $result['max_score'] }}@endif
                                                         </span>
                                                     @endif
                                                     @if ($showResultScores && $showPassingGrade)

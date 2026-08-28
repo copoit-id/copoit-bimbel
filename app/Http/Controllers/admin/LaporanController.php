@@ -317,9 +317,12 @@ class LaporanController extends Controller
                     return [
                         ...$definition,
                         'score' => $score,
-                        'score_display' => $tryout->requiresIrtScoring()
-                            ? $scoreDisplayService->present($tryout, $score)['formatted']
-                            : $this->formatNumericScore($score),
+                        'score_display' => $scoreDisplayService->present(
+                            $tryout,
+                            $score,
+                            $correct,
+                            (int) $definition['total_questions']
+                        )['formatted'],
                         'correct' => $correct,
                         'wrong' => $wrong,
                         'unanswered' => max(0, (int) $definition['total_questions'] - $answered),
@@ -334,9 +337,12 @@ class LaporanController extends Controller
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
                     'latest_score' => round($latestScore, 1),
-                    'latest_score_display' => $tryout->requiresIrtScoring()
-                        ? $scoreDisplayService->present($tryout, $latestScore)['formatted']
-                        : $this->formatNumericScore($latestScore),
+                    'latest_score_display' => $scoreDisplayService->present(
+                        $tryout,
+                        $latestScore,
+                        $subtests->sum('correct'),
+                        $subtests->sum('total_questions')
+                    )['formatted'],
                     'last_finished' => $latest->finished_at,
                     'latest_attempt' => $latest,
                     'total_correct' => $subtests->sum('correct'),
@@ -387,15 +393,13 @@ class LaporanController extends Controller
             ]
         );
 
-        if ($tryout->requiresIrtScoring()) {
-            $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
-            $statistics['average_score_display'] = $scoreDisplayService->present($tryout, $statistics['average_score'])['formatted'];
-            $statistics['highest_score_display'] = $scoreDisplayService->present($tryout, $statistics['highest_score'])['formatted'];
-        } else {
-            $statistics['score_label'] = 'Skor';
-            $statistics['average_score_display'] = $this->formatNumericScore($statistics['average_score']);
-            $statistics['highest_score_display'] = $this->formatNumericScore($statistics['highest_score']);
-        }
+        $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
+        $statistics['average_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
+            ? $this->formatNumericScore($participants->avg(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100))
+            : $this->formatNumericScore($statistics['average_score']);
+        $statistics['highest_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
+            ? $this->formatNumericScore($participants->max(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100))
+            : $this->formatNumericScore($statistics['highest_score']);
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 

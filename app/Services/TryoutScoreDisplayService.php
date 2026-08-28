@@ -11,17 +11,26 @@ class TryoutScoreDisplayService
     public const SCALE_HUNDRED = 'scale_100';
 
     /**
-     * Present an IRT score without changing the score persisted for scoring,
-     * ranking, or passing-grade calculations.
+     * Present a score without changing the score persisted for scoring,
+     * ranking, or passing-grade calculations. The 0-100 scale is based on
+     * correct answers divided by the total question count.
      *
      * @return array{value: float, maximum: int, formatted: string, formatted_maximum: string, label: string, scale: string}
      */
-    public function present(Tryout $tryout, float|int|null $rawScore): array
+    public function present(
+        Tryout $tryout,
+        float|int|null $rawScore,
+        int $correctAnswers = 0,
+        int $totalQuestions = 0,
+        ?float $rawMaximum = null
+    ): array
     {
         $score = (float) ($rawScore ?? 0);
 
         if ($this->usesHundredScale($tryout)) {
-            $value = min(100, max(0, $score / 10));
+            $value = $totalQuestions > 0
+                ? min(100, max(0, ($correctAnswers / $totalQuestions) * 100))
+                : 0;
 
             return [
                 'value' => $value,
@@ -35,18 +44,17 @@ class TryoutScoreDisplayService
 
         return [
             'value' => $score,
-            'maximum' => 1000,
+            'maximum' => $rawMaximum ?? ($tryout->requiresIrtScoring() ? 1000 : $score),
             'formatted' => $this->formatNumber($score),
-            'formatted_maximum' => '1000',
-            'label' => 'Skor asli (0 - 1000)',
+            'formatted_maximum' => $this->formatNumber($rawMaximum ?? ($tryout->requiresIrtScoring() ? 1000 : $score)),
+            'label' => 'Skor asli',
             'scale' => self::SCALE_RAW,
         ];
     }
 
     public function usesHundredScale(Tryout $tryout): bool
     {
-        return $tryout->requiresIrtScoring()
-            && ($tryout->result_score_scale ?? self::SCALE_RAW) === self::SCALE_HUNDRED;
+        return ($tryout->result_score_scale ?? self::SCALE_RAW) === self::SCALE_HUNDRED;
     }
 
     private function formatNumber(float $value): string

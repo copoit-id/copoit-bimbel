@@ -4,7 +4,7 @@
 @section('content')
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
-        $usesIrtScoreScale = $tryout->requiresIrtScoring();
+        $usesIrtScoreScale = ($tryout->result_score_scale ?? 'raw') === 'scale_100';
         $showPassingGrade = $tryout->shouldShowPassingGrade();
     @endphp
     <div class="package-bimbel space-y-6">

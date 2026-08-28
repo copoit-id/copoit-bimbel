@@ -2125,12 +2125,13 @@ class PackageController extends Controller
             $endTime = Carbon::parse($lastAnswer->finished_at);
             $duration = $endTime->diff($startTime);
 
-            $displayScore = $tryout->requiresIrtScoring()
-                ? $scoreDisplayService->present($tryout, $totalScore)
-                : [
-                    'formatted' => (string) round($totalScore, 0),
-                    'label' => 'Skor',
-                ];
+            $displayScore = $scoreDisplayService->present(
+                $tryout,
+                $totalScore,
+                $totalCorrect,
+                $totalCorrect + $totalWrong + $totalUnanswered,
+                $tryout->requiresIrtScoring() ? 1000 : ($totalMaxScore ?? null)
+            );
 
             $attemptHistory[] = [
                 'id' => $token,
@@ -3511,11 +3512,11 @@ class PackageController extends Controller
                 ])
                 ->with([
                     'user:id,name,email,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
-                    'tryoutDetail',
+                    'tryoutDetail' => fn ($query) => $query->withCount('questions'),
                 ])
                 ->get()
                 ->groupBy('user_id')
-                ->map(function ($userAnswers) use ($tryout) {
+                ->map(function ($userAnswers) use ($tryout, $scoreDisplayService) {
                 $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
 
                 if ($usesUtbkIrt) {
@@ -3534,7 +3535,14 @@ class PackageController extends Controller
                             $subtestScores[$userAnswer->tryout_detail_id] = (float) ($userAnswer->score ?? 0);
                         }
 
-                        $displayScore = $scoreDisplayService->present($tryout, $score);
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
+                        $displayScore = $scoreDisplayService->present($tryout, $score, $correctAnswers, $totalQuestions, 1000);
                         $displaySubtestScores = collect($subtestScores)
                             ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
                             ->all();
@@ -3561,15 +3569,24 @@ class PackageController extends Controller
                 // Gabungkan skor dari semua subtest dengan group_by attempt_token
                 $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
+                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
                     if ($tryout->is_toefl == 1) {
                         // For TOEFL, use the actual TOEFL total score
                         $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
+
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
 
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
                             'max_score' => 677, // TOEFL max score
+                            'display_score' => $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677),
                             'percentage' => $toeflScore,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3605,10 +3622,19 @@ class PackageController extends Controller
 
                         $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
 
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
+
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $totalScore,
                             'max_score' => $totalMaxScore,
+                            'display_score' => $scoreDisplayService->present($tryout, $totalScore, $correctAnswers, $totalQuestions, $totalMaxScore),
                             'percentage' => $percentage,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3909,6 +3935,14 @@ class PackageController extends Controller
             $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
         }
 
+        $scoreDisplay = app(TryoutScoreDisplayService::class)->present(
+            $tryout,
+            $totalScore,
+            $correctAnswers,
+            $totalQuestions,
+            $maxScore
+        );
+
         $overallStats = [
             'total_questions' => $totalQuestions,
             'correct_answers' => $correctAnswers,
@@ -3917,6 +3951,8 @@ class PackageController extends Controller
             'pending_review' => $pendingReviewCount,
             'total_score' => $totalScore,
             'max_score' => $maxScore,
+            'display_score' => $scoreDisplay['formatted'],
+            'display_maximum' => $scoreDisplay['formatted_maximum'],
             'percentage' => $percentage,
             'is_passed' => $isPassed
         ];
@@ -3924,7 +3960,7 @@ class PackageController extends Controller
         $subtestSummaries = [];
         if ($tryoutDetails->count() > 1) {
             if ($tryout->requiresIrtScoring()) {
-                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) use ($tryout, $questionCounts) {
                     $detail = $userAnswer->tryoutDetail;
                     $type = $detail->type_subtest;
                     $score = (float) ($userAnswer->score ?? 0);
@@ -3932,23 +3968,30 @@ class PackageController extends Controller
                     $percentage = $score / 10;
                     $passingScore = $detail->passing_score ?? null;
                     $passingType = $detail->passing_type ?? 'score';
+                    $correctCount = $userAnswer->userAnswerDetails->where('is_correct', true)->count();
+                    $totalSubtestQuestions = (int) ($questionCounts[$userAnswer->tryout_detail_id] ?? 0);
+                    $displayScore = app(TryoutScoreDisplayService::class)->present(
+                        $tryout, $score, $correctCount, $totalSubtestQuestions, $max
+                    );
 
                     return [
                         'type' => $type,
                         'name' => $this->getSubtestName($type),
                         'score' => $score,
                         'max_score' => $max,
+                        'display_score' => $displayScore['formatted'],
+                        'display_maximum' => $displayScore['formatted_maximum'],
                         'percentage' => $percentage,
                         'passing_score' => $passingScore,
                         'passing_type' => $passingType,
                         'passing_percentage' => $passingType === 'percentage' ? $passingScore : null,
                         'is_passed' => $this->isUtbkSubtestPassed($detail, $score),
-                        'correct_answers' => $userAnswer->userAnswerDetails->where('is_correct', true)->count(),
-                        'wrong_answers' => max(0, $userAnswer->userAnswerDetails->count() - $userAnswer->userAnswerDetails->where('is_correct', true)->count()),
+                        'correct_answers' => $correctCount,
+                        'wrong_answers' => max(0, $userAnswer->userAnswerDetails->count() - $correctCount),
                     ];
                 })->values();
             } else {
-                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) use ($tryout, $questionCounts) {
                     $type = $userAnswer->tryoutDetail->type_subtest;
                     $score = $this->calculateTotalScore($userAnswer, $type);
                     $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
@@ -3970,12 +4013,18 @@ class PackageController extends Controller
                             && !$detail->is_correct
                             && !$this->isPartiallyCorrectMultipleAnswerDetail($detail);
                     })->count();
+                    $totalSubtestQuestions = (int) ($questionCounts[$userAnswer->tryout_detail_id] ?? 0);
+                    $displayScore = app(TryoutScoreDisplayService::class)->present(
+                        $tryout, $score, $correctCount, $totalSubtestQuestions, $max
+                    );
 
                     return [
                         'type' => $type,
                         'name' => $this->getSubtestName($type),
                         'score' => $score,
                         'max_score' => $max,
+                        'display_score' => $displayScore['formatted'],
+                        'display_maximum' => $displayScore['formatted_maximum'],
                         'percentage' => $percentage,
                         'passing_score' => $passingScore,
                         'passing_type' => $passingType,
