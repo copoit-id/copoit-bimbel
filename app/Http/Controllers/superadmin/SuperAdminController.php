@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DemoRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
@@ -10,6 +11,7 @@ use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -32,6 +34,9 @@ class SuperAdminController extends Controller
 
     public function index(Request $request): View
     {
+        $tab = in_array($request->input('tab', 'admins'), ['admins', 'requests'], true)
+            ? $request->input('tab', 'admins')
+            : 'admins';
         $status = $request->input('status', 'all');
         $status = in_array($status, ['all', 'active', 'expired'], true) ? $status : 'all';
 
@@ -92,14 +97,27 @@ class SuperAdminController extends Controller
             ->withQueryString();
 
         $returnQuery = [
+            'tab' => $tab,
             'page' => max(1, (int) $request->input('page', 1)),
             'status' => $status,
             'sort' => $sort,
             'search' => trim((string) $request->input('search', '')),
         ];
         $dealStatusOptions = self::DEMO_DEAL_STATUSES;
+        $pendingRequestCount = DemoRequest::query()->pending()->count();
+        $demoRequests = $tab === 'requests'
+            ? DemoRequest::query()
+                ->pending()
+                ->select(['id', 'name', 'email', 'phone', 'origin_institution', 'request_note', 'created_at'])
+                ->latest()
+                ->paginate(Pagination::perPage(20))
+                ->withQueryString()
+            : null;
 
-        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status', 'returnQuery', 'dealStatusOptions'));
+        return view('super-admin.admins.index', compact(
+            'admins', 'counts', 'sortOptions', 'sort', 'status', 'returnQuery',
+            'dealStatusOptions', 'tab', 'pendingRequestCount', 'demoRequests'
+        ));
     }
 
     public function store(Request $request): RedirectResponse
@@ -287,6 +305,80 @@ class SuperAdminController extends Controller
             ->with('success', 'Masa akses admin demo berhasil diperpanjang.');
     }
 
+    public function approveRequest(Request $request, DemoRequest $demoRequest): RedirectResponse
+    {
+        if ($demoRequest->status !== 'pending') {
+            return back()->with('error', 'Pengajuan demo ini sudah diproses.');
+        }
+
+        $request->validate([
+            'expiry_type' => ['required', Rule::in(['date', 'duration'])],
+            'expires_at' => ['nullable', 'date'],
+            'duration_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'duration_hours' => ['nullable', 'integer', 'min:0', 'max:720'],
+        ]);
+
+        if ($request->input('expiry_type') === 'date') {
+            if (! $request->filled('expires_at')) {
+                return back()->withErrors(['expires_at' => 'Tanggal berakhir wajib diisi.'])->withInput();
+            }
+
+            $expiresAt = Carbon::parse($request->input('expires_at'), 'Asia/Jakarta');
+            if ($expiresAt->lte(Carbon::now('Asia/Jakarta'))) {
+                return back()->withErrors(['expires_at' => 'Tanggal berakhir harus di masa depan.'])->withInput();
+            }
+        } else {
+            $days = (int) $request->input('duration_days', 0);
+            $hours = (int) $request->input('duration_hours', 0);
+            if ($days <= 0 && $hours <= 0) {
+                return back()->withErrors(['duration_days' => 'Isi durasi hari atau jam.'])->withInput();
+            }
+
+            $expiresAt = Carbon::now('Asia/Jakarta')->addDays($days)->addHours($hours);
+        }
+
+        if (User::query()->where('email', $demoRequest->email)->exists()) {
+            return back()->withErrors(['email' => 'Email pengaju sudah terdaftar sebagai pengguna.'])->withInput();
+        }
+
+        DB::transaction(function () use ($demoRequest, $expiresAt, $request): void {
+            $lockedRequest = DemoRequest::query()->lockForUpdate()->findOrFail($demoRequest->id);
+            if ($lockedRequest->status !== 'pending') {
+                abort(409, 'Pengajuan demo ini sudah diproses.');
+            }
+
+            $admin = User::create([
+                'name' => $lockedRequest->name,
+                'email' => $lockedRequest->email,
+                'username' => $this->availableUsername($lockedRequest->name),
+                'phone' => $lockedRequest->phone,
+                'password' => Hash::make(self::DEFAULT_ADMIN_PASSWORD),
+                'origin_institution' => $lockedRequest->origin_institution,
+                'demo_note' => $this->sanitizeDemoNote($lockedRequest->request_note),
+                'demo_deal_status' => 'baru',
+                'role' => 'admin_demo',
+                'admin_expires_at' => $expiresAt,
+                'status' => 'aktif',
+                'email_verified_at' => now(),
+            ]);
+
+            $role = Role::query()->where('slug', 'admin_demo')->first();
+            if ($role) {
+                $admin->roles()->syncWithoutDetaching([$role->id]);
+            }
+
+            $lockedRequest->update([
+                'status' => 'approved',
+                'reviewed_at' => now(),
+                'approved_by' => $request->user()->id,
+                'approved_admin_id' => $admin->id,
+            ]);
+        });
+
+        return redirect()->route('super-admin.admins.index', ['tab' => 'requests'])
+            ->with('success', 'Pengajuan disetujui dan akun admin demo berhasil dibuat. Password awal: password123.');
+    }
+
     public function exportExcel(): StreamedResponse
     {
         $filename = 'admin-demo-'.now('Asia/Jakarta')->format('Ymd_His').'.xlsx';
@@ -363,13 +455,15 @@ class SuperAdminController extends Controller
         ]);
     }
 
-    /** @return array{page: int, status: string, sort: string, search: string} */
+    /** @return array{tab: string, page: int, status: string, sort: string, search: string} */
     private function indexReturnQuery(Request $request): array
     {
         $status = (string) $request->input('return_status', 'all');
         $sort = (string) $request->input('return_sort', 'latest');
+        $tab = (string) $request->input('return_tab', 'admins');
 
         return [
+            'tab' => in_array($tab, ['admins', 'requests'], true) ? $tab : 'admins',
             'page' => max(1, (int) $request->input('return_page', 1)),
             'status' => in_array($status, ['all', 'active', 'expired'], true) ? $status : 'all',
             'sort' => in_array($sort, ['latest', 'oldest', 'name_asc', 'name_desc', 'expiry_asc', 'expiry_desc'], true) ? $sort : 'latest',
@@ -451,6 +545,21 @@ class SuperAdminController extends Controller
     private function plainDemoNote(?string $note): string
     {
         return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $note), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    }
+
+    private function availableUsername(string $name): string
+    {
+        $username = strtolower(str_replace(' ', '', $name));
+        $baseUsername = $username !== '' ? $username : 'admin';
+        $username = $baseUsername;
+        $suffix = 1;
+
+        while (User::query()->where('username', $username)->exists()) {
+            $username = $baseUsername.$suffix;
+            $suffix++;
+        }
+
+        return $username;
     }
 
     private function normalizeWhatsAppNumber(?string $phone): string

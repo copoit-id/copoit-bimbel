@@ -13,6 +13,7 @@ class SuperAdminDemoManagementTest extends TestCase
     {
         $method = new ReflectionMethod(SuperAdminController::class, 'indexReturnQuery');
         $request = Request::create('/', 'POST', [
+            'return_tab' => 'admins',
             'return_page' => 3,
             'return_status' => 'active',
             'return_sort' => 'name_asc',
@@ -20,6 +21,7 @@ class SuperAdminDemoManagementTest extends TestCase
         ]);
 
         $this->assertSame([
+            'tab' => 'admins',
             'page' => 3,
             'status' => 'active',
             'sort' => 'name_asc',

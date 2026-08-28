@@ -9,17 +9,141 @@
             <p class="text-gray-500">Kelola akun admin dan batas akses waktunya.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('super-admin.admins.export-excel') }}" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
-                <i class="ri-file-excel-2-line text-lg"></i>
-                Export Excel
-            </a>
-            <button type="button" data-open-modal="create-admin-modal" class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white hover:bg-primary/90">
-                <i class="ri-user-add-line text-lg"></i>
-                Tambah Admin
+            <button type="button" data-copy-demo-link="{{ route('demo-requests.create') }}" class="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-white px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5">
+                <i class="ri-links-line text-lg"></i>
+                Salin Link Pengajuan
             </button>
+            @if ($tab === 'admins')
+                <a href="{{ route('super-admin.admins.export-excel') }}" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                    <i class="ri-file-excel-2-line text-lg"></i>
+                    Export Excel
+                </a>
+                <button type="button" data-open-modal="create-admin-modal" class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white hover:bg-primary/90">
+                    <i class="ri-user-add-line text-lg"></i>
+                    Tambah Admin
+                </button>
+            @endif
         </div>
     </div>
 
+    <div class="flex flex-wrap gap-2 border-b border-gray-200">
+        <a href="{{ route('super-admin.admins.index', ['tab' => 'admins']) }}"
+            class="inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold {{ $tab === 'admins' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+            Akun Demo
+            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{{ $counts['all'] }}</span>
+        </a>
+        <a href="{{ route('super-admin.admins.index', ['tab' => 'requests']) }}"
+            class="inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-semibold {{ $tab === 'requests' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+            Pengajuan
+            <span class="rounded-full px-2 py-0.5 text-xs {{ $pendingRequestCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600' }}">{{ $pendingRequestCount }}</span>
+        </a>
+    </div>
+
+    @if ($tab === 'requests')
+        <div class="overflow-hidden rounded-xl border border-border bg-white">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <h3 class="text-lg font-semibold text-gray-900">Pengajuan Demo</h3>
+                <p class="mt-1 text-sm text-gray-500">Setujui pengajuan setelah menentukan masa akses akun demo.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-gray-600">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Nama</th>
+                            <th class="px-4 py-3 text-left">Email</th>
+                            <th class="px-4 py-3 text-left">WhatsApp</th>
+                            <th class="px-4 py-3 text-left">Asal Bimbel</th>
+                            <th class="px-4 py-3 text-left">Keterangan</th>
+                            <th class="px-4 py-3 text-center">Diajukan</th>
+                            <th class="px-4 py-3 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($demoRequests as $demoRequest)
+                            <tr class="border-t border-gray-100">
+                                <td class="px-4 py-3 font-semibold text-gray-900">{{ $demoRequest->name }}</td>
+                                <td class="px-4 py-3">{{ $demoRequest->email }}</td>
+                                <td class="px-4 py-3">
+                                    <a href="https://wa.me/{{ $demoRequest->phone }}" target="_blank" rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1.5 font-medium text-emerald-700 hover:underline">
+                                        <i class="ri-whatsapp-line"></i>{{ $demoRequest->phone }}
+                                    </a>
+                                </td>
+                                <td class="px-4 py-3">{{ $demoRequest->origin_institution }}</td>
+                                <td class="max-w-xs px-4 py-3">{{ \Illuminate\Support\Str::limit($demoRequest->request_note ?: '-', 100) }}</td>
+                                <td class="px-4 py-3 text-center">{{ $demoRequest->created_at?->format('d M Y H:i') }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <button type="button" data-open-modal="approve-request-{{ $demoRequest->id }}"
+                                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                                        <i class="ri-check-line text-base"></i>
+                                        ACC
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-4 py-10 text-center text-gray-500">Belum ada pengajuan demo yang menunggu persetujuan.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4">
+                {{ $demoRequests->links() }}
+            </div>
+        </div>
+
+        @foreach ($demoRequests as $demoRequest)
+            <div id="approve-request-{{ $demoRequest->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
+                <div class="absolute inset-0 bg-black/50" data-close-edit-modal></div>
+                <div class="relative flex h-[calc(100vh-2rem)] max-h-[560px] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white p-6 shadow-xl">
+                    <div class="mb-4 flex shrink-0 items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Setujui Pengajuan Demo</p>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ $demoRequest->name }}</h3>
+                        </div>
+                        <button type="button" class="text-2xl leading-none text-gray-400 hover:text-gray-600" data-close-edit-modal>&times;</button>
+                    </div>
+                    @if (old('form_context') === 'approve-request-'.$demoRequest->id && $errors->any())
+                        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <ul class="list-disc space-y-1 pl-5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                    <p class="mb-4 text-sm leading-6 text-gray-500">Akun dibuat dengan password awal <strong class="text-gray-700">password123</strong>. Tentukan masa akses sebelum menyetujui.</p>
+                    <form method="POST" action="{{ route('super-admin.admins.requests.approve', $demoRequest) }}" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                        @csrf
+                        <input type="hidden" name="form_context" value="approve-request-{{ $demoRequest->id }}">
+                        <div>
+                            <label class="mb-2 block text-sm font-semibold text-gray-700">Cara menentukan akses</label>
+                            <select name="expiry_type" class="w-full rounded-lg border border-gray-200 px-4 py-2" data-expiry-select>
+                                <option value="duration" @selected(old('expiry_type', 'duration') === 'duration')>Durasi (hari/jam)</option>
+                                <option value="date" @selected(old('expiry_type') === 'date')>Sampai tanggal</option>
+                            </select>
+                        </div>
+                        <div data-expiry-duration>
+                            <label class="mb-2 block text-sm font-semibold text-gray-700">Durasi akses</label>
+                            <div class="flex gap-2">
+                                <input type="number" name="duration_days" min="0" max="365" value="{{ old('duration_days', 7) }}" class="w-full rounded-lg border border-gray-200 px-4 py-2" placeholder="Hari">
+                                <input type="number" name="duration_hours" min="0" max="720" value="{{ old('duration_hours', 0) }}" class="w-full rounded-lg border border-gray-200 px-4 py-2" placeholder="Jam">
+                            </div>
+                        </div>
+                        <div class="hidden" data-expiry-date>
+                            <label class="mb-2 block text-sm font-semibold text-gray-700">Berlaku sampai</label>
+                            <input type="datetime-local" name="expires_at" value="{{ old('expires_at') }}" class="w-full rounded-lg border border-gray-200 px-4 py-2">
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" data-close-edit-modal class="rounded-lg border border-gray-200 px-4 py-2 text-gray-600 hover:bg-gray-50">Batal</button>
+                            <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700">ACC & Buat Akun</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endforeach
+    @else
     <div id="create-admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto px-4 py-6">
         <div class="absolute inset-0 bg-black/50" data-close-modal></div>
         <div class="relative my-auto flex h-[calc(100vh-2rem)] max-h-[720px] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white p-6 shadow-xl">
@@ -388,6 +512,7 @@
             </div>
         @endforeach
     </div>
+    @endif
 </div>
 
 @endsection
@@ -399,18 +524,20 @@
         const dateField = document.getElementById('expiry_date_field');
         const durationField = document.getElementById('expiry_duration_field');
 
-        const toggleFields = () => {
-            if (select.value === 'duration') {
-                dateField.classList.add('hidden');
-                durationField.classList.remove('hidden');
-            } else {
-                durationField.classList.add('hidden');
-                dateField.classList.remove('hidden');
-            }
-        };
+        if (select && dateField && durationField) {
+            const toggleFields = () => {
+                if (select.value === 'duration') {
+                    dateField.classList.add('hidden');
+                    durationField.classList.remove('hidden');
+                } else {
+                    durationField.classList.add('hidden');
+                    dateField.classList.remove('hidden');
+                }
+            };
 
-        select.addEventListener('change', toggleFields);
-        toggleFields();
+            select.addEventListener('change', toggleFields);
+            toggleFields();
+        }
 
         const openModal = (modalId) => {
             const modal = document.getElementById(modalId);
@@ -429,7 +556,7 @@
 
         document.querySelectorAll('[data-close-modal], [data-close-edit-modal]').forEach(button => {
             button.addEventListener('click', () => {
-                const modal = button.closest('[id="create-admin-modal"], [id^="edit-admin-"], [id^="extend-admin-"]');
+                const modal = button.closest('[id="create-admin-modal"], [id^="edit-admin-"], [id^="extend-admin-"], [id^="approve-request-"]');
                 if (!modal) return;
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
@@ -460,6 +587,17 @@
         if (formWithError) {
             openModal(formWithError);
         }
+
+        document.querySelectorAll('[data-copy-demo-link]').forEach(button => {
+            button.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(button.dataset.copyDemoLink);
+                    window.alert('Link pengajuan demo berhasil disalin.');
+                } catch (error) {
+                    window.prompt('Salin link pengajuan demo berikut:', button.dataset.copyDemoLink);
+                }
+            });
+        });
     });
 </script>
 @endpush

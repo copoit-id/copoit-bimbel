@@ -49,6 +49,7 @@ use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DemoRequestController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
@@ -99,6 +100,8 @@ Route::get('/participant-destinations/official/programs', [ParticipantDestinatio
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 Route::get('/ai-gateway-payments/{externalId}/qris', [AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
+Route::get('/pengajuan-demo', [DemoRequestController::class, 'create'])->name('demo-requests.create');
+Route::post('/pengajuan-demo', [DemoRequestController::class, 'store'])->middleware('throttle:10,1')->name('demo-requests.store');
 
 Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
@@ -456,6 +459,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
     Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
     Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
+    Route::post('/admins/requests/{demoRequest}/approve', [SuperAdminController::class, 'approveRequest'])->name('admins.requests.approve');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
