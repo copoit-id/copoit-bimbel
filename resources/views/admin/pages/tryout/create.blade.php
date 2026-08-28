@@ -61,6 +61,22 @@
         ],
     ];
     $securityOptions = array_filter($securityOptions, fn ($option) => $option['available']);
+    $tabSwitchPunishmentOptions = array_filter([
+        'tab_switch_freeze' => [
+            'label' => 'Freeze halaman ujian',
+            'description' => 'Kunci halaman sampai peserta mengakui pelanggaran.',
+            'available' => $securityDefaults['tab_switch_freeze'] ?? true,
+        ],
+        'tab_switch_reset_answer' => [
+            'label' => 'Hapus jawaban soal aktif',
+            'description' => 'Jawaban pada nomor yang sedang dibuka langsung dihapus.',
+            'available' => $securityDefaults['tab_switch_reset_answer'] ?? true,
+        ],
+    ], fn ($option) => $option['available']);
+    $tabSwitchDetectionChecked = $hasOldInput
+        ? (bool) old('enable_tab_switch_detection')
+        : (isset($tryout) ? (bool) $tryout->enable_tab_switch_detection : ($securityDefaults['enable_tab_switch_detection'] ?? true));
+    $tabSwitchFreezeSeconds = old('tab_switch_freeze_seconds', $tryout->tab_switch_freeze_seconds ?? 15);
 @endphp
 <style>
     .tryout-toggle-input:checked + .tryout-toggle-track .tryout-toggle-knob {
@@ -1108,6 +1124,47 @@
                         @endforeach
                     </div>
                 </div>
+
+                @if($tabSwitchPunishmentOptions !== [])
+                    <section id="tabSwitchPunishmentSection" class="rounded-lg border border-primary/20 bg-primary/5 p-4 {{ $tabSwitchDetectionChecked ? '' : 'hidden' }}">
+                        <div class="mb-4 flex items-start gap-3">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <i class="ri-alarm-warning-line text-lg"></i>
+                            </span>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Punishment Pindah Tab</h3>
+                                <p class="mt-0.5 text-sm text-gray-600">Pilih konsekuensi yang dijalankan saat peserta terdeteksi pindah tab. Keduanya opsional.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            @foreach($tabSwitchPunishmentOptions as $field => $option)
+                                @php
+                                    $isChecked = $hasOldInput
+                                        ? (bool) old($field)
+                                        : (isset($tryout) ? (bool) $tryout->{$field} : false);
+                                @endphp
+                                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-primary/40">
+                                    <input type="hidden" name="{{ $field }}" value="0">
+                                    <input type="checkbox" name="{{ $field }}" value="1" @checked($isChecked)
+                                        class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span>
+                                        <span class="block text-sm font-semibold text-gray-800">{{ $option['label'] }}</span>
+                                        <span class="mt-1 block text-xs leading-relaxed text-gray-500">{{ $option['description'] }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <div id="tabSwitchFreezeDurationField" class="mt-3 {{ old('tab_switch_freeze', $tryout->tab_switch_freeze ?? false) ? '' : 'hidden' }}">
+                            <label for="tab_switch_freeze_seconds" class="block text-sm font-semibold text-gray-800">Durasi freeze</label>
+                            <div class="relative mt-1 max-w-xs">
+                                <input id="tab_switch_freeze_seconds" name="tab_switch_freeze_seconds" type="number" min="1" max="300" value="{{ $tabSwitchFreezeSeconds }}"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-16 text-sm focus:border-primary focus:ring-primary">
+                                <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-500">detik</span>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Default 15 detik. Peserta tidak dapat melanjutkan pengerjaan selama freeze berlangsung.</p>
+                        </div>
+                    </section>
+                @endif
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2 border-t border-gray-200">
@@ -1158,7 +1215,24 @@
       const certificationCheckbox = root.querySelector('#is_certification');
       const certificateTemplateField = root.querySelector('#certificateTemplateField');
       const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
+      const tabSwitchDetection = root.querySelector('input[name="enable_tab_switch_detection"][type="checkbox"]');
+      const tabSwitchPunishmentSection = root.querySelector('#tabSwitchPunishmentSection');
+      const tabSwitchFreezeCheckbox = root.querySelector('input[name="tab_switch_freeze"][type="checkbox"]');
+      const tabSwitchFreezeDurationField = root.querySelector('#tabSwitchFreezeDurationField');
       if (!typeSelect || typeSelect.__tryoutBound) return;
+
+      const syncTabSwitchPunishments = () => {
+        const enabled = Boolean(tabSwitchDetection?.checked);
+        tabSwitchPunishmentSection?.classList.toggle('hidden', !enabled);
+      };
+      syncTabSwitchPunishments();
+      tabSwitchDetection?.addEventListener('change', syncTabSwitchPunishments);
+
+      const syncTabSwitchFreezeDuration = () => {
+        tabSwitchFreezeDurationField?.classList.toggle('hidden', !tabSwitchFreezeCheckbox?.checked);
+      };
+      syncTabSwitchFreezeDuration();
+      tabSwitchFreezeCheckbox?.addEventListener('change', syncTabSwitchFreezeDuration);
 
       const formatDurationInput = (input) => {
         const value = input.value.trim();
