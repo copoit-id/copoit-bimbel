@@ -73,11 +73,22 @@
                                 <td class="max-w-xs px-4 py-3">{{ \Illuminate\Support\Str::limit($demoRequest->request_note ?: '-', 100) }}</td>
                                 <td class="px-4 py-3 text-center">{{ $demoRequest->created_at?->format('d M Y H:i') }}</td>
                                 <td class="px-4 py-3 text-right">
-                                    <button type="button" data-open-modal="approve-request-{{ $demoRequest->id }}"
-                                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                                        <i class="ri-check-line text-base"></i>
-                                        ACC
-                                    </button>
+                                    <div class="inline-flex items-center justify-end gap-2">
+                                        <button type="button" data-open-modal="approve-request-{{ $demoRequest->id }}"
+                                            class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                                            <i class="ri-check-line text-base"></i>
+                                            ACC
+                                        </button>
+                                        <form method="POST" action="{{ route('super-admin.admins.requests.reject', $demoRequest) }}" data-reject-demo-request>
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" title="Tolak dan hapus pengajuan"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                                aria-label="Tolak dan hapus pengajuan {{ $demoRequest->name }}">
+                                                <i class="ri-close-line text-lg"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -609,6 +620,14 @@
                     window.alert('Link pengajuan demo berhasil disalin.');
                 } catch (error) {
                     window.prompt('Salin link pengajuan demo berikut:', button.dataset.copyDemoLink);
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-reject-demo-request]').forEach(form => {
+            form.addEventListener('submit', (event) => {
+                if (!window.confirm('Tolak pengajuan ini? Data pengajuan akan dihapus permanen.')) {
+                    event.preventDefault();
                 }
             });
         });

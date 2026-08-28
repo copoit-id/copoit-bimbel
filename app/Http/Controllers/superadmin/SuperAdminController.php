@@ -379,6 +379,29 @@ class SuperAdminController extends Controller
             ->with('success', 'Pengajuan disetujui dan akun admin demo berhasil dibuat. Password awal: password123.');
     }
 
+    public function rejectRequest(DemoRequest $demoRequest): RedirectResponse
+    {
+        $isDeleted = DB::transaction(function () use ($demoRequest): bool {
+            $lockedRequest = DemoRequest::query()->lockForUpdate()->find($demoRequest->id);
+
+            if (! $lockedRequest || $lockedRequest->status !== 'pending') {
+                return false;
+            }
+
+            $lockedRequest->delete();
+
+            return true;
+        });
+
+        if (! $isDeleted) {
+            return redirect()->route('super-admin.admins.index', ['tab' => 'requests'])
+                ->with('error', 'Pengajuan demo ini sudah diproses dan tidak dapat ditolak.');
+        }
+
+        return redirect()->route('super-admin.admins.index', ['tab' => 'requests'])
+            ->with('success', 'Pengajuan demo ditolak dan datanya telah dihapus.');
+    }
+
     public function exportExcel(): StreamedResponse
     {
         $filename = 'admin-demo-'.now('Asia/Jakarta')->format('Ymd_His').'.xlsx';

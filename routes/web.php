@@ -460,6 +460,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
     Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
     Route::post('/admins/requests/{demoRequest}/approve', [SuperAdminController::class, 'approveRequest'])->name('admins.requests.approve');
+    Route::delete('/admins/requests/{demoRequest}', [SuperAdminController::class, 'rejectRequest'])->name('admins.requests.reject');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
