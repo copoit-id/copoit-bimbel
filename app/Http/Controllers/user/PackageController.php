@@ -2046,18 +2046,17 @@ class PackageController extends Controller
         $attemptHistory = [];
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
+            $userAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
+            $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
+                ->select('tryout_detail_id', \DB::raw('count(*) as total'))
+                ->groupBy('tryout_detail_id')
+                ->pluck('total', 'tryout_detail_id');
             $firstAnswer = $userAnswers
                 ->sortBy(fn ($answer) => $answer->started_at ?? $answer->created_at)
                 ->first();
             $lastAnswer = $userAnswers->sortByDesc('finished_at')->first();
 
             if ($tryout->requiresIrtScoring()) {
-                $userAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
-                $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
-                    ->select('tryout_detail_id', \DB::raw('count(*) as total'))
-                    ->groupBy('tryout_detail_id')
-                    ->pluck('total', 'tryout_detail_id');
-
                 $totalCorrect = 0;
                 $totalWrong = 0;
                 $totalUnanswered = 0;
@@ -2096,9 +2095,10 @@ class PackageController extends Controller
 
                         $totalScore += $subtestScore;
                         $totalMaxScore += $maxSubtestScore;
-                        $totalCorrect += $ua->correct_answers ?? 0;
-                        $totalWrong += $ua->wrong_answers ?? 0;
-                        $totalUnanswered += $ua->unanswered ?? 0;
+                        $details = $ua->userAnswerDetails;
+                        $totalCorrect += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && $detail->is_correct)->count();
+                        $totalWrong += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct)->count();
+                        $totalUnanswered += max(0, (int) ($questionCounts[$ua->tryout_detail_id] ?? 0) - $details->count());
                     }
 
                     $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
@@ -2114,9 +2114,10 @@ class PackageController extends Controller
                     $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
                     $totalScore = $rawScore;
                     $isPassed = $this->isAttemptPassed($userAnswers, 1);
-                    $totalCorrect = $singleAnswer->correct_answers ?? 0;
-                    $totalWrong = $singleAnswer->wrong_answers ?? 0;
-                    $totalUnanswered = $singleAnswer->unanswered ?? 0;
+                    $details = $singleAnswer->userAnswerDetails;
+                    $totalCorrect = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && $detail->is_correct)->count();
+                    $totalWrong = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct)->count();
+                    $totalUnanswered = max(0, (int) ($questionCounts[$singleAnswer->tryout_detail_id] ?? 0) - $details->count());
                 }
 
             // Calculate duration
@@ -3662,6 +3663,14 @@ class PackageController extends Controller
         });
         $profileRankings = $profileRankingsByChoice->get($selectedProfileChoice, collect());
         $rankingSummary = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+        $myRankingIndex = $rankingSummary->search(fn (array $ranking): bool => (int) ($ranking['user']->id ?? 0) === (int) Auth::id());
+        $myRanking = $myRankingIndex === false
+            ? null
+            : [
+                'rank' => $myRankingIndex + 1,
+                'total' => $rankingSummary->count(),
+                'score' => $rankingSummary->get($myRankingIndex),
+            ];
         $perPage = Pagination::perPage(20);
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $rankings = new LengthAwarePaginator(
@@ -3688,7 +3697,8 @@ class PackageController extends Controller
             'profileChoices',
             'profileDestinationLabel',
             'profileNeedsCompletion',
-            'packageRouteId'
+            'packageRouteId',
+            'myRanking'
         ));
     }
 

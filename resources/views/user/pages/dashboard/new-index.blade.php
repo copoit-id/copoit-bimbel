@@ -117,7 +117,7 @@ $primaryRgb = "$r, $g, $b";
                                     Masuk / Daftar
                                 </a>
                             @elseif($canShowProfile)
-                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
+                                <a href="{{ route('user.profile.index') }}" class="relative z-20 inline-flex cursor-pointer pointer-events-auto items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
                                     Ubah Target
                                 </a>
                             @endif
@@ -134,14 +134,15 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBP</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
                             @php $snbpOpportunities = $destinationKeketatan['snbp'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
                             <div class="shrink-0 space-y-1 text-right">
                                 @foreach($snbpOpportunities as $opportunity)
-                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    <p class="whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-right text-[10px] font-bold text-emerald-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
                                     </p>
                                 @endforeach
                             </div>
@@ -155,14 +156,15 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBT</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
                             @php $snbtOpportunities = $destinationKeketatan['snbt'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
                             <div class="shrink-0 space-y-1 text-right">
                                 @foreach($snbtOpportunities as $opportunity)
-                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
-                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-amber-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    <p class="whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-right text-[10px] font-bold text-amber-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-amber-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
                                     </p>
                                 @endforeach
                             </div>

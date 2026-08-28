@@ -80,7 +80,7 @@
 
         <!-- Statistics Cards -->
         @if($rankingSummary->isNotEmpty())
-            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-4' : 'md:grid-cols-3' }}">
+            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-5' : 'md:grid-cols-4' }}">
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
@@ -140,6 +140,20 @@
                         </div>
                     </div>
                 @endif
+                <div class="bg-primary/5 p-4 rounded-lg border border-primary/20">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Ranking Saya</p>
+                            @if($myRanking)
+                                <p class="text-2xl font-bold text-primary">#{{ $myRanking['rank'] }}</p>
+                                <p class="text-xs text-gray-500">dari {{ $myRanking['total'] }} peserta</p>
+                            @else
+                                <p class="mt-1 text-sm font-semibold text-gray-500">Belum masuk ranking</p>
+                            @endif
+                        </div>
+                        <i class="ri-user-star-line text-3xl text-primary"></i>
+                    </div>
+                </div>
             </div>
         @endif
 

@@ -29,7 +29,7 @@
                 @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
                 <div class="mt-2">
                     <span class="inline-flex px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        SKD Full - {{ $tryoutDetails->count() }} Subtest
+                        {{ $tryoutDetails->map(fn ($detail) => strtoupper($detail->type_subtest))->filter()->implode(' + ') }}
                     </span>
                 </div>
                 @endif
