@@ -272,6 +272,7 @@ class PembayaranController extends Controller
                 'query' => $request->query(),
             ]
         );
+        $payments->withQueryString();
 
         $summary = $this->paymentSummary(array_keys($individualTypes), $summaryMetric);
         $paymentMethods = Payment::query()

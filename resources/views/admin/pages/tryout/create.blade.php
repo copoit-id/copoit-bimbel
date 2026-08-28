@@ -28,9 +28,12 @@
     $certificateTemplates = $certificateTemplates ?? collect();
     $selectedCertificateTemplateId = old('certificate_template_id', $tryout->certificate_template_id ?? '');
     $showDiscussionChecked = old('show_discussion', $tryout->show_discussion ?? true);
+    $lobbyTokenEnabled = old('lobby_token_enabled', $tryout->lobby_token_enabled ?? false);
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
+    $showPassingGradeChecked = old('show_passing_grade', $tryout->show_passing_grade ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
     $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
+    $resultScoreScale = old('result_score_scale', $tryout->result_score_scale ?? 'raw');
     $securityOptions = [
         'enable_anti_copy' => [
             'label' => 'Anti Copy Soal',
@@ -365,6 +368,25 @@
                         </span>
                     </label>
 
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="lobby_token_enabled" name="lobby_token_enabled" value="1"
+                                {{ $lobbyTokenEnabled ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
+                            <span class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                            </span>
+                            <span class="text-sm font-medium text-gray-700">Wajibkan Token di Lobby</span>
+                        </label>
+                        <div id="lobby-token-input-wrapper" class="mt-3 {{ $lobbyTokenEnabled ? '' : 'hidden' }}">
+                            <label for="lobby_token" class="mb-2 block text-sm font-medium text-gray-700">Token Lobby</label>
+                            <input type="text" id="lobby_token" name="lobby_token" minlength="6" maxlength="100" autocomplete="off"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                placeholder="{{ isset($tryout) && $tryout->lobby_token_hash ? 'Kosongkan untuk mempertahankan token lama' : 'Minimal 6 karakter' }}">
+                            <p class="mt-2 text-xs text-gray-600">Peserta wajib memasukkan token ini di lobby sebelum dapat memulai. Ini berbeda dari syarat klaim paket.</p>
+                            @error('lobby_token')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
                     <label class="flex items-center gap-3">
                         <input type="checkbox" id="show_discussion" name="show_discussion" value="1"
                             {{ $showDiscussionChecked ? 'checked' : '' }}
@@ -392,6 +414,21 @@
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
                             Tampilkan Leaderboard di User
                             <x-ui.tooltip>Jika dimatikan, tombol ranking disembunyikan dan URL ranking akan ditolak.</x-ui.tooltip>
+                        </span>
+                    </label>
+
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" id="show_passing_grade" name="show_passing_grade" value="1"
+                            {{ $showPassingGradeChecked ? 'checked' : '' }}
+                            class="sr-only peer tryout-toggle-input">
+                        <span
+                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span
+                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                        </span>
+                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            Tampilkan Passing Grade & Status Kelulusan di User
+                            <x-ui.tooltip>Jika dimatikan, passing grade serta status lulus/tidak lulus tidak ditampilkan ke peserta. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
                         </span>
                     </label>
 
@@ -437,6 +474,27 @@
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
                                         <span class="block font-semibold">Subtest saja</span>
                                         <span class="mt-0.5 block text-xs text-gray-500">Sembunyikan nilai total, tampilkan nilai tiap subtest.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </fieldset>
+                        <fieldset id="resultScoreScaleOptions" class="mt-4 {{ $showResultScoresChecked && $selectedScoringMethod === 'irt_utbk' ? '' : 'hidden' }}">
+                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Skala nilai IRT yang ditampilkan</legend>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_scale" value="raw"
+                                        @checked($resultScoreScale === 'raw') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Skor asli (0 - 1000)</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Default. Nilai IRT ditampilkan tanpa konversi.</span>
+                                    </span>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="result_score_scale" value="scale_100"
+                                        @checked($resultScoreScale === 'scale_100') class="peer sr-only">
+                                    <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
+                                        <span class="block font-semibold">Skala 0 - 100</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Hanya mengubah tampilan: skor 850 ditampilkan sebagai 85.</span>
                                     </span>
                                 </label>
                             </div>
@@ -1093,6 +1151,7 @@
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
       const showResultScoresCheckbox = root.querySelector('#show_result_scores');
       const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
+      const resultScoreScaleOptions = root.querySelector('#resultScoreScaleOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
       const certificationCheckbox = root.querySelector('#is_certification');
@@ -1344,6 +1403,8 @@
 
     function syncResultScoreDisplay() {
       resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
+      const isIrt = scoringMethodSelect?.value === 'irt_utbk';
+      resultScoreScaleOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked || !isIrt);
     }
 
     function syncCertificateTemplateField() {
@@ -1364,6 +1425,7 @@
 
     // bind event
     typeSelect.addEventListener('change', window.__tryoutChange);
+    scoringMethodSelect?.addEventListener('change', syncResultScoreDisplay);
     root.addEventListener('change', (event) => {
       if (event.target && event.target.matches('select[name^="passing_type_"]')) {
         syncPassingScoreLimit(event.target);
@@ -1395,6 +1457,9 @@
     const priceWrapper = root.querySelector('#price-wrapper');
     const requirementWrapper = root.querySelector('#conditional-requirement-wrapper');
     const requirementInput = root.querySelector('#conditional_requirement');
+    const lobbyTokenEnabled = root.querySelector('#lobby_token_enabled');
+    const lobbyTokenInputWrapper = root.querySelector('#lobby-token-input-wrapper');
+    const lobbyTokenInput = root.querySelector('#lobby_token');
     const durationWrapper = root.querySelector('#access-duration-wrapper');
     const syncAccessDuration = () => {
       if (!durationUnit || !durationValue) return;
@@ -1412,9 +1477,17 @@
       durationValue.disabled = !isForSale || durationUnit.value === 'forever';
     };
     syncAccessDuration();
+    const hasExistingLobbyToken = @json(isset($tryout) && filled($tryout->lobby_token_hash));
+    const syncLobbyToken = () => {
+      const enabled = Boolean(lobbyTokenEnabled?.checked);
+      lobbyTokenInputWrapper?.classList.toggle('hidden', !enabled);
+      lobbyTokenInput?.toggleAttribute('required', enabled && !hasExistingLobbyToken);
+    };
+    syncLobbyToken();
     durationUnit?.addEventListener('change', syncAccessDuration);
     saleCheckbox?.addEventListener('change', syncAccessDuration);
     typePriceSelect?.addEventListener('change', syncAccessDuration);
+    lobbyTokenEnabled?.addEventListener('change', syncLobbyToken);
 
     typeSelect.__tryoutBound = true;
   }

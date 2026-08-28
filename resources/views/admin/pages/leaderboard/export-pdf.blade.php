@@ -68,12 +68,12 @@
                 @php
                     $rawScoreValue = (float) ($ranking->raw_score ?? 0);
                     $maxScoreValue = (float) ($ranking->max_score ?? 0);
-                    $score = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                    $score = $ranking->display_score['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
                         ? number_format($rawScoreValue, 0)
-                        : number_format($rawScoreValue, 2);
-                    $maxScore = abs($maxScoreValue - round($maxScoreValue)) < 0.01
+                        : number_format($rawScoreValue, 2));
+                    $maxScore = $ranking->display_score['formatted_maximum'] ?? (abs($maxScoreValue - round($maxScoreValue)) < 0.01
                         ? number_format($maxScoreValue, 0)
-                        : number_format($maxScoreValue, 2);
+                        : number_format($maxScoreValue, 2));
                     $status = $ranking->is_passed ? 'Lulus' : 'Tidak Lulus';
                 @endphp
                 <tr>
@@ -83,7 +83,7 @@
                     <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
                     @foreach($subtests ?? [] as $subtest)
                         <td class="text-center">
-                            {{ number_format((float) ($ranking->subtest_scores[$subtest['id']] ?? 0), 2, ',', '.') }}
+                            {{ $ranking->display_subtest_scores[$subtest['id']]['formatted'] ?? number_format((float) ($ranking->subtest_scores[$subtest['id']] ?? 0), 2, ',', '.') }}
                         </td>
                     @endforeach
                     <td class="text-center">{{ $score }}</td>

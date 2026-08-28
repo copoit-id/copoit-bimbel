@@ -66,6 +66,11 @@ class Tentor extends Model
         return $this->hasMany(TutorPayroll::class);
     }
 
+    public function packageRates(): HasMany
+    {
+        return $this->hasMany(TutorPackageRate::class);
+    }
+
     public function chatConversations(): HasMany
     {
         return $this->hasMany(ChatConversation::class, 'tentor_id');

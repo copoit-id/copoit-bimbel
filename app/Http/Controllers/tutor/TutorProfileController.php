@@ -4,6 +4,7 @@ namespace App\Http\Controllers\tutor;
 
 use App\Http\Controllers\Controller;
 use App\Services\TutorProfilePhotoService;
+use App\Support\Pagination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,8 @@ class TutorProfileController extends Controller
         $reviews = $tentor->visibleReviews()
             ->with('user:id,name')
             ->latest()
-            ->paginate(10, ['*'], 'reviews_page');
+            ->paginate(Pagination::perPage(10), ['*'], 'reviews_page')
+            ->withQueryString();
         $reviewCountsByRating = $tentor->visibleReviews()
             ->selectRaw('rating, COUNT(*) as total')
             ->groupBy('rating')

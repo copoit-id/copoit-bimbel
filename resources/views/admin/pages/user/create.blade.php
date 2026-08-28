@@ -88,6 +88,20 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <x-form.input name="education_level" label="Kelas / Level (Opsional)"
+                            :value="old('education_level', $user->education_level ?? '')" placeholder="Contoh: Kelas 12" />
+                        <x-form.input name="origin_institution" label="Asal Sekolah / Instansi (Opsional)"
+                            :value="old('origin_institution', $user->origin_institution ?? '')" placeholder="Contoh: SMA Negeri 1 Jakarta" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <x-form.input name="major_choice_1" label="Pilihan Jurusan 1 (Opsional)"
+                            :value="old('major_choice_1', $user->major_choice_1 ?? '')" placeholder="Contoh: Teknik Informatika" />
+                        <x-form.input name="major_choice_2" label="Pilihan Jurusan 2 (Opsional)"
+                            :value="old('major_choice_2', $user->major_choice_2 ?? '')" placeholder="Contoh: Sistem Informasi" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.select name="role" label="Role" :options="$roleOptions ?? ['admin' => 'Admin', 'user' => 'User']"
                             :value="old('role', $user->role ?? '')" required />
                         <x-form.select name="status" label="Status"

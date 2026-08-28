@@ -11,7 +11,7 @@
     @include('components.favicon-link')
     <x-website-translation-head />
 </head>
-<body class="min-h-screen bg-slate-50 text-gray-800">
+<body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
     @php
         $planModules = app(\App\Services\PlanModuleService::class);
         $canShowTutorProfile = $planModules->allows('profile');
@@ -56,7 +56,7 @@
         <div class="flex items-center justify-between px-4 py-3"><a href="{{ route('tutor.dashboard') }}" class="font-bold text-primary">Portal Tutor</a><a href="{{ route('tutor.schedule.index') }}" class="text-sm font-semibold text-gray-600">Jadwal</a></div>
     </header>
 
-    <main class="min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-8">
+    <main class="responsive-shell min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-8">
         @if(session('success'))<div class="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('success') }}</div>@endif
         @if(session('error'))<div class="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>@endif
         @yield('content')

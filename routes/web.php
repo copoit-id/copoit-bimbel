@@ -221,6 +221,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
         Route::get('/{id_package}/tryout/{id_tryout}/riwayat', [PackageController::class, 'riwayatTryout'])->name('user.package.tryout.riwayat');
         Route::get('/{id_package}/tryout/{id_tryout}/ranking', [PackageController::class, 'rankingTryout'])->name('user.package.tryout.ranking');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}', [PackageController::class, 'pembahasanTryout'])->name('user.package.tryout.pembahasan');
+        Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/download/{type}', [PackageController::class, 'downloadPembahasanTryout'])
+            ->whereIn('type', ['soal', 'pembahasan'])
+            ->name('user.package.tryout.pembahasan.download');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-chat', [PackageController::class, 'chatPembahasanAi'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-chat');
         Route::get('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools/history', [AiLearningToolController::class, 'history'])->middleware(['client-feature:ai-discussion', 'throttle:30,1'])->name('user.package.tryout.pembahasan.ai-tools.history');
         Route::post('/{id_package}/tryout/{id_tryout}/pembahasan/{token}/ai-tools', [AiLearningToolController::class, 'generate'])->middleware(['client-feature:ai-discussion', 'throttle:12,1'])->name('user.package.tryout.pembahasan.ai-tools');
@@ -292,6 +295,9 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('tryout')->group(function () {
         Route::get('/{id_package}/{id_tryout}/lobby', [TryoutController::class, 'indexLobby'])->name('user.tryout.lobby');
+        Route::post('/{id_package}/{id_tryout}/lobby/token', [TryoutController::class, 'verifyLobbyToken'])
+            ->middleware('throttle:5,1')
+            ->name('user.tryout.lobby.token.verify');
         Route::get('/{id_package}/{id_tryout}/tryout/{number}', [TryoutController::class, 'indexTryout'])->name('user.tryout.index');
         Route::post('/{id_package}/{id_tryout}/tryout/{number}/save', [TryoutController::class, 'saveAnswer'])->name('user.tryout.save');
         Route::post('/{id_package}/{id_tryout}/subtest/flush', [TryoutController::class, 'flushSubtestAnswers'])->name('user.tryout.subtest.flush');
@@ -446,6 +452,7 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
+    Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
     Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
@@ -616,6 +623,7 @@ Route::prefix('{portal}')
         // Question Management Routes
         Route::prefix('soal')->name('question.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}', [QuestionController::class, 'index'])->name('index');
+            Route::get('/{tryout_detail_id}/download', [QuestionController::class, 'download'])->name('download');
             Route::get('/{tryout_detail_id}/tambah', [QuestionController::class, 'create'])->name('create');
             Route::post('/{tryout_detail_id}/store', [QuestionController::class, 'store'])->name('store');
             Route::get('/{tryoutDetail}/ai-generator', [TryoutAiQuestionGeneratorController::class, 'form'])->name('ai-generator');
@@ -667,6 +675,7 @@ Route::prefix('{portal}')
         Route::resource('tryout', AdminTryoutController::class)->middleware('tutor-content-owner');
         Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->middleware('tutor-content-owner')->name('tryout.clone');
         Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->middleware('tutor-content-owner')->name('tryout.preview');
+        Route::get('tryout/{tryout}/download-soal', [AdminTryoutController::class, 'downloadQuestions'])->middleware('tutor-content-owner')->name('tryout.download-questions');
         Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->middleware('tutor-content-owner')->name('tryout.release-utbk');
         Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->middleware('tutor-content-owner')->name('tryout.reset-utbk');
 
@@ -740,6 +749,7 @@ Route::prefix('{portal}')
         Route::get('penggajian-tutor', [TutorPayrollController::class, 'index'])->name('tutor-payrolls.index');
         Route::post('penggajian-tutor/generate', [TutorPayrollController::class, 'generate'])->name('tutor-payrolls.generate');
         Route::post('penggajian-tutor/honor', [TutorPayrollController::class, 'updateHonor'])->name('tutor-payrolls.honor.update');
+        Route::post('penggajian-tutor/tarif-paket', [TutorPayrollController::class, 'updatePackageRates'])->name('tutor-payrolls.package-rates.update');
         Route::put('penggajian-tutor/{tutorPayroll}', [TutorPayrollController::class, 'update'])->name('tutor-payrolls.update');
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);
@@ -756,6 +766,10 @@ Route::prefix('{portal}')
             ->name('participant-destination-categories.official.programs');
         Route::post('participant-destination-categories/official-api-setting', [ParticipantDestinationCategoryController::class, 'updateOfficialApiSetting'])
             ->name('participant-destination-categories.official-api-setting');
+        Route::get('participant-destination-categories/import/template', [ParticipantDestinationCategoryController::class, 'downloadImportTemplate'])
+            ->name('participant-destination-categories.import.template');
+        Route::post('participant-destination-categories/import', [ParticipantDestinationCategoryController::class, 'import'])
+            ->name('participant-destination-categories.import');
         Route::resource('participant-destination-categories', ParticipantDestinationCategoryController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);

@@ -65,7 +65,9 @@ $user = auth()->user();
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Nama Lengkap <x-form.required-indicator />
+                    </label>
                     <input type="text" name="name" value="{{ old('name', $user->name) }}" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -86,72 +88,48 @@ $user = auth()->user();
                            style="--tw-ring-color: {{ $primaryColor }}40">
                 </div>
 
-                <div>
-                    @php
-                        $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id);
-                        $selectedDestinationSource = old('participant_destination_source', $user->participant_destination_source ?? ($selectedDestinationId ? 'db' : ''));
-                        $selectedOfficialExternalId = old('participant_destination_external_id', $user->participant_destination_external_id ?? '');
-                        $selectedOfficialInstitutionName = old('participant_destination_institution_name', $user->participant_destination_institution_name ?? '');
-                        $selectedOfficialProgramName = old('participant_destination_program_name', $user->participant_destination_program_name ?? '');
-                        $officialApiEnabled = (bool) config('client.branding.participant_destination_api_enabled', false);
-                        $selectedDestination = $destinationCategories
-                            ->flatMap(fn($category) => collect([$category])->merge($category->activeChildren))
-                            ->firstWhere('id', $selectedDestinationId);
-                        $selectedInstitutionId = $selectedDestination?->parent_id ?: ($selectedDestination?->id ?? null);
-                        $selectedProgramId = $selectedDestination?->parent_id ? $selectedDestination?->id : null;
-                        $selectedInstitution = $selectedInstitutionId
-                            ? $destinationCategories->firstWhere('id', $selectedInstitutionId)
-                            : null;
-                        $selectedInstitutionHasPrograms = $selectedInstitutionId
-                            ? $selectedInstitution?->activeChildren->isNotEmpty()
-                            : false;
-                    @endphp
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Instansi/Prodi Tujuan</label>
-                    <input type="hidden" name="participant_destination_category_id" id="participant_destination_category_id"
-                        value="{{ $selectedDestinationId ?: '' }}">
-                    <input type="hidden" id="participant_destination_source" name="participant_destination_source" value="{{ $selectedDestinationSource }}">
-                    <input type="hidden" id="participant_destination_external_id" name="participant_destination_external_id" value="{{ $selectedOfficialExternalId }}">
-                    <input type="hidden" id="participant_destination_institution_name" name="participant_destination_institution_name" value="{{ $selectedOfficialInstitutionName }}">
-                    <input type="hidden" id="participant_destination_program_name" name="participant_destination_program_name" value="{{ $selectedOfficialProgramName }}">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <select id="destination_institution"
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        @php
+                            $educationLevel = old('education_level', $user->education_level ?? '');
+                        @endphp
+                        <label for="education_level" class="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
+                        <select id="education_level" name="education_level"
                             class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                             style="--tw-ring-color: {{ $primaryColor }}40">
-                            <option value="">Pilih instansi</option>
-                            @foreach($destinationCategories as $category)
-                                <option value="{{ $category->id }}" @selected((int) $selectedInstitutionId === (int) $category->id)>
-                                    {{ $category->name }}
-                                </option>
+                            <option value="">Pilih kelas</option>
+                            @foreach(['SD', 'SMP', 'SMA', 'ALUMNI'] as $level)
+                                <option value="{{ $level }}" @selected($educationLevel === $level)>{{ $level }}</option>
                             @endforeach
-                            @if($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '')
-                                <option value="api:snpmb:{{ $selectedOfficialExternalId }}" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialInstitutionName }}" selected>
-                                    [Resmi] {{ $selectedOfficialInstitutionName }}
-                                </option>
-                            @endif
-                        </select>
-                        <select id="destination_program"
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-                            style="--tw-ring-color: {{ $primaryColor }}40"
-                            {{ $selectedInstitutionHasPrograms || ($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '') ? '' : 'disabled' }}>
-                            <option value="">{{ $selectedInstitutionId ? 'Tidak ada prodi/sub' : 'Pilih instansi dulu' }}</option>
-                            @foreach(($selectedInstitution?->activeChildren ?? collect()) as $child)
-                                <option value="{{ $child->id }}" @selected((int) $selectedProgramId === (int) $child->id)>
-                                    {{ $child->name }}
-                                </option>
-                            @endforeach
-                            @if($selectedDestinationSource === 'snpmb' && $selectedOfficialProgramName !== '')
-                                <option value="api:snpmb:{{ $selectedOfficialExternalId }}:program" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialProgramName }}" selected>
-                                    [Resmi] {{ $selectedOfficialProgramName }}
-                                </option>
+                            @if($educationLevel !== '' && !in_array($educationLevel, ['SD', 'SMP', 'SMA', 'ALUMNI'], true))
+                                <option value="{{ $educationLevel }}" selected>{{ $educationLevel }}</option>
                             @endif
                         </select>
                     </div>
-                    <span id="official_destination_status" class="mt-2 block text-xs text-gray-500"></span>
-                    @if($destinationCategories->isEmpty() && !$officialApiEnabled)
-                        <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Hubungi admin.</p>
-                    @else
-                        <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
-                    @endif
+                    <div>
+                        <label for="origin_institution" class="block text-sm font-medium text-gray-700 mb-1">Asal Sekolah</label>
+                        <input id="origin_institution" name="origin_institution" type="text" value="{{ old('origin_institution', $user->origin_institution ?? '') }}" placeholder="Contoh: SMA Negeri 1 Jakarta"
+                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
+                            style="--tw-ring-color: {{ $primaryColor }}40">
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <x-form.participant-destination-selector
+                        :destination-categories="$destinationCategories"
+                        :selected-destination-id="old('participant_destination_category_id', $user->participant_destination_category_id)"
+                        :selected-source="old('participant_destination_source', $user->participant_destination_source ?? '')"
+                        :selected-external-id="old('participant_destination_external_id', $user->participant_destination_external_id ?? '')"
+                        :selected-institution-name="old('participant_destination_institution_name', $user->participant_destination_institution_name ?? '')"
+                        :selected-program-name="old('participant_destination_program_name', $user->participant_destination_program_name ?? '')" />
+                    <x-form.participant-destination-selector
+                        choice="2"
+                        :destination-categories="$destinationCategories"
+                        :selected-destination-id="old('second_participant_destination_category_id', $user->second_participant_destination_category_id)"
+                        :selected-source="old('second_participant_destination_source', $user->second_participant_destination_source ?? '')"
+                        :selected-external-id="old('second_participant_destination_external_id', $user->second_participant_destination_external_id ?? '')"
+                        :selected-institution-name="old('second_participant_destination_institution_name', $user->second_participant_destination_institution_name ?? '')"
+                        :selected-program-name="old('second_participant_destination_program_name', $user->second_participant_destination_program_name ?? '')" />
                 </div>
             </div>
             
@@ -172,7 +150,9 @@ $user = auth()->user();
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Saat Ini</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Password Saat Ini <x-form.required-indicator />
+                    </label>
                     <input type="password" name="current_password" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -180,7 +160,9 @@ $user = auth()->user();
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password Baru</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Password Baru <x-form.required-indicator />
+                    </label>
                     <input type="password" name="password" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -188,7 +170,9 @@ $user = auth()->user();
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Password Baru</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Konfirmasi Password Baru <x-form.required-indicator />
+                    </label>
                     <input type="password" name="password_confirmation" 
                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
                            style="--tw-ring-color: {{ $primaryColor }}40"
@@ -206,6 +190,8 @@ $user = auth()->user();
 </div>
 @endsection
 
+{{-- Selector destination dirender dan dikelola oleh komponen form di atas. --}}
+{{--
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -388,3 +374,4 @@ $user = auth()->user();
     });
 </script>
 @endpush
+--}}

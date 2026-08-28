@@ -94,7 +94,7 @@
                     <th scope="col" class="px-6 py-3 text-center">Peserta</th>
                     <th scope="col" class="px-6 py-3 text-center">Completion</th>
                     <th scope="col" class="px-6 py-3 text-center">
-                        Rata-rata {{ $scoreDisplay === 'percentage' ? 'Persentase' : 'Skor' }}
+                        Rata-rata Nilai
                     </th>
                     <th scope="col" class="px-6 py-3 text-center">Status</th>
                     <th scope="col" class="px-6 py-3 text-center">Action</th>
@@ -127,8 +127,9 @@
                     </td>
                     <td class="px-6 py-4 text-center">
                         <span class="text-gray-800 font-medium">
-                            {{ $scoreDisplay === 'percentage' ? $tryout->report_score . '%' : $tryout->report_score }}
+                            {{ $tryout->report_score_display }}
                         </span>
+                        <p class="text-xs text-gray-500">{{ $tryout->report_score_label }}</p>
                     </td>
                     <td class="px-6 py-4 text-center">
                         @php

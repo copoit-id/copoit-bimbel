@@ -7,6 +7,7 @@ use App\Models\Certificate;
 use App\Models\CertificateTemplate;
 use App\Models\ClientProfile;
 use App\Services\CertificateTemplateRenderer;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,8 @@ class CertificateTemplateController extends Controller
         $templates = CertificateTemplate::query()
             ->where('client_profile_id', $this->clientProfileId())
             ->latest()
-            ->paginate(12);
+            ->paginate(Pagination::perPage(12))
+            ->withQueryString();
 
         return view('admin.pages.certificate-template.index', compact('templates'));
     }

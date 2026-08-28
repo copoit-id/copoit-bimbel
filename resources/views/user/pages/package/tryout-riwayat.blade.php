@@ -6,6 +6,7 @@
 @php
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
+$showPassingGrade = $tryout->shouldShowPassingGrade();
 @endphp
 
 <div class="mb-6 rounded-2xl border border-gray-100 bg-white p-5">
@@ -30,30 +31,32 @@ $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
 @if(count($attemptHistory) > 0)
 @php
 $totalAttempts = count($attemptHistory);
-$bestScore = collect($attemptHistory)->max('score');
+$bestAttempt = collect($attemptHistory)->sortByDesc('score')->first();
 $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 @endphp
 
-<div class="grid grid-cols-1 gap-3 md:grid-cols-3 mb-5">
+<div class="grid grid-cols-1 gap-3 mb-5 {{ $showPassingGrade ? 'md:grid-cols-3' : 'md:grid-cols-2' }}">
     <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <p class="text-sm text-primary">Total Percobaan</p>
         <p class="mt-1 text-2xl font-bold text-primary">{{ $totalAttempts }}</p>
     </div>
     <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <p class="text-sm text-primary">Nilai Terbaik</p>
-        <p class="mt-1 text-2xl font-bold text-primary">{{ $bestScore }}</p>
+        <p class="mt-1 text-2xl font-bold text-primary">{{ $bestAttempt['display_score']['formatted'] ?? $bestAttempt['score'] ?? 0 }}</p>
     </div>
-    <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-        <p class="text-sm text-primary">Lulus</p>
-        <p class="mt-1 text-2xl font-bold text-primary">{{ $passedAttempts }}</p>
-    </div>
+    @if($showPassingGrade)
+        <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <p class="text-sm text-primary">Lulus</p>
+            <p class="mt-1 text-2xl font-bold text-primary">{{ $passedAttempts }}</p>
+        </div>
+    @endif
 </div>
 
 <div class="space-y-4">
-    @foreach($attemptHistory as $index => $attempt)
+    @foreach($attemptHistory as $attempt)
     @php
-    $attemptNumber = $loop->iteration;
-    $isLatestAttempt = $index === 0;
+    $attemptNumber = $attempt['attempt_number'];
+    $isLatestAttempt = $attempt['is_latest'];
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -67,9 +70,11 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
                         @if($isLatestAttempt)
                         <span class="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">Terbaru</span>
                         @endif
-                        <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $attempt['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                            {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
-                        </span>
+                        @if($showPassingGrade)
+                            <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $attempt['is_passed'] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                {{ $attempt['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
+                            </span>
+                        @endif
                     </div>
                     <p class="mt-1 text-sm text-gray-500">
                         <i class="ri-calendar-line mr-1"></i>{{ $attempt['created_at']->format('d M Y, H:i') }}
@@ -79,8 +84,8 @@ $passedAttempts = collect($attemptHistory)->where('is_passed', true)->count();
 
             <div class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:min-w-[560px] lg:justify-end">
                 <div class="rounded-xl bg-gray-50 px-4 py-2 text-center sm:min-w-[92px]">
-                    <p class="text-xs text-gray-400">Skor</p>
-                    <p class="font-bold text-lg" style="color: {{ $primaryColor }}">{{ $attempt['score'] }}</p>
+                    <p class="text-xs text-gray-400">{{ $attempt['display_score']['label'] ?? 'Skor' }}</p>
+                    <p class="font-bold text-lg" style="color: {{ $primaryColor }}">{{ $attempt['display_score']['formatted'] ?? $attempt['score'] }}</p>
                 </div>
                 <div class="rounded-xl bg-green-50 px-4 py-2 text-center sm:min-w-[92px]">
                     <p class="text-xs text-gray-400">Benar</p>

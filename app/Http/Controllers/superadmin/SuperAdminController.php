@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\SafeName;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Illuminate\View\View;
 
 class SuperAdminController extends Controller
 {
+    private const DEFAULT_ADMIN_PASSWORD = 'password123';
+
     public function index(Request $request): View
     {
         $status = $request->input('status', 'all');
@@ -32,7 +35,7 @@ class SuperAdminController extends Controller
 
         $now = now();
         $baseQuery = User::query()
-            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'admin_expires_at', 'created_at'])
+            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'education_level', 'origin_institution', 'admin_expires_at', 'created_at'])
             ->where('role', 'admin_demo')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
@@ -72,7 +75,7 @@ class SuperAdminController extends Controller
                     default => $query->orderByDesc('created_at'),
                 };
             })
-            ->paginate(20)
+            ->paginate(Pagination::perPage(20))
             ->withQueryString();
 
         return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status'));
@@ -88,6 +91,8 @@ class SuperAdminController extends Controller
             'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
+            'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
+            'origin_institution' => ['nullable', 'string', 'max:255'],
             'expiry_type' => 'required|in:date,duration',
             'expires_at' => 'nullable|date',
             'duration_days' => 'nullable|integer|min:0|max:365',
@@ -129,6 +134,8 @@ class SuperAdminController extends Controller
             'username' => $username,
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
+            'education_level' => $request->input('education_level'),
+            'origin_institution' => $request->input('origin_institution'),
             'role' => 'admin_demo',
             'admin_expires_at' => $expiresAt,
             'status' => 'aktif',
@@ -164,6 +171,8 @@ class SuperAdminController extends Controller
             'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username,'.$admin->id,
             'password' => 'nullable|string|min:8|confirmed',
+            'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
+            'origin_institution' => ['nullable', 'string', 'max:255'],
         ], [
             'phone.required' => 'Nomor WhatsApp peminta wajib diisi.',
             'phone.regex' => 'Masukkan nomor WhatsApp aktif, contoh 081234567890.',
@@ -175,6 +184,8 @@ class SuperAdminController extends Controller
         $admin->email = $request->email;
         $admin->phone = $request->phone;
         $admin->username = $username;
+        $admin->education_level = $request->input('education_level');
+        $admin->origin_institution = $request->input('origin_institution');
 
         if ($request->filled('password')) {
             $admin->password = Hash::make($request->password);
@@ -184,6 +195,24 @@ class SuperAdminController extends Controller
 
         return redirect()->route('super-admin.admins.index')
             ->with('success', 'Admin demo berhasil diperbarui.');
+    }
+
+    /**
+     * Reset a demo admin password to the application default.
+     */
+    public function resetPassword(User $admin): RedirectResponse
+    {
+        if ($admin->role !== 'admin_demo') {
+            abort(404);
+        }
+
+        $admin->forceFill([
+            'password' => Hash::make(self::DEFAULT_ADMIN_PASSWORD),
+            'remember_token' => null,
+        ])->save();
+
+        return redirect()->route('super-admin.admins.index')
+            ->with('success', 'Password admin demo berhasil direset ke password default.');
     }
 
     /**

@@ -198,6 +198,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'date_of_birth' => 'required|date|before:today',
             'phone' => ['required', 'string', 'regex:/^62[0-9]{8,14}$/'],
+            'education_level' => ['nullable', 'string', 'max:100'],
+            'origin_institution' => ['nullable', 'string', 'max:255'],
             'affiliate_ref_code' => ['nullable', 'string', 'max:32'],
         ];
 
@@ -213,6 +215,7 @@ class AuthController extends Controller
             $request,
             $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         // Verify reCAPTCHA if enabled
         if (config('services.recaptcha.enabled')) {
@@ -235,7 +238,10 @@ class AuthController extends Controller
                 'password' => Hash::make($validatedData['password']),
                 'date_of_birth' => $validatedData['date_of_birth'],
                 'phone' => $validatedData['phone'],
+                'education_level' => $validatedData['education_level'] ?? null,
+                'origin_institution' => $validatedData['origin_institution'] ?? null,
                 ...$destinationPayload,
+                ...$secondDestinationPayload,
                 'referred_by_user_id' => $referrer?->id,
                 'referred_at' => $referrer ? now() : null,
                 'role' => 'user',

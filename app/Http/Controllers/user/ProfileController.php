@@ -36,17 +36,20 @@ class ProfileController extends Controller
             'name' => ['required', 'string', 'max:255', new SafeName()],
             'phone' => ['nullable', 'string', 'regex:/^62[0-9]{8,14}$/'],
             'date_of_birth' => 'nullable|date|before:today',
+            'education_level' => ['nullable', 'string', 'max:100'],
+            'origin_institution' => ['nullable', 'string', 'max:255'],
         ]);
-        $destinationPayload = $destinationSelectionService->validate(
-            $request,
-            $destinationSelectionService->isRequired()
-        );
+        $destinationPayload = $destinationSelectionService->validate($request, false);
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         $user->update([
             'name' => $request->name,
             'phone' => $request->phone,
             'date_of_birth' => $request->date_of_birth,
+            'education_level' => $request->education_level,
+            'origin_institution' => $request->origin_institution,
             ...$destinationPayload,
+            ...$secondDestinationPayload,
         ]);
 
         ActivityLogger::log('profile_updated', 'success', $user, [], $request);

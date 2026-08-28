@@ -9,6 +9,19 @@
                     <p class="text-gray-600 mb-6">{{ $tryout->description }}</p>
                 @endif
 
+                @if($tryout->requiresLobbyToken() && !($hasVerifiedLobbyToken ?? false))
+                    <form action="{{ route('user.tryout.lobby.token.verify', [$package ? $package->package_id : 'free', $tryout->tryout_id]) }}" method="POST" class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-left">
+                        @csrf
+                        <label for="lobby_token" class="block text-sm font-semibold text-amber-900">Token akses lobby</label>
+                        <p class="mt-1 text-xs text-amber-800">Masukkan token dari penyelenggara untuk membuka tombol mulai Tryout.</p>
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <input type="text" id="lobby_token" name="lobby_token" required autofocus autocomplete="off" class="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Masukkan token">
+                            <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Verifikasi Token</button>
+                        </div>
+                        @error('lobby_token')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                    </form>
+                @endif
+
                 @if (isset($tryoutDetails) && $tryoutDetails->count() > 1)
                     <!-- SKD Full Information -->
                     {{-- <div class="bg-blue-50 border border-primary/10 rounded-lg p-6 mb-6">
@@ -176,7 +189,11 @@
                     </div>
                 </div>
 
-                @if($isAttemptLimitReached ?? false)
+                @if($tryout->requiresLobbyToken() && !($hasVerifiedLobbyToken ?? false))
+                    <button type="button" disabled class="mx-auto mt-4 flex cursor-not-allowed items-center justify-center rounded-xl bg-gray-300 px-8 py-1.5 text-gray-600">
+                        Verifikasi Token untuk Mulai
+                    </button>
+                @elseif($isAttemptLimitReached ?? false)
                     <button type="button" disabled
                         class="mx-auto mt-4 flex items-center justify-center px-8 py-1.5 bg-gray-300 text-gray-600 rounded-xl cursor-not-allowed">
                         Batas Pengerjaan Habis

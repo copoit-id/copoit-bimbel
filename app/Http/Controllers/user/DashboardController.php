@@ -12,20 +12,31 @@ use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Models\UserPackageAcces;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Services\MultipleAnswerScoringService;
 
 class DashboardController extends Controller
 {
+    /**
+     * Cached maximum scores keyed by tryout detail and subtest type for this request.
+     *
+     * @var array<string, float>
+     */
+    private array $maxPossibleScoreCache = [];
+
     public function index()
     {
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
         $showLandingDashboard = $this->showLandingDashboard();
+        $showBillingDashboard = (bool) config('client.branding.billing_dashboard_enabled', true);
 
         // If no user, just show guest view with public packages
         if (! $user) {
@@ -43,11 +54,13 @@ class DashboardController extends Controller
                 'expiringSoon' => collect(),
                 'publicPackages' => $publicPackages,
                 'destinationKeketatan' => [
-                    'snbp' => 'Pilih Target',
-                    'snbt' => 'Pilih Target',
+                    'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+                    'snbt' => [['label' => null, 'value' => 'Pilih Target']],
                 ],
+                'targetChoices' => collect(),
                 'showStatisticsDashboard' => $showStatisticsDashboard,
                 'showLandingDashboard' => $showLandingDashboard,
+                'showBillingDashboard' => $showBillingDashboard,
             ]);
         }
 
@@ -58,73 +71,27 @@ class DashboardController extends Controller
                 $query->whereNull('end_date')
                     ->orWhere('end_date', '>', Carbon::now());
             })
-            ->with('package')
+            ->with(['package.materials', 'package.tryouts'])
             ->orderBy('end_date', 'asc')
             ->limit(5)
             ->get();
 
-        // Get recent tryout attempts (grouped per tryout attempt, not per subtest)
-        $recentAnswers = UserAnswer::where('user_id', $user->id)
-            ->with('tryout')
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get();
-
-        $recentAttempts = $recentAnswers
-            ->groupBy(function (UserAnswer $answer) {
-                $attemptKey = $answer->attempt_token ?: $answer->user_answer_id;
-
-                return $answer->tryout_id.'|'.$attemptKey;
-            })
-            ->map(function ($answers) {
-                $latest = $answers->sortByDesc('created_at')->first();
-                $answers->loadMissing([
-                    'tryoutDetail',
-                    'userAnswerDetails.question',
-                    'userAnswerDetails.questionOption',
-                ]);
-                $allCompleted = $answers->every(fn (UserAnswer $item) => $item->status === 'completed');
-                $tryout = $latest->tryout;
-
-                if ($tryout && ($tryout->requiresIrtScoring() || $tryout->is_toefl)) {
-                    $overallPassed = $allCompleted && $answers->every(fn (UserAnswer $item) => (bool) $item->is_passed);
-                } else {
-                    $overallPassed = $allCompleted && $answers->every(function (UserAnswer $item) {
-                        $detail = $item->tryoutDetail;
-                        if (! $detail) {
-                            return false;
-                        }
-
-                        $type = $detail->type_subtest;
-                        $rawScore = $this->calculateTotalScore($item, $type);
-                        $maxScore = $this->getMaxPossibleScoreForDetail($item->tryout_detail_id, $type);
-
-                        return $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
-                    });
-                }
-
-                return (object) [
-                    'tryout' => $latest->tryout,
-                    'created_at' => $latest->created_at,
-                    'status' => $allCompleted ? 'completed' : ($latest->status ?? 'in_progress'),
-                    'is_passed' => $overallPassed,
-                ];
-            })
-            ->sortByDesc('created_at')
-            ->take(5)
-            ->values();
+        // The active dashboard layout does not render grouped attempt data. Avoid
+        // loading up to 50 attempts and their questions on every dashboard visit.
+        $recentAttempts = collect();
 
         // Get statistics with correct field names
+        $answerStats = UserAnswer::where('user_id', $user->id)
+            ->selectRaw("COUNT(*) as total_attempts")
+            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tryouts")
+            ->selectRaw("AVG(CASE WHEN status = 'completed' AND score IS NOT NULL THEN score END) as average_score")
+            ->first();
+
         $stats = [
             'total_packages' => $activePackages->count(),
-            'total_attempts' => UserAnswer::where('user_id', $user->id)->count(),
-            'completed_tryouts' => UserAnswer::where('user_id', $user->id)
-                ->where('status', 'completed')
-                ->count(),
-            'average_score' => UserAnswer::where('user_id', $user->id)
-                ->where('status', 'completed')
-                ->whereNotNull('score')
-                ->avg('score') ?? 0,
+            'total_attempts' => (int) ($answerStats->total_attempts ?? 0),
+            'completed_tryouts' => (int) ($answerStats->completed_tryouts ?? 0),
+            'average_score' => (float) ($answerStats->average_score ?? 0),
         ];
 
         // Get packages expiring soon (within 7 days)
@@ -135,17 +102,25 @@ class DashboardController extends Controller
             ->with('package')
             ->get();
 
-        $unpaidInvoices = BillInvoice::where('user_id', $user->id)
-            ->whereIn('status', ['unpaid', 'overdue'])
-            ->orderBy('due_date')
-            ->limit(3)
-            ->get();
+        $unpaidInvoices = $showBillingDashboard
+            ? BillInvoice::where('user_id', $user->id)
+                ->whereIn('status', ['unpaid', 'overdue'])
+                ->orderBy('due_date')
+                ->limit(3)
+                ->get()
+            : collect();
 
         $activePackageIds = $activePackages->pluck('package_id');
-        $user->loadMissing('participantDestinationCategory');
+        $user->loadMissing([
+            'participantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.parent',
+        ]);
+        $targetChoices = $this->targetChoices($user);
         $destinationCategoryIds = collect([
             $user->participant_destination_category_id,
             $user->participantDestinationCategory?->parent_id,
+            $user->second_participant_destination_category_id,
+            $user->secondParticipantDestinationCategory?->parent_id,
         ])->filter()->map(fn ($id) => (int) $id)->values();
 
         $upcomingClassSessions = ClassSession::with([
@@ -197,13 +172,15 @@ class DashboardController extends Controller
             ->get();
 
         // Calculate accuracy stats
-        $totalAnswered = UserAnswerDetail::whereHas('userAnswer', function ($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })->count();
+        $answerAccuracy = UserAnswerDetail::whereHas('userAnswer', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+            ->selectRaw('COUNT(*) as total_answered')
+            ->selectRaw('SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as total_correct')
+            ->first();
 
-        $totalCorrect = UserAnswerDetail::whereHas('userAnswer', function ($q) use ($user) {
-            $q->where('user_id', $user->id);
-        })->where('is_correct', true)->count();
+        $totalAnswered = (int) ($answerAccuracy->total_answered ?? 0);
+        $totalCorrect = (int) ($answerAccuracy->total_correct ?? 0);
 
         $accuracyPercent = $totalAnswered > 0 ? round(($totalCorrect / $totalAnswered) * 100) : 0;
 
@@ -216,33 +193,43 @@ class DashboardController extends Controller
             ->get();
 
         // Calculate package progress
+        $materialIds = $activePackages->pluck('package.materials')
+            ->flatten(1)
+            ->pluck('material_id')
+            ->unique()
+            ->values();
+        $tryoutIds = $activePackages->pluck('package.tryouts')
+            ->flatten(1)
+            ->pluck('tryout_id')
+            ->unique()
+            ->values();
+        $completedMaterialIds = MaterialProgressLog::where('user_id', $user->id)
+            ->whereIn('material_id', $materialIds)
+            ->where('event_type', 'completed')
+            ->distinct()
+            ->pluck('material_id')
+            ->flip();
+        $completedTryoutIds = UserAnswer::where('user_id', $user->id)
+            ->whereIn('tryout_id', $tryoutIds)
+            ->where('status', 'completed')
+            ->distinct()
+            ->pluck('tryout_id')
+            ->flip();
+
         $packageProgress = [];
         foreach ($activePackages as $access) {
             $pkg = $access->package;
+            if (! $pkg) {
+                continue;
+            }
+
             $totalItems = $pkg->materials->count() + $pkg->tryouts->count();
-            $completedItems = 0;
-
-            // Count completed materials
-            foreach ($pkg->materials as $material) {
-                $progress = MaterialProgressLog::where('user_id', $user->id)
-                    ->where('material_id', $material->material_id)
-                    ->where('is_completed', true)
-                    ->first();
-                if ($progress) {
-                    $completedItems++;
-                }
-            }
-
-            // Count completed tryouts
-            foreach ($pkg->tryouts as $tryout) {
-                $attempt = UserAnswer::where('user_id', $user->id)
-                    ->where('tryout_id', $tryout->tryout_id)
-                    ->where('status', 'completed')
-                    ->first();
-                if ($attempt) {
-                    $completedItems++;
-                }
-            }
+            $completedItems = $pkg->materials
+                ->filter(fn ($material) => $completedMaterialIds->has($material->material_id))
+                ->count()
+                + $pkg->tryouts
+                    ->filter(fn ($tryout) => $completedTryoutIds->has($tryout->tryout_id))
+                    ->count();
 
             $packageProgress[$pkg->package_id] = $totalItems > 0 ? round(($completedItems / $totalItems) * 100) : 0;
         }
@@ -250,8 +237,8 @@ class DashboardController extends Controller
         $destinationKeketatan = $showStatisticsDashboard
             ? $this->destinationKeketatan($user)
             : [
-                'snbp' => 'Pilih Target',
-                'snbt' => 'Pilih Target',
+                'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+                'snbt' => [['label' => null, 'value' => 'Pilih Target']],
             ];
 
         // Check if user wants new layout (default for now)
@@ -268,8 +255,10 @@ class DashboardController extends Controller
             'unpaidInvoices',
             'upcomingClassSessions',
             'destinationKeketatan',
+            'targetChoices',
             'showStatisticsDashboard',
-            'showLandingDashboard'
+            'showLandingDashboard',
+            'showBillingDashboard'
         ));
     }
 
@@ -292,51 +281,92 @@ class DashboardController extends Controller
         return (bool) GeneralPage::findActiveByKey($pageKey);
     }
 
-    private function destinationKeketatan($user): array
+    private function destinationKeketatan(User $user): array
     {
         $result = [
-            'snbp' => 'Pilih Target',
-            'snbt' => 'Pilih Target',
+            'snbp' => [],
+            'snbt' => [],
         ];
 
-        [$institutionName, $programName, $externalProgramId] = $this->targetDestinationSnapshot($user);
-
-        if ($institutionName === '') {
-            return $result;
-        }
+        $destinations = $this->targetDestinationSnapshots($user);
 
         foreach (['snbp', 'snbt'] as $source) {
-            $result[$source] = $this->resolveKeketatanLabel(
-                $source,
-                $institutionName,
-                $programName,
-                $externalProgramId
-            ) ?? 'N/A';
+            $result[$source] = $destinations
+                ->map(fn (array $destination) => [
+                    'label' => $destination['label'],
+                    'value' => $this->resolveKeketatanLabel(
+                        $source,
+                        $destination['institution_name'],
+                        $destination['program_name'],
+                        $destination['external_program_id']
+                    ) ?? '-',
+                ])
+                ->values()
+                ->all();
+
+            if ($result[$source] === []) {
+                $result[$source] = [['label' => null, 'value' => 'Pilih Target']];
+            }
         }
 
         return $result;
     }
 
-    private function targetDestinationSnapshot($user): array
+    private function targetDestinationSnapshots(User $user): Collection
     {
-        $institutionName = '';
-        $programName = '';
+        return collect([
+            [
+                'label' => 'P1',
+                'category' => $user->participantDestinationCategory,
+                'institution_name' => (string) ($user->participant_destination_institution_name ?? ''),
+                'program_name' => (string) ($user->participant_destination_program_name ?? ''),
+                'external_program_id' => (string) ($user->participant_destination_external_id ?? ''),
+            ],
+            [
+                'label' => 'P2',
+                'category' => $user->secondParticipantDestinationCategory,
+                'institution_name' => (string) ($user->second_participant_destination_institution_name ?? ''),
+                'program_name' => (string) ($user->second_participant_destination_program_name ?? ''),
+                'external_program_id' => (string) ($user->second_participant_destination_external_id ?? ''),
+            ],
+        ])
+            ->map(function (array $destination): array {
+                $category = $destination['category'];
 
-        if ($user->participantDestinationCategory) {
-            $institutionName = (string) ($user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name);
-            $programName = $user->participantDestinationCategory->parent
-                ? (string) $user->participantDestinationCategory->name
-                : '';
-        } else {
-            $institutionName = (string) ($user->participant_destination_institution_name ?? '');
-            $programName = (string) ($user->participant_destination_program_name ?? '');
-        }
+                if ($category) {
+                    $destination['institution_name'] = (string) ($category->parent->name ?? $category->name);
+                    $destination['program_name'] = $category->parent
+                        ? (string) $category->name
+                        : '';
+                    $destination['external_program_id'] = '';
+                }
 
-        return [
-            trim($institutionName),
-            trim($programName),
-            trim((string) ($user->participant_destination_external_id ?? '')),
-        ];
+                $destination['institution_name'] = trim($destination['institution_name']);
+                $destination['program_name'] = trim($destination['program_name']);
+                $destination['external_program_id'] = trim($destination['external_program_id']);
+
+                return $destination;
+            })
+            ->filter(fn (array $destination): bool => $destination['institution_name'] !== '')
+            ->unique(fn (array $destination): string => Str::lower(implode('|', [
+                $destination['institution_name'],
+                $destination['program_name'],
+            ])))
+            ->values();
+    }
+
+    private function targetChoices(User $user): Collection
+    {
+        $firstChoice = trim((string) ($user->participant_destination_display_name ?? ($user->major_choice_1 ?? '')));
+        $secondChoice = trim((string) ($user->second_participant_destination_display_name ?? ($user->major_choice_2 ?? '')));
+
+        return collect([
+            ['label' => 'Pilihan 1', 'name' => $firstChoice],
+            ['label' => 'Pilihan 2', 'name' => $secondChoice],
+        ])
+            ->filter(fn (array $choice): bool => $choice['name'] !== '')
+            ->unique(fn (array $choice): string => Str::lower($choice['name']))
+            ->values();
     }
 
     private function resolveKeketatanLabel(string $source, string $institutionName, string $programName, string $externalProgramId): ?string
@@ -360,7 +390,7 @@ class DashboardController extends Controller
         $peminat = (int) ($latest['peminat'] ?? $program['peminat'] ?? 0);
 
         if ($dayaTampung <= 0 || $peminat <= 0) {
-            return 'N/A';
+            return '-';
         }
 
         return number_format(($dayaTampung / $peminat) * 100, 2, ',', '.').'%';
@@ -470,9 +500,11 @@ class DashboardController extends Controller
     {
         $totalScore = 0.0;
 
-        $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
-            ->get();
+        $details = $userAnswer->relationLoaded('userAnswerDetails')
+            ? $userAnswer->userAnswerDetails
+            : $userAnswer->userAnswerDetails()
+                ->with(['questionOption', 'question.questionOptions'])
+                ->get();
 
         foreach ($details as $detail) {
             $question = $detail->question;
@@ -486,7 +518,7 @@ class DashboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
@@ -680,9 +712,47 @@ class DashboardController extends Controller
 
     private function getMaxPossibleScoreForDetail(int $tryoutDetailId, string $type_subtest): float
     {
+        $cacheKey = $tryoutDetailId.'|'.$type_subtest;
+
+        if (array_key_exists($cacheKey, $this->maxPossibleScoreCache)) {
+            return $this->maxPossibleScoreCache[$cacheKey];
+        }
+
         $questions = Question::where('tryout_detail_id', $tryoutDetailId)
             ->with('questionOptions')
             ->get();
+
+        return $this->maxPossibleScoreCache[$cacheKey] = $this->calculateMaxPossibleScore($questions, $type_subtest);
+    }
+
+    private function preloadMaxPossibleScores(Collection $recentAnswers): void
+    {
+        $subtestTypes = $recentAnswers
+            ->filter(fn (UserAnswer $answer) => $answer->tryoutDetail)
+            ->mapWithKeys(fn (UserAnswer $answer) => [
+                (int) $answer->tryout_detail_id => (string) $answer->tryoutDetail->type_subtest,
+            ]);
+
+        if ($subtestTypes->isEmpty()) {
+            return;
+        }
+
+        $questionsByDetail = Question::whereIn('tryout_detail_id', $subtestTypes->keys())
+            ->with('questionOptions')
+            ->get()
+            ->groupBy('tryout_detail_id');
+
+        foreach ($subtestTypes as $tryoutDetailId => $typeSubtest) {
+            $cacheKey = $tryoutDetailId.'|'.$typeSubtest;
+            $this->maxPossibleScoreCache[$cacheKey] = $this->calculateMaxPossibleScore(
+                $questionsByDetail->get($tryoutDetailId, collect()),
+                $typeSubtest
+            );
+        }
+    }
+
+    private function calculateMaxPossibleScore(Collection $questions, string $type_subtest): float
+    {
 
         if ($questions->isEmpty()) {
             return 0;
@@ -695,8 +765,7 @@ class DashboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'multiple_true_false':
                     $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];

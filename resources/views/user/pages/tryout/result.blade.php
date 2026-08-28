@@ -16,6 +16,7 @@
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
                         $showResultScores = $tryout->shouldShowResultScores();
+                        $showPassingGrade = $tryout->shouldShowPassingGrade();
                         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
                     <div class="flex flex-col justify-center items-center">
@@ -28,7 +29,7 @@
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
                         @endif
-                        @if (isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
+                        @if ($showPassingGrade && isset($rawScore) && isset($maxScore) && ($showTotalResultScore || ! $showResultScores))
                             @if (($pendingReviewCount ?? 0) > 0)
                                 <p class="mb-4 text-sm text-gray-600">
                                     {{ $pendingReviewCount }} jawaban masih menunggu koreksi AI
@@ -252,20 +253,24 @@
                                         <div>
                                             <p class="font-medium text-gray-900">{{ $result['name'] }}</p>
                                             <div class="text-sm text-gray-500">
-                                                @if ($showResultScores)
-                                                    <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                        {{ $result['raw_score'] }}/{{ $result['max_score'] }}
-                                                    </span>
+                                                @if ($showResultScores || $showPassingGrade)
+                                                    @if ($showResultScores)
+                                                        <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
+                                                            {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                        </span>
+                                                    @endif
+                                                    @if ($showResultScores && $showPassingGrade)
+                                                        <span class="mx-1">-</span>
+                                                    @endif
+                                                    @if ($showPassingGrade)
+                                                        Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
+                                                    @endif
                                                 @endif
                                                 @if (($result['pending_count'] ?? 0) > 0)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded ml-2">
                                                         <i class="ri-time-line animate-pulse"></i>
                                                         {{ $result['pending_count'] }} menunggu
                                                     </span>
-                                                @endif
-                                                @if ($showResultScores)
-                                                    <span class="mx-1">-</span>
-                                                    Passing: {{ ($result['passing_type'] ?? 'score') === 'percentage' ? number_format($result['passing_score'] ?? 0, 1).'%' : ($result['passing_score'] ?? '-') }}
                                                 @endif
                                             </div>
                                         </div>
@@ -276,7 +281,7 @@
                                         <span class="inline-flex px-3 py-1 text-sm font-medium rounded bg-gray-300 text-gray-700">
                                             Menunggu
                                         </span>
-                                    @else
+                                    @elseif ($showPassingGrade)
                                         <span class="inline-flex px-3 py-1 text-sm font-medium rounded {{ $result['is_passed'] ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
                                             {{ $result['is_passed'] ? 'Lulus' : 'Belum Lulus' }}
                                         </span>
@@ -286,6 +291,7 @@
                         @endforeach
                     </div>
 
+                    @if ($showPassingGrade)
                     <!-- Overall SKD Status -->
                     @php
                         $passedSubtests = collect($subtestResults)->where('is_passed', true)->count();
@@ -302,6 +308,7 @@
                             @endif
                         </p>
                     </div>
+                    @endif
                 </div>
             @endif
 

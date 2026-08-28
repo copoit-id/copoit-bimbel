@@ -353,7 +353,7 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                        style="background-color: {{ $primaryColor }}">
                         <i class="ri-play-circle-line"></i><span>Mulai</span>
                     </a>
-                    @elseif($package->type_price === 'free_conditional' && $isPendingConditional)
+                    @elseif($package->type_price === 'free_conditional' && $package->free_claim_requirement_type !== 'completed_tryout' && $isPendingConditional)
                     <button type="button" disabled
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight bg-amber-100 text-amber-700 cursor-not-allowed">
                         <i class="ri-time-line"></i><span>Menunggu Verifikasi</span>
@@ -370,6 +370,13 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                                 class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                                 style="background-color: {{ $primaryColor }}">
                             <i class="ri-time-line"></i><span>Lanjutkan Pembayaran</span>
+                        </button>
+                    </form>
+                    @elseif($package->type_price === 'free_conditional' && $package->free_claim_requirement_type === 'completed_tryout' && $package->freeClaimTryout)
+                    <form action="{{ route('user.package.buy', $package->package_id) }}" method="POST" class="claim-form flex-1 flex">
+                        @csrf
+                        <button type="submit" class="w-full min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                            <i class="ri-file-list-3-line"></i><span>Klaim via Tryout</span>
                         </button>
                     </form>
                     @elseif($package->type_price === 'free_conditional')

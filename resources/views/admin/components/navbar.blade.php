@@ -5,7 +5,13 @@
         : route('admin.profile.index');
     $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
     $headerPrimary = $clientBranding['header_primary_color'] ?? false;
-    $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
+    $logoDisplayMode = ($clientBranding['logo_display_mode'] ?? 'square') === 'original'
+        ? 'original'
+        : 'square';
+    $isOriginalLogo = $logoDisplayMode === 'original';
+    $navClasses = $headerPrimary
+        ? 'border-b border-primary bg-primary text-white'
+        : 'border-b border-slate-200 bg-white/95 text-gray-900 backdrop-blur';
     $toggleButtonClasses = $headerPrimary
         ? 'inline-flex items-center p-2 text-sm text-white rounded-lg sm:hidden hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30'
         : 'inline-flex items-center p-2 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200';
@@ -16,9 +22,18 @@
     $logoutButtonClasses = $headerPrimary
         ? 'flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/10 rounded-lg transition-colors'
         : 'flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors';
+    $brandLinkClasses = $isOriginalLogo
+        ? 'flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 transition-colors hover:bg-black/5 focus:outline-none focus:ring-2'
+        : 'flex min-w-0 items-center gap-2 rounded-xl px-1 py-1 transition-colors hover:bg-black/5 focus:outline-none focus:ring-2';
+    $logoContainerClasses = $isOriginalLogo
+        ? 'flex h-9 shrink-0 items-center sm:h-11'
+        : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm sm:h-11 sm:w-11';
+    $logoClasses = $isOriginalLogo
+        ? 'client-brand-logo h-full w-auto max-w-[10rem] object-contain'
+        : 'client-brand-logo h-full w-full object-contain';
 @endphp
 
-<nav class="fixed top-0 z-50 w-full {{ $navClasses }}">
+<nav class="fixed {{ !empty($isQuestionPickerMode) ? 'top-14' : 'top-0' }} z-50 w-full {{ $navClasses }}">
     <div class="px-2 py-2 sm:px-3 sm:py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex min-w-0 flex-1 items-center justify-start rtl:justify-end">
@@ -32,12 +47,14 @@
                         </path>
                     </svg>
                 </button>
-                <a href="#" class="flex min-w-0 ms-2 md:me-12 items-center">
-                    <img src="{{ $clientBranding['logo_url'] }}" class="w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
+                <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" class="{{ $brandLinkClasses }} {{ $headerPrimary ? 'focus:ring-white/50' : 'focus:ring-primary/30' }}">
+                    <span class="{{ $logoContainerClasses }}">
+                        <img src="{{ $clientBranding['logo_url'] }}" class="{{ $logoClasses }}"
                         alt="{{ $clientBranding['name'] }} Logo" />
+                    </span>
                     <div class="flex min-w-0 flex-col justify-start">
                         <p class="text-sm sm:text-[20px] font-bold {{ $brandTitleClass }} truncate">{{ $clientBranding['name'] }}</p>
-                        <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
+                        <p class="hidden sm:block text-[12px] font-medium {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
                     </div>
                 </a>
             </div>

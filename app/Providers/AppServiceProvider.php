@@ -56,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
             'live_session_enabled' => true,
             'logo' => $defaultAsset,
             'favicon' => null,
+            'logo_display_mode' => 'square',
             'primary_color' => '#1C3259',
             'secondary_color' => '#F3F3F3',
             'certificate_management_enabled' => false,
@@ -101,6 +102,8 @@ class AppServiceProvider extends ServiceProvider
                 ['label' => 'Refund Policy', 'url' => '/refund-policy'],
             ],
             'footer_address' => null,
+            'footer_contacts' => null,
+            'footer_socials' => null,
             'footer_phone' => null,
             'footer_email' => null,
             'footer_whatsapp' => null,
@@ -116,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
             'recurring_bill_menu_enabled' => false,
+            'billing_dashboard_enabled' => true,
             'tutor_chat_enabled' => false,
             'booking_schedule_enabled' => false,
             'learning_progress_enabled' => false,
@@ -141,6 +145,9 @@ class AppServiceProvider extends ServiceProvider
             $defaults['live_session_enabled'] = (bool) ($clientProfile->live_session_enabled ?? $defaults['live_session_enabled']);
             $defaults['logo'] = $clientProfile->logo ?: $defaults['logo'];
             $defaults['favicon'] = $clientProfile->favicon ?: $defaults['logo'];
+            $defaults['logo_display_mode'] = in_array($clientProfile->logo_display_mode, ['square', 'original'], true)
+                ? $clientProfile->logo_display_mode
+                : $defaults['logo_display_mode'];
             $defaults['primary_color'] = $clientProfile->warna_primary ?: $defaults['primary_color'];
             $defaults['secondary_color'] = $clientProfile->warna_secondary ?: $defaults['secondary_color'];
             $defaults['certificate_management_enabled'] = (bool) ($clientProfile->enable_certificate_management ?? $defaults['certificate_management_enabled']);
@@ -179,6 +186,8 @@ class AppServiceProvider extends ServiceProvider
             $defaults['footer_copyright'] = $clientProfile->footer_copyright ?? $defaults['footer_copyright'];
             $defaults['footer_links'] = $clientProfile->footer_links ?: $defaults['footer_links'];
             $defaults['footer_address'] = $clientProfile->footer_address ?? $defaults['footer_address'];
+            $defaults['footer_contacts'] = $clientProfile->footer_contacts;
+            $defaults['footer_socials'] = $clientProfile->footer_socials;
             $defaults['footer_phone'] = $clientProfile->footer_phone ?? $defaults['footer_phone'];
             $defaults['footer_email'] = $clientProfile->footer_email ?? $defaults['footer_email'];
             $defaults['footer_whatsapp'] = $clientProfile->footer_whatsapp ?? $defaults['footer_whatsapp'];
@@ -192,6 +201,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['ai_discussion_settings'] = $clientProfile->ai_discussion_settings ?: $defaults['ai_discussion_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
+            $defaults['billing_dashboard_enabled'] = (bool) ($clientProfile->billing_dashboard_enabled ?? $defaults['billing_dashboard_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
             $defaults['booking_schedule_enabled'] = (bool) ($clientProfile->booking_schedule_enabled ?? $defaults['booking_schedule_enabled']);
             $defaults['learning_progress_enabled'] = (bool) ($clientProfile->learning_progress_enabled ?? $defaults['learning_progress_enabled']);

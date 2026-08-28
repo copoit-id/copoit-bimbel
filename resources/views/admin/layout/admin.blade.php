@@ -40,14 +40,27 @@
     @yield('styles')
 </head>
 
-<body data-admin-selects>
+@php
+    $questionPickerDetail = null;
+    if (request()->routeIs('admin.question-bank.*') && request()->filled('import_for')) {
+        $questionPickerDetail = \App\Models\TryoutDetail::query()
+            ->with('tryout:tryout_id,name')
+            ->find(request()->integer('import_for'));
+    }
+    $isQuestionPickerMode = $questionPickerDetail !== null;
+@endphp
+
+<body data-app-selects>
+    @if ($isQuestionPickerMode)
+        <x-question-bank.picker-context :tryout-detail="$questionPickerDetail" />
+    @endif
     @include('admin.components.navbar')
     @include('components.confirm-modal')
     @include('admin.components.sidebar')
     @include('components.flash-alert')
 
 
-    <div class="p-6 md:p-12 sm:ml-64 mt-16 md:mt-10">
+    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isQuestionPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
         @yield('content')
     </div>
 

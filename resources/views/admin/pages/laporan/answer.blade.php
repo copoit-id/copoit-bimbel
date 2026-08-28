@@ -123,10 +123,21 @@
                     ? collect($answerMeta['selected_option_ids'] ?? [])->map(fn ($id) => (int) $id)->all()
                     : array_filter([(int) ($answer?->question_option_id ?? 0)]);
                 $isOptionQuestion = in_array($questionType, ['multiple_choice', 'multiple_answer', 'true_false'], true);
-                $status = $answer === null ? 'Kosong' : ($answer->is_correct ? 'Benar' : 'Salah');
+                $multipleAnswerResult = $questionType === 'multiple_answer' && $answer
+                    ? app(\App\Services\MultipleAnswerScoringService::class)->evaluateDetail($question, $answer)
+                    : null;
+                $isPartiallyCorrect = $multipleAnswerResult
+                    ? app(\App\Services\MultipleAnswerScoringService::class)->isPartiallyCorrect($multipleAnswerResult)
+                    : false;
+                $status = $answer === null
+                    ? 'Kosong'
+                    : ($isPartiallyCorrect ? 'Sebagian Benar' : ($answer->is_correct ? 'Benar' : 'Salah'));
                 $statusClass = $answer === null
                     ? 'bg-gray-100 text-gray-600 border-gray-200'
-                    : ($answer->is_correct ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200');
+                    : ($isPartiallyCorrect
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : ($answer->is_correct ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'));
+                $awardedScore = $multipleAnswerResult['score_obtained'] ?? null;
             @endphp
             <article data-question-card class="overflow-hidden rounded-xl border border-border bg-white">
                 <div class="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -137,7 +148,12 @@
                             <p class="text-xs text-gray-500">Soal #{{ $question->question_id }}</p>
                         </div>
                     </div>
-                    <span class="inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if($awardedScore !== null)
+                            <span class="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Skor: {{ $awardedScore }}</span>
+                        @endif
+                        <span class="inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+                    </div>
                 </div>
 
                 <div class="p-5">

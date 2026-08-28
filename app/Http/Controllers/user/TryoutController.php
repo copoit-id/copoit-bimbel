@@ -29,6 +29,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use App\Services\ToeflScoringService;
 use App\Services\ActivityLogger;
+use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutScoreDisplayService;
 
 class TryoutController extends Controller
 {
@@ -54,6 +56,23 @@ class TryoutController extends Controller
         }
 
         return null;
+    }
+
+    private function lobbyTokenSessionKey(Tryout $tryout): string
+    {
+        return 'tryout_lobby_token.'.$tryout->tryout_id.'.'.Auth::id();
+    }
+
+    private function hasVerifiedLobbyToken(Tryout $tryout): bool
+    {
+        if (! $tryout->requiresLobbyToken()) {
+            return true;
+        }
+
+        return hash_equals(
+            hash('sha256', (string) $tryout->lobby_token_hash),
+            (string) session($this->lobbyTokenSessionKey($tryout))
+        );
     }
 
     private function getSubtestIndex(array $subtests, array $currentSubtest): int
@@ -188,38 +207,7 @@ class TryoutController extends Controller
             ]);
         }
 
-        $correctIds = $question->questionOptions()
-            ->where('is_correct', true)
-            ->pluck('question_option_id')
-            ->map(fn($id) => (int) $id)
-            ->values()
-            ->all();
-        sort($correctIds);
-
-        $multipleAnswerMeta = is_array($question->metadata) ? ($question->metadata['multiple_answer'] ?? []) : [];
-        $scoreCorrect = (float) ($multipleAnswerMeta['score_correct'] ?? 1);
-        $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
-        $scoringMode = in_array(($multipleAnswerMeta['scoring_mode'] ?? null), ['fullscore', 'partial'], true)
-            ? $multipleAnswerMeta['scoring_mode']
-            : 'fullscore';
-
-        $matchedCorrect = count(array_intersect($selectedIds, $correctIds));
-        $isCorrect = $selectedIds === $correctIds;
-        $totalCorrect = max(1, count($correctIds));
-        $wrongSelected = max(0, count($selectedIds) - $matchedCorrect);
-        $missedCorrect = max(0, $totalCorrect - $matchedCorrect);
-        $wrongCount = $missedCorrect + $wrongSelected;
-        $fullScore = $scoreCorrect;
-        $scoreObtained = 0.0;
-        if ($scoringMode === 'partial') {
-            $scoreObtained = $matchedCorrect > 0
-                ? ($matchedCorrect / $totalCorrect) * $fullScore
-                : $scoreWrong;
-        } else {
-            $scoreObtained = $isCorrect ? $scoreCorrect : $scoreWrong;
-        }
-        $scoreObtained = max(0, $scoreObtained);
-        $ratio = $totalCorrect > 0 ? ($matchedCorrect / $totalCorrect) : 0;
+        $scoreResult = app(MultipleAnswerScoringService::class)->evaluate($question, $selectedIds);
 
         return [
             'detail' => [
@@ -227,21 +215,21 @@ class TryoutController extends Controller
                 'answer_text' => null,
                 'answer_json' => [
                     'selected_option_ids' => $selectedIds,
-                    'correct_matched' => $matchedCorrect,
-                    'correct_total' => $totalCorrect,
-                    'wrong_selected' => $wrongSelected,
-                    'wrong_count' => $wrongCount,
-                    'scoring_mode' => $scoringMode,
-                    'score_ratio' => $ratio,
-                    'score_obtained' => $scoreObtained,
+                    'correct_matched' => $scoreResult['correct_matched'],
+                    'correct_total' => $scoreResult['correct_total'],
+                    'wrong_selected' => $scoreResult['wrong_selected'],
+                    'wrong_count' => $scoreResult['wrong_count'],
+                    'scoring_mode' => $scoreResult['scoring_mode'],
+                    'score_ratio' => $scoreResult['score_ratio'],
+                    'score_obtained' => $scoreResult['score_obtained'],
                 ],
                 'answer_file_path' => null,
-                'is_correct' => $isCorrect,
+                'is_correct' => $scoreResult['is_correct'],
             ],
             'response' => [
                 'option_ids' => $selectedIds,
-                'is_correct' => $isCorrect,
-                'score_obtained' => $scoreObtained,
+                'is_correct' => $scoreResult['is_correct'],
+                'score_obtained' => $scoreResult['score_obtained'],
             ],
             'delete_file' => false,
         ];
@@ -914,6 +902,8 @@ class TryoutController extends Controller
         ]);
         $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
 
+        $hasVerifiedLobbyToken = $this->hasVerifiedLobbyToken($tryout);
+
         return view('user.pages.tryout.lobby', compact(
             'package',
             'tryout',
@@ -924,8 +914,46 @@ class TryoutController extends Controller
             'effectiveProctoringSettings',
             'remainingAttempts',
             'hasInProgressAttempt',
-            'isAttemptLimitReached'
+            'isAttemptLimitReached',
+            'hasVerifiedLobbyToken'
         ));
+    }
+
+    public function verifyLobbyToken(Request $request, $id_package, $id_tryout)
+    {
+        $request->validate(['lobby_token' => 'required|string|max:100']);
+
+        $tryout = Tryout::findOrFail($id_tryout);
+        $now = Carbon::now('Asia/Jakarta');
+
+        if ($id_package !== 'free') {
+            $package = Package::findOrFail($id_package);
+            $hasPackageAccess = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package->package_id)
+                ->where('status', 'active')
+                ->where(function ($query) use ($now): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>', $now);
+                })
+                ->exists();
+
+            abort_unless($hasPackageAccess && $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(), 404);
+        }
+
+        if (! $tryout->requiresLobbyToken()) {
+            return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id]);
+        }
+
+        if (! $tryout->lobbyTokenIsValid((string) $request->input('lobby_token'))) {
+            return back()->withErrors(['lobby_token' => 'Token lobby tidak sesuai.'])->withInput();
+        }
+
+        session([
+            $this->lobbyTokenSessionKey($tryout) => hash('sha256', (string) $tryout->lobby_token_hash),
+        ]);
+
+        return redirect()->route('user.tryout.lobby', [$id_package, $tryout->tryout_id])
+            ->with('success', 'Token lobby berhasil diverifikasi.');
     }
 
     public function indexTryout($id_package, $id_tryout, $number)
@@ -981,6 +1009,12 @@ class TryoutController extends Controller
 
         if (! $hasDirectAccess && ($availabilityError = $this->tryoutAvailabilityError($tryout, $now))) {
             return redirect()->back()->with('error', $availabilityError);
+        }
+
+        if (! $this->hasVerifiedLobbyToken($tryout)) {
+            return redirect()
+                ->route('user.tryout.lobby', [$package?->package_id ?? 'free', $tryout->tryout_id])
+                ->with('error', 'Masukkan token lobby terlebih dahulu untuk memulai tryout.');
         }
 
         // Get all tryout details dalam urutan yang benar
@@ -1516,6 +1550,75 @@ class TryoutController extends Controller
         return array_values($decoded);
     }
 
+    /**
+     * Ignore blank client-cache entries. A blank answer is valid for an unfinished
+     * tryout, but must never be passed to the type-specific answer validators.
+     */
+    private function hasPersistableAnswerPayload(array $answer, Question $question): bool
+    {
+        $type = $this->normalizeQuestionType($question->question_type ?? 'multiple_choice');
+
+        return match ($type) {
+            'multiple_answer' => is_array($answer['option_ids'] ?? null) && count($answer['option_ids']) > 0,
+            'multiple_choice', 'true_false' => filled($answer['option_id'] ?? null),
+            'short_answer', 'essay' => filled(trim((string) ($answer['answer_text'] ?? ''))),
+            'matching' => $this->hasCompleteMatchingAnswer($answer, $question),
+            'multiple_true_false' => $this->hasMultipleTrueFalseAnswer($answer),
+            'audio' => filled($answer['answer_audio_base64'] ?? null) || isset($answer['answer_audio_file']),
+            default => false,
+        };
+    }
+
+    private function hasCompleteMatchingAnswer(array $answer, Question $question): bool
+    {
+        $matches = $answer['matching_answers'] ?? null;
+
+        if (is_string($matches)) {
+            $matches = json_decode($matches, true);
+        }
+
+        if (!is_array($matches)) {
+            return false;
+        }
+
+        $metadata = is_array($question->metadata) ? $question->metadata : [];
+        $pairs = is_array($metadata['matching_pairs'] ?? null) ? $metadata['matching_pairs'] : [];
+
+        foreach ($pairs as $index => $pair) {
+            $left = trim((string) ($pair['left'] ?? ''));
+            if ($left === '') {
+                $left = 'stmt_' . ($index + 1);
+            }
+
+            if (!array_key_exists($left, $matches) || trim((string) $matches[$left]) === '') {
+                return false;
+            }
+        }
+
+        return !empty($pairs);
+    }
+
+    private function hasMultipleTrueFalseAnswer(array $answer): bool
+    {
+        $answers = $answer['mtf_answers'] ?? null;
+
+        if (is_string($answers)) {
+            $answers = json_decode($answers, true);
+        }
+
+        if (!is_array($answers)) {
+            return false;
+        }
+
+        foreach ($answers as $value) {
+            if (in_array(strtolower(trim((string) $value)), ['true', 'false'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function persistAnswersPayload(
         int $tryoutId,
         string $attemptToken,
@@ -1537,6 +1640,10 @@ class TryoutController extends Controller
 
                 $question = Question::with('tryoutDetail')->find($answer['question_id']);
                 if (!$question) {
+                    continue;
+                }
+
+                if (!$this->hasPersistableAnswerPayload($answer, $question)) {
                     continue;
                 }
 
@@ -1859,7 +1966,7 @@ class TryoutController extends Controller
         $totalScore = 0;
 
         $userAnswerDetails = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($userAnswerDetails as $detail) {
@@ -1874,7 +1981,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
@@ -2361,7 +2468,9 @@ class TryoutController extends Controller
 
         $sortedAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
 
-        $subtests = $sortedAnswers->map(function ($answer) {
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+
+        $subtests = $sortedAnswers->map(function ($answer) use ($tryout, $scoreDisplayService) {
             $detail = $answer->tryoutDetail;
             $passingScore = $detail->passing_score ?? null;
             $passingType = $detail->passing_type ?? 'score';
@@ -2377,6 +2486,7 @@ class TryoutController extends Controller
             $correctCount = $answer->userAnswerDetails->where('is_correct', true)->count();
             $wrongCount = max(0, $answeredCount - $correctCount);
             $unansweredCount = max(0, $totalQuestions - $answeredCount);
+            $displayScore = $scoreDisplayService->present($tryout, $subtestScore);
 
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
@@ -2385,6 +2495,7 @@ class TryoutController extends Controller
                 'wrong' => $wrongCount,
                 'unanswered' => $unansweredCount,
                 'score' => $subtestScore,
+                'display_score' => $displayScore,
                 'passing_score' => $passingScore,
                 'passing_type' => $passingType,
                 'is_passed' => $isPassed,
@@ -2392,6 +2503,7 @@ class TryoutController extends Controller
         })->values();
 
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
+        $totalDisplayScore = $scoreDisplayService->present($tryout, $totalScore);
         $overallPassed = $subtests->every('is_passed');
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
@@ -2401,6 +2513,7 @@ class TryoutController extends Controller
             'tryout' => $tryout,
             'subtests' => $subtests,
             'totalScore' => $totalScore,
+            'totalDisplayScore' => $totalDisplayScore,
             'attemptToken' => $latestAttemptToken,
             'overallPassed' => $overallPassed,
         ], $feedbackContext));
@@ -2651,7 +2764,7 @@ class TryoutController extends Controller
     private function updateSingleSubtestStats($userAnswer)
     {
         $userAnswerDetails = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         $totalQuestions = Question::where('tryout_detail_id', $userAnswer->tryout_detail_id)->count();
@@ -2674,13 +2787,15 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    if ($detail->is_correct) {
+                    $multipleAnswerScoring = app(MultipleAnswerScoringService::class);
+                    $multipleAnswerResult = $multipleAnswerScoring->evaluateDetail($question, $detail);
+                    if ($detail->is_correct || $multipleAnswerScoring->isPartiallyCorrect($multipleAnswerResult)) {
                         $correctAnswers++;
                     } else {
                         $wrongAnswers++;
                     }
 
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += $multipleAnswerResult['score_obtained'];
                     break;
                 case 'multiple_true_false':
                     if ($detail->is_correct) {
@@ -2791,8 +2906,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'multiple_true_false':
                     $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];

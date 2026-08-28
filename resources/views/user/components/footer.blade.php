@@ -17,55 +17,63 @@
     $footerInstagram = $clientBranding['footer_instagram'] ?? null;
     $footerTwitter = $clientBranding['footer_twitter'] ?? null;
     $footerYoutube = $clientBranding['footer_youtube'] ?? null;
+
+    $footerContacts = is_array($clientBranding['footer_contacts'] ?? null)
+        ? collect($clientBranding['footer_contacts'])->filter(fn ($contact) => filled($contact['value'] ?? null))->values()
+        : collect([
+            ['type' => 'phone', 'label' => 'Telepon', 'value' => $footerPhone],
+            ['type' => 'whatsapp', 'label' => 'WhatsApp', 'value' => $footerWhatsapp],
+            ['type' => 'email', 'label' => 'Email', 'value' => $footerEmail],
+        ])->filter(fn ($contact) => filled($contact['value']))->values();
+    $footerSocials = is_array($clientBranding['footer_socials'] ?? null)
+        ? collect($clientBranding['footer_socials'])->filter(fn ($social) => filled($social['url'] ?? null))->values()
+        : collect([
+            ['platform' => 'facebook', 'label' => 'Facebook', 'url' => $footerFacebook],
+            ['platform' => 'instagram', 'label' => 'Instagram', 'url' => $footerInstagram],
+            ['platform' => 'twitter', 'label' => 'X/Twitter', 'url' => $footerTwitter],
+            ['platform' => 'youtube', 'label' => 'YouTube', 'url' => $footerYoutube],
+        ])->filter(fn ($social) => filled($social['url']))->values();
+    $socialPlatforms = [
+        'facebook' => ['label' => 'Facebook', 'icon' => 'ri-facebook-fill'],
+        'instagram' => ['label' => 'Instagram', 'icon' => 'ri-instagram-line'],
+        'twitter' => ['label' => 'X/Twitter', 'icon' => 'ri-twitter-x-fill'],
+        'youtube' => ['label' => 'YouTube', 'icon' => 'ri-youtube-fill'],
+        'tiktok' => ['label' => 'TikTok', 'icon' => 'ri-tiktok-fill'],
+        'linkedin' => ['label' => 'LinkedIn', 'icon' => 'ri-linkedin-fill'],
+        'website' => ['label' => 'Website', 'icon' => 'ri-global-line'],
+        'custom' => ['label' => 'Tautan', 'icon' => 'ri-links-line'],
+    ];
 @endphp
 
 @if($footerEnabled)
 <footer class="mt-16 border-t border-gray-200 bg-white shadow-sm">
     <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-12">
-            <!-- Column 1: Identity & Socials -->
+            <!-- Column 1: Identity & Social Media -->
             <div class="space-y-6">
                 <div class="flex items-center gap-3">
                     <img src="{{ $clientBranding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}"
                         alt="{{ $clientBranding['name'] ?? config('app.name') }}"
-                        class="h-10 w-10 rounded-xl object-contain shadow-sm">
+                        class="client-brand-logo h-10 w-10 rounded-xl object-contain shadow-sm">
                     <span class="text-lg font-bold text-gray-900 tracking-tight">{{ $clientBranding['name'] ?? config('app.name') }}</span>
                 </div>
                 @if($footerDescription)
                 <p class="text-sm leading-relaxed text-gray-500">{{ $footerDescription }}</p>
                 @endif
-                
-                <!-- Social Media Links -->
-                @if($footerFacebook || $footerInstagram || $footerTwitter || $footerYoutube)
+
+                @if($footerSocials->isNotEmpty())
                 <div class="flex flex-wrap gap-2.5 pt-2">
-                    @if($footerFacebook)
-                    <a href="{{ $footerFacebook }}" target="_blank" rel="noopener" 
-                       class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 transition-all duration-300 hover:border-primary hover:bg-primary hover:text-white shadow-sm"
-                       aria-label="Facebook">
-                        <i class="ri-facebook-fill text-lg"></i>
+                    @foreach($footerSocials as $social)
+                    @php
+                        $platform = $socialPlatforms[$social['platform'] ?? 'custom'] ?? $socialPlatforms['custom'];
+                        $label = filled($social['label'] ?? null) ? $social['label'] : $platform['label'];
+                    @endphp
+                    <a href="{{ $social['url'] }}" target="_blank" rel="noopener"
+                       class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 shadow-sm transition-all duration-300 hover:border-primary hover:bg-primary hover:text-white"
+                       aria-label="{{ $label }}">
+                        <i class="{{ $platform['icon'] }} text-lg"></i>
                     </a>
-                    @endif
-                    @if($footerInstagram)
-                    <a href="{{ $footerInstagram }}" target="_blank" rel="noopener" 
-                       class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 transition-all duration-300 hover:border-primary hover:bg-primary hover:text-white shadow-sm"
-                       aria-label="Instagram">
-                        <i class="ri-instagram-line text-lg"></i>
-                    </a>
-                    @endif
-                    @if($footerTwitter)
-                    <a href="{{ $footerTwitter }}" target="_blank" rel="noopener" 
-                       class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 transition-all duration-300 hover:border-primary hover:bg-primary hover:text-white shadow-sm"
-                       aria-label="Twitter">
-                        <i class="ri-twitter-x-fill text-lg"></i>
-                    </a>
-                    @endif
-                    @if($footerYoutube)
-                    <a href="{{ $footerYoutube }}" target="_blank" rel="noopener" 
-                       class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 transition-all duration-300 hover:border-primary hover:bg-primary hover:text-white shadow-sm"
-                       aria-label="YouTube">
-                        <i class="ri-youtube-fill text-lg"></i>
-                    </a>
-                    @endif
+                    @endforeach
                 </div>
                 @endif
             </div>
@@ -91,41 +99,43 @@
                 @endif
             </div>
 
-            <!-- Column 3: Contact Info -->
+            <!-- Column 3: Contact -->
             <div>
                 <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Kontak</h3>
-                @if($footerPhone || $footerWhatsapp || $footerEmail)
+                @if($footerContacts->isNotEmpty())
                 <ul class="space-y-3.5 text-sm">
-                    @if($footerPhone)
+                    @foreach($footerContacts as $contact)
+                    @php
+                        $contactType = $contact['type'] ?? 'text';
+                        $contactValue = $contact['value'] ?? '';
+                        $contactLabel = $contact['label'] ?? '';
+                        $contactIcon = match ($contactType) {
+                            'phone' => 'ri-phone-line',
+                            'whatsapp' => 'ri-whatsapp-line',
+                            'email' => 'ri-mail-line',
+                            default => 'ri-information-line',
+                        };
+                    @endphp
                     <li class="flex items-start gap-3 text-gray-500">
-                        <span class="flex h-5 w-5 shrink-0 items-center justify-center text-primary mt-0.5">
-                            <i class="ri-phone-line text-base"></i>
+                        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center {{ $contactType === 'whatsapp' ? 'text-green-500' : 'text-primary' }}">
+                            <i class="{{ $contactIcon }} text-base"></i>
                         </span>
-                        <a href="tel:{{ $footerPhone }}" class="hover:text-primary transition-colors">{{ $footerPhone }}</a>
+                        @if($contactType === 'phone')
+                        <a href="tel:{{ $contactValue }}" class="break-all transition-colors hover:text-primary">{{ $contactLabel ? $contactLabel.': ' : '' }}{{ $contactValue }}</a>
+                        @elseif($contactType === 'whatsapp')
+                        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $contactValue) }}" target="_blank" rel="noopener" class="break-all transition-colors hover:text-green-600">{{ $contactLabel ?: 'WhatsApp' }}: +{{ preg_replace('/[^0-9]/', '', $contactValue) }}</a>
+                        @elseif($contactType === 'email')
+                        <a href="mailto:{{ $contactValue }}" class="break-all transition-colors hover:text-primary">{{ $contactLabel ? $contactLabel.': ' : '' }}{{ $contactValue }}</a>
+                        @else
+                        <span class="break-words">{{ $contactLabel ? $contactLabel.': ' : '' }}{{ $contactValue }}</span>
+                        @endif
                     </li>
-                    @endif
-                    @if($footerWhatsapp)
-                    <li class="flex items-start gap-3 text-gray-500">
-                        <span class="flex h-5 w-5 shrink-0 items-center justify-center text-green-500 mt-0.5">
-                            <i class="ri-whatsapp-line text-base"></i>
-                        </span>
-                        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $footerWhatsapp) }}" target="_blank" rel="noopener" class="hover:text-green-600 transition-colors">
-                            WhatsApp (+{{ preg_replace('/[^0-9]/', '', $footerWhatsapp) }})
-                        </a>
-                    </li>
-                    @endif
-                    @if($footerEmail)
-                    <li class="flex items-start gap-3 text-gray-500">
-                        <span class="flex h-5 w-5 shrink-0 items-center justify-center text-primary mt-0.5">
-                            <i class="ri-mail-line text-base"></i>
-                        </span>
-                        <a href="mailto:{{ $footerEmail }}" class="hover:text-primary transition-colors break-all">{{ $footerEmail }}</a>
-                    </li>
-                    @endif
+                    @endforeach
                 </ul>
                 @else
                 <p class="text-sm text-gray-400 italic">Kontak belum diatur.</p>
                 @endif
+
             </div>
 
             <!-- Column 4: Address -->

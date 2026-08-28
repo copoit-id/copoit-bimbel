@@ -38,8 +38,8 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Rata-rata Skor</p>
-                    <p class="text-2xl font-bold text-dark">{{ $statistics['average_score'] }}</p>
+                    <p class="text-sm text-gray-600">Rata-rata {{ $statistics['score_label'] }}</p>
+                    <p class="text-2xl font-bold text-dark">{{ $statistics['average_score_display'] }}</p>
                 </div>
                 <i class="ri-bar-chart-line text-3xl text-dark"></i>
             </div>
@@ -47,8 +47,8 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Skor Tertinggi</p>
-                    <p class="text-2xl font-bold text-dark">{{ $statistics['highest_score'] }}</p>
+                    <p class="text-sm text-gray-600">Nilai Tertinggi</p>
+                    <p class="text-2xl font-bold text-dark">{{ $statistics['highest_score_display'] }}</p>
                 </div>
                 <i class="ri-trophy-line text-3xl text-dark"></i>
             </div>
@@ -186,12 +186,12 @@
                             $rank = ($rankings->currentPage() - 1) * $rankings->perPage() + $index + 1;
                             $rawScoreValue = (float) ($ranking->raw_score ?? 0);
                             $maxScoreValue = (float) ($ranking->max_score ?? 0);
-                            $rawScore = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                            $rawScore = $ranking->display_score['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
                                 ? number_format($rawScoreValue, 0)
-                                : number_format($rawScoreValue, 2);
-                            $maxScore = abs($maxScoreValue - round($maxScoreValue)) < 0.01
+                                : number_format($rawScoreValue, 2));
+                            $maxScore = $ranking->display_score['formatted_maximum'] ?? (abs($maxScoreValue - round($maxScoreValue)) < 0.01
                                 ? number_format($maxScoreValue, 0)
-                                : number_format($maxScoreValue, 2);
+                                : number_format($maxScoreValue, 2));
                             $bgClass = '';
                             if ($rank == 1)
                                 $bgClass = 'bg-yellow-50/50';
@@ -247,9 +247,9 @@
                                 @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
                                     @php
                                         $subscoreValue = (float) ($ranking->subtest_scores[$subtest->tryout_detail_id] ?? 0);
-                                        $subscore = abs($subscoreValue - round($subscoreValue)) < 0.01
+                                        $subscore = $ranking->display_subtest_scores[$subtest->tryout_detail_id]['formatted'] ?? (abs($subscoreValue - round($subscoreValue)) < 0.01
                                             ? number_format($subscoreValue, 0)
-                                            : number_format($subscoreValue, 2);
+                                            : number_format($subscoreValue, 2));
                                     @endphp
                                     <td class="px-6 py-4 text-center">
                                         <span class="text-md font-semibold text-gray-800">{{ $subscore }}</span>

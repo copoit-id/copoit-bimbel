@@ -63,6 +63,7 @@
                 <h1 class="text-2xl font-bold text-gray-900">{{ $bank->name }}</h1>
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
+            @unless ($tryoutDetail)
             <div class="flex flex-wrap gap-2">
                 @if($clientBranding['ai_question_generator_enabled'] ?? false)
                 <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
@@ -92,16 +93,9 @@
                     Tambah Soal
                 </a>
             </div>
+            @endunless
         </div>
     </div>
-
-    @if ($tryoutDetail)
-    <div class="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
-        Menambahkan soal untuk tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span> -
-        subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
-        Klik tombol <span class="font-semibold">Gunakan</span> pada soal yang ingin ditambahkan.
-    </div>
-    @endif
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div class="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4">
@@ -144,19 +138,21 @@
                         {{ number_format($childQuestionCount) }} Soal
                     </span>
                 </div>
-                <div class="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
-                    <button type="button" onclick="editBank({{ $child->id }}, '{{ addslashes($child->name) }}', '{{ addslashes($child->description ?? '') }}')"
-                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
-                        <i class="ri-edit-line mr-1"></i>Edit
-                    </button>
-                    <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $childQuestionCount }})"
-                        class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
-                        <i class="ri-delete-bin-line mr-1"></i>Hapus
-                    </button>
-                </div>
+                @unless ($tryoutDetail)
+                    <div class="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
+                        <button type="button" onclick="editBank({{ $child->id }}, '{{ addslashes($child->name) }}', '{{ addslashes($child->description ?? '') }}')"
+                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
+                            <i class="ri-edit-line mr-1"></i>Edit
+                        </button>
+                        <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $childQuestionCount }})"
+                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                            <i class="ri-delete-bin-line mr-1"></i>Hapus
+                        </button>
+                    </div>
+                @endunless
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}"
                     class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-primary text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/5">
-                    Lihat Sub Bank
+                    {{ $tryoutDetail ? 'Pilih Soal di Sub Bank' : 'Lihat Sub Bank' }}
                 </a>
             </div>
             @endforeach
@@ -227,6 +223,7 @@
         <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
             <span id="bulkSelectionCount" class="text-sm font-medium text-gray-700">0 dipilih</span>
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
+            @unless ($tryoutDetail)
             <form id="bulkMoveForm" action="{{ route('admin.question-bank.questions.bulk-move') }}" method="POST"
                 class="flex flex-col gap-2 sm:flex-row sm:items-center">
                 @csrf
@@ -261,6 +258,7 @@
                     Hapus Terpilih
                 </button>
             </form>
+            @endunless
             @if ($tryoutDetail)
             <button type="button" id="bulkCloneBtn"
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-300">
@@ -462,20 +460,11 @@
                     </div>
 
                     <div class="flex w-full shrink-0 flex-col gap-2 sm:w-40">
+                        @unless ($tryoutDetail)
                         <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
                             class="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
-                            <i class="ri-edit-line"></i> Edit
-                        </a>
-                        @if ($tryoutDetail)
-                        <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}" method="POST" class="w-full">
-                            @csrf
-                            <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
-                            <button type="submit"
-                                class="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90">
-                                <i class="ri-download-line"></i> Gunakan
-                            </button>
-                        </form>
-                        @endif
+                                <i class="ri-edit-line"></i> Edit
+                            </a>
                         <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
                             @csrf
                             @method('DELETE')
@@ -485,6 +474,16 @@
                                 <i class="ri-delete-bin-line"></i> Hapus
                             </button>
                         </form>
+                        @else
+                        <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}" method="POST" class="w-full">
+                            @csrf
+                            <input type="hidden" name="tryout_detail_id" value="{{ $tryoutDetail->tryout_detail_id }}">
+                            <button type="submit"
+                                class="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90">
+                                <i class="ri-download-line"></i> Gunakan
+                            </button>
+                        </form>
+                        @endunless
                     </div>
                 </div>
             </article>

@@ -5,6 +5,7 @@
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     @php
         $showResultScores = $tryout->shouldShowResultScores();
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
     @endphp
     <div class="text-center mb-6">
@@ -22,7 +23,7 @@
             <div class="text-5xl font-bold mb-2">{{ number_format($overallPercentage, 1) }}%</div>
             <p class="text-lg">{{ $rawScore }} dari {{ $maxScore }} poin</p>
 
-            @if($tryout->type_tryout === 'computer')
+            @if($showPassingGrade && $tryout->type_tryout === 'computer')
             @if($overallPercentage >= 70)
             <div class="mt-4 inline-block bg-green-500 text-white px-4 py-2 rounded-full">
                 <i class="ri-check-double-line mr-2"></i>Kompeten
@@ -32,7 +33,7 @@
                 <i class="ri-close-line mr-2"></i>Belum Kompeten
             </div>
             @endif
-            @elseif($tryout->type_tryout === 'pppk_full')
+            @elseif($showPassingGrade && $tryout->type_tryout === 'pppk_full')
             @if($overallPercentage >= 65)
             <div class="mt-4 inline-block bg-green-500 text-white px-4 py-2 rounded-full">
                 <i class="ri-check-double-line mr-2"></i>Lulus
@@ -203,11 +204,17 @@
                 </div>
                 
                 <div class="flex items-center justify-between">
-                    @if($showResultScores)
+                    @if($showResultScores || $showPassingGrade)
                         <p class="text-sm text-gray-500">
-                            {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
-                            <span class="mx-1">-</span>
-                            Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                            @if($showResultScores)
+                                {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
+                            @endif
+                            @if($showResultScores && $showPassingGrade)
+                                <span class="mx-1">-</span>
+                            @endif
+                            @if($showPassingGrade)
+                                Passing: {{ ($subtest['passing_type'] ?? 'score') === 'percentage' ? number_format($subtest['passing_score'], 1).'%' : $subtest['passing_score'] }}
+                            @endif
                         </p>
                     @else
                         <span></span>
@@ -216,7 +223,7 @@
                         <span class="inline-flex px-3 py-1 text-xs font-medium rounded bg-gray-300 text-gray-700">
                             Menunggu
                         </span>
-                    @else
+                    @elseif($showPassingGrade)
                         <span class="inline-flex px-3 py-1 text-xs font-medium rounded {{ $subtest['is_passed'] ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
                             {{ $subtest['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}
                         </span>
@@ -244,7 +251,7 @@
                 @endif
         </ul>
     </div>
-    @elseif($showResultScores && $tryout->type_tryout === 'pppk_full')
+    @elseif($showResultScores && $showPassingGrade && $tryout->type_tryout === 'pppk_full')
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <h4 class="font-medium text-yellow-800 mb-2">
             <i class="ri-information-line mr-2"></i>Analisis Hasil PPPK

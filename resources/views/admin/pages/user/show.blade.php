@@ -98,6 +98,8 @@
                     <div><dt class="text-gray-500">Tanggal lahir</dt><dd class="mt-1 font-medium text-gray-900">{{ $formatDate($user->birthday) }}</dd></div>
                     <div><dt class="text-gray-500">Email</dt><dd class="mt-1 break-all font-medium text-gray-900">{{ $user->email }}</dd></div>
                     <div><dt class="text-gray-500">Nomor WhatsApp/telepon</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->phone ?: '—' }}</dd></div>
+                    <div><dt class="text-gray-500">Kelas / level</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->education_level ?: '—' }}</dd></div>
+                    <div><dt class="text-gray-500">Asal sekolah / instansi</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->origin_institution ?: '—' }}</dd></div>
                     <div><dt class="text-gray-500">Username</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->username }}</dd></div>
                     <div><dt class="text-gray-500">Email</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->email_verified_at ? 'Terverifikasi '.$formatDate($user->email_verified_at, 'd M Y, H:i') : 'Belum terverifikasi' }}</dd></div>
                 </dl>
@@ -108,6 +110,8 @@
                 <dl class="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
                     <div><dt class="text-gray-500">Institusi tujuan</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->participant_destination_institution_name ?: ($user->participantDestinationCategory?->parent?->name ?: '—') }}</dd></div>
                     <div><dt class="text-gray-500">Program tujuan</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->participant_destination_program_name ?: ($user->participantDestinationCategory?->name ?: '—') }}</dd></div>
+                    <div><dt class="text-gray-500">Pilihan jurusan 1</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->major_choice_1 ?: '—' }}</dd></div>
+                    <div><dt class="text-gray-500">Pilihan jurusan 2</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->major_choice_2 ?: '—' }}</dd></div>
                     <div><dt class="text-gray-500">Role akun</dt><dd class="mt-1"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $roleClass }}">{{ $roleLabels[$user->role] ?? \Illuminate\Support\Str::headline($user->role) }}</span></dd></div>
                     <div><dt class="text-gray-500">Status akun</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->status === 'aktif' ? 'Aktif' : 'Nonaktif' }}</dd></div>
                     <div><dt class="text-gray-500">Direferensikan oleh</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->referredBy?->name ?: '—' }}</dd></div>

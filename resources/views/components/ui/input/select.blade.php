@@ -57,7 +57,7 @@ $selectedValue = $value ?? old($name);
         <label for="{{ $name }}" class="block mb-2 text-sm font-medium {{ $hasError ? 'text-red-600' : 'text-gray-900' }}">
             {{ $label }}
             @if($required)
-                <span class="text-red-500">*</span>
+                <x-form.required-indicator />
             @endif
         </label>
     @endif
@@ -75,19 +75,23 @@ $selectedValue = $value ?? old($name);
                 <option value="" {{ !$selectedValue ? 'selected' : '' }} disabled>{{ $placeholder }}</option>
             @endif
             
-            @foreach($options as $optionValue => $optionLabel)
-                @if(is_int($optionValue) && is_string($optionLabel))
-                    {{-- Simple array --}}
-                    <option value="{{ $optionLabel }}" {{ $selectedValue == $optionLabel ? 'selected' : '' }}>
-                        {{ $optionLabel }}
-                    </option>
-                @else
-                    {{-- Associative array --}}
-                    <option value="{{ $optionValue }}" {{ $selectedValue == $optionValue ? 'selected' : '' }}>
-                        {{ $optionLabel }}
-                    </option>
-                @endif
-            @endforeach
+            @if(trim((string) $slot) !== '')
+                {{ $slot }}
+            @else
+                @foreach($options as $optionValue => $optionLabel)
+                    @if(is_int($optionValue) && is_string($optionLabel))
+                        {{-- Simple array --}}
+                        <option value="{{ $optionLabel }}" {{ $selectedValue == $optionLabel ? 'selected' : '' }}>
+                            {{ $optionLabel }}
+                        </option>
+                    @else
+                        {{-- Associative array --}}
+                        <option value="{{ $optionValue }}" {{ $selectedValue == $optionValue ? 'selected' : '' }}>
+                            {{ $optionLabel }}
+                        </option>
+                    @endif
+                @endforeach
+            @endif
         </select>
 
         {{-- Dropdown Icon --}}

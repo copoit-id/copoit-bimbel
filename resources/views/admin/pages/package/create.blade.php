@@ -4,6 +4,8 @@
     $allowVideoThumbnail = $clientBranding['allow_video_thumbnail'] ?? false;
     $videoExtensions = ['mp4', 'webm', 'mov', 'm4v'];
     $selectedPriceType = old('type_price', $package->type_price ?? 'paid');
+    $selectedClaimRequirementType = old('free_claim_requirement_type', $package->free_claim_requirement_type ?? 'manual_proof');
+    $selectedClaimTryoutId = old('free_claim_tryout_id', $package->free_claim_tryout_id ?? '');
     $oldFeatures = old('features');
     $selectedFeatures = is_array($oldFeatures) ? $oldFeatures : [''];
     $selectedAccessDurationUnit = old('access_duration_unit', $package->access_duration_unit ?? 'forever');
@@ -189,12 +191,27 @@
 
                         <div id="conditional-requirement-wrapper"
                             class="mt-4 {{ $selectedPriceType === 'free_conditional' ? '' : 'hidden' }}">
-                            <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">
-                                Syarat Untuk Paket Gratis Bersyarat <span class="text-red-500">*</span>
-                            </label>
-                            <textarea id="conditional_requirement" name="conditional_requirement" rows="3"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Contoh: Follow akun Instagram @copoit, upload bukti, dll.">{{ old('conditional_requirement', $package->conditional_requirement ?? '') }}</textarea>
+                            <label for="free_claim_requirement_type" class="block text-sm font-medium text-gray-700 mb-2">Metode Syarat Klaim <span class="text-red-500">*</span></label>
+                            <select id="free_claim_requirement_type" name="free_claim_requirement_type" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="manual_proof" @selected($selectedClaimRequirementType === 'manual_proof')>Upload bukti, lalu verifikasi admin</option>
+                                <option value="completed_tryout" @selected($selectedClaimRequirementType === 'completed_tryout')>Selesaikan Tryout tertentu</option>
+                            </select>
+
+                            <div id="manual-claim-requirement" class="mt-4 {{ $selectedClaimRequirementType === 'manual_proof' ? '' : 'hidden' }}">
+                                <label for="conditional_requirement" class="block text-sm font-medium text-gray-700 mb-2">Instruksi upload bukti <span class="text-red-500">*</span></label>
+                                <textarea id="conditional_requirement" name="conditional_requirement" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Contoh: Follow akun Instagram @copoit, upload bukti, dll.">{{ old('conditional_requirement', $package->conditional_requirement ?? '') }}</textarea>
+                            </div>
+
+                            <div id="tryout-claim-requirement" class="mt-4 {{ $selectedClaimRequirementType === 'completed_tryout' ? '' : 'hidden' }}">
+                                <label for="free_claim_tryout_id" class="block text-sm font-medium text-gray-700 mb-2">Tryout yang wajib diselesaikan <span class="text-red-500">*</span></label>
+                                <select id="free_claim_tryout_id" name="free_claim_tryout_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                    <option value="">Pilih Tryout</option>
+                                    @foreach($claimTryouts ?? [] as $claimTryout)
+                                        <option value="{{ $claimTryout->tryout_id }}" @selected((string) $selectedClaimTryoutId === (string) $claimTryout->tryout_id)>{{ $claimTryout->name }}{{ $claimTryout->is_active ? '' : ' (tidak aktif)' }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="mt-2 text-xs text-gray-500">Akses paket langsung aktif setelah peserta memiliki hasil Tryout berstatus selesai.</p>
+                            </div>
                         </div>
 
                         <div class="mt-4">
@@ -281,6 +298,10 @@
     const priceInput = document.getElementById('price');
     const requirementWrapper = document.getElementById('conditional-requirement-wrapper');
     const requirementInput = document.getElementById('conditional_requirement');
+    const claimRequirementType = document.getElementById('free_claim_requirement_type');
+    const manualClaimRequirement = document.getElementById('manual-claim-requirement');
+    const tryoutClaimRequirement = document.getElementById('tryout-claim-requirement');
+    const claimTryoutInput = document.getElementById('free_claim_tryout_id');
     const durationUnit = document.getElementById('access_duration_unit');
     const durationValue = document.getElementById('access_duration_value');
 
@@ -290,23 +311,34 @@
             priceInput.setAttribute('required', 'required');
             requirementWrapper.classList.add('hidden');
             requirementInput && requirementInput.removeAttribute('required');
+            claimTryoutInput && claimTryoutInput.removeAttribute('required');
         } else if (typePriceSelect.value === 'free_conditional') {
             priceField.classList.add('hidden');
             priceInput.value = 0;
             priceInput.removeAttribute('required');
             requirementWrapper.classList.remove('hidden');
-            requirementInput && requirementInput.setAttribute('required', 'required');
+            toggleClaimRequirement();
         } else {
             priceField.classList.add('hidden');
             priceInput.value = 0;
             priceInput.removeAttribute('required');
             requirementWrapper.classList.add('hidden');
             requirementInput && requirementInput.removeAttribute('required');
+            claimTryoutInput && claimTryoutInput.removeAttribute('required');
         }
+    }
+
+    function toggleClaimRequirement() {
+        const isTryoutClaim = claimRequirementType && claimRequirementType.value === 'completed_tryout';
+        manualClaimRequirement?.classList.toggle('hidden', isTryoutClaim);
+        tryoutClaimRequirement?.classList.toggle('hidden', !isTryoutClaim);
+        requirementInput?.toggleAttribute('required', !isTryoutClaim && typePriceSelect.value === 'free_conditional');
+        claimTryoutInput?.toggleAttribute('required', isTryoutClaim && typePriceSelect.value === 'free_conditional');
     }
 
     toggleFields();
     typePriceSelect.addEventListener('change', toggleFields);
+    claimRequirementType?.addEventListener('change', toggleClaimRequirement);
 
     function toggleDurationValue() {
         if (!durationUnit || !durationValue) return;
