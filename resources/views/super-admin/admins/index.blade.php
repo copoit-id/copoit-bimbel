@@ -22,8 +22,8 @@
 
     <div id="create-admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto px-4 py-6">
         <div class="absolute inset-0 bg-black/50" data-close-modal></div>
-        <div class="relative my-auto max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div class="mb-4 flex items-center justify-between">
+        <div class="relative my-auto flex h-[calc(100vh-2rem)] max-h-[720px] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white p-6 shadow-xl">
+            <div class="mb-4 flex shrink-0 items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500">Admin Demo</p>
                     <h3 class="text-lg font-semibold text-gray-900">Tambah Admin</h3>
@@ -39,13 +39,13 @@
                     </ul>
                 </div>
             @endif
-            <form method="POST" action="{{ route('super-admin.admins.store') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <form method="POST" action="{{ route('super-admin.admins.store') }}" class="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2">
             @csrf
             <input type="hidden" name="form_context" value="create-admin">
             @foreach ($returnQuery as $key => $value)
                 <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
             @endforeach
-            <div>
+            <div class="md:col-span-2">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
                 <input type="text" name="name" value="{{ old('name') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
             </div>
@@ -151,7 +151,7 @@
             <table class="w-full text-sm text-gray-600">
                 <thead class="text-xs text-gray-500 uppercase bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left">Nama</th>
+                        <th class="min-w-[280px] px-4 py-3 text-left">Nama</th>
                         <th class="px-4 py-3 text-left">Email</th>
                         <th class="px-4 py-3 text-left">WhatsApp</th>
                         <th class="px-4 py-3 text-left">Instansi</th>
@@ -168,7 +168,7 @@
                             $expired = $admin->admin_expires_at && now()->gte($admin->admin_expires_at);
                         @endphp
                         <tr class="border-t border-gray-100">
-                            <td class="px-4 py-3 font-medium text-gray-900">{{ $admin->name }}</td>
+                            <td class="min-w-[280px] px-4 py-3 font-medium text-gray-900">{{ $admin->name }}</td>
                             <td class="px-4 py-3">{{ $admin->email }}</td>
                             <td class="px-4 py-3">
                                 @if($admin->phone)
@@ -196,17 +196,17 @@
                                     {{ $expired ? 'Expired' : 'Aktif' }}
                                 </span>
                             </td>
-                            <td class="min-w-[350px] px-4 py-3 align-middle text-right">
+                            <td class="min-w-[140px] px-4 py-3 align-middle text-right">
                                 <div class="flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
                                     <button type="button" data-open-modal="edit-admin-{{ $admin->id }}"
-                                        class="inline-flex items-center gap-2 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary text-primary transition hover:bg-primary hover:text-white"
+                                        title="Edit {{ $admin->name }}" aria-label="Edit {{ $admin->name }}">
                                         <i class="ri-edit-line text-base"></i>
-                                        Edit
                                     </button>
                                     <button type="button" data-open-modal="extend-admin-{{ $admin->id }}"
-                                        class="inline-flex items-center gap-2 rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white">
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-600 text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                                        title="Perpanjang akses {{ $admin->name }}" aria-label="Perpanjang akses {{ $admin->name }}">
                                         <i class="ri-time-line text-base"></i>
-                                        Perpanjang
                                     </button>
                                     <form method="POST" action="{{ route('super-admin.admins.reset-password', $admin) }}" class="shrink-0"
                                         onsubmit="return confirm('Reset password {{ $admin->name }} ke password default (password123)?');">
@@ -214,9 +214,9 @@
                                         @foreach ($returnQuery as $key => $value)
                                             <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
                                         @endforeach
-                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-500 hover:text-white">
+                                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-500 text-amber-700 transition hover:bg-amber-500 hover:text-white"
+                                            title="Reset password {{ $admin->name }}" aria-label="Reset password {{ $admin->name }}">
                                             <i class="ri-lock-password-line text-base"></i>
-                                            Reset Password
                                         </button>
                                     </form>
                                 </div>
@@ -238,8 +238,8 @@
         @foreach($admins as $admin)
             <div id="edit-admin-{{ $admin->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
                 <div class="absolute inset-0 bg-black/50" data-close-edit-modal></div>
-                <div class="relative max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="relative flex h-[calc(100vh-2rem)] max-h-[720px] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white p-6 shadow-xl">
+                    <div class="mb-4 flex shrink-0 items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-500">Edit data Admin Demo</p>
                             <h3 class="text-lg font-semibold text-gray-900">{{ $admin->name }}</h3>
@@ -255,7 +255,7 @@
                             </ul>
                         </div>
                     @endif
-                    <form method="POST" action="{{ route('super-admin.admins.update', $admin) }}" class="space-y-4">
+                    <form method="POST" action="{{ route('super-admin.admins.update', $admin) }}" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                                     @csrf
                                     @method('PUT')
                                     <input type="hidden" name="form_context" value="edit-admin-{{ $admin->id }}">
@@ -323,8 +323,8 @@
 
             <div id="extend-admin-{{ $admin->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
                 <div class="absolute inset-0 bg-black/50" data-close-edit-modal></div>
-                <div class="relative max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="relative flex h-[calc(100vh-2rem)] max-h-[560px] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white p-6 shadow-xl">
+                    <div class="mb-4 flex shrink-0 items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-500">Perpanjang akses Admin Demo</p>
                             <h3 class="text-lg font-semibold text-gray-900">{{ $admin->name }}</h3>
@@ -341,7 +341,7 @@
                         </div>
                     @endif
                     <p class="mb-4 text-sm text-gray-500">Akses saat ini: {{ $admin->admin_expires_at?->copy()->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}.</p>
-                    <form method="POST" action="{{ route('super-admin.admins.extend', $admin) }}" class="space-y-4">
+                    <form method="POST" action="{{ route('super-admin.admins.extend', $admin) }}" class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="form_context" value="extend-admin-{{ $admin->id }}">
