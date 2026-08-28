@@ -278,7 +278,7 @@
                         <th class="px-4 py-3 text-left">Email</th>
                         <th class="px-4 py-3 text-left">WhatsApp</th>
                         <th class="px-4 py-3 text-left">Asal Bimbel</th>
-                        <th class="px-4 py-3 text-left">Catatan</th>
+                        <th class="px-4 py-3 text-center">Catatan</th>
                         <th class="px-4 py-3 text-center">Status Deal</th>
                         <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
@@ -305,11 +305,25 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3">{{ $admin->origin_institution ?: '-' }}</td>
-                            <td class="max-w-xs px-4 py-3">
+                            <td class="px-4 py-3 text-center">
                                 @php
                                     $notePreview = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $admin->demo_note), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
                                 @endphp
-                                <span title="{{ $notePreview }}">{{ \Illuminate\Support\Str::limit($notePreview, 80) ?: '-' }}</span>
+                                @if ($notePreview !== '')
+                                    <div class="group relative inline-flex">
+                                        <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 text-sky-700 hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                                            title="Lihat catatan" aria-label="Lihat catatan {{ $admin->name }}">
+                                            <i class="ri-sticky-note-line text-base"></i>
+                                        </button>
+                                        <span role="tooltip" class="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-2 w-72 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-5 text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                                            {{ $notePreview }}
+                                        </span>
+                                    </div>
+                                @else
+                                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-400" title="Belum ada catatan" aria-label="Belum ada catatan">
+                                        <i class="ri-sticky-note-line text-base"></i>
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php
