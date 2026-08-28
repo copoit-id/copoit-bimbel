@@ -41,4 +41,17 @@ class SuperAdminDemoManagementTest extends TestCase
             $note
         );
     }
+
+    public function test_demo_deal_statuses_include_the_defined_follow_up_stages(): void
+    {
+        $reflection = new \ReflectionClass(SuperAdminController::class);
+
+        $this->assertSame([
+            'baru' => 'Baru',
+            'potensial' => 'Potensial',
+            'menunggu_keputusan' => 'Menunggu Keputusan',
+            'deal' => 'Deal',
+            'tidak_jadi' => 'Tidak Jadi',
+        ], $reflection->getConstant('DEMO_DEAL_STATUSES'));
+    }
 }

@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -20,6 +21,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class SuperAdminController extends Controller
 {
     private const DEFAULT_ADMIN_PASSWORD = 'password123';
+
+    private const DEMO_DEAL_STATUSES = [
+        'baru' => 'Baru',
+        'potensial' => 'Potensial',
+        'menunggu_keputusan' => 'Menunggu Keputusan',
+        'deal' => 'Deal',
+        'tidak_jadi' => 'Tidak Jadi',
+    ];
 
     public function index(Request $request): View
     {
@@ -39,7 +48,7 @@ class SuperAdminController extends Controller
 
         $now = now();
         $baseQuery = User::query()
-            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'origin_institution', 'demo_note', 'admin_expires_at', 'created_at'])
+            ->select(['id', 'name', 'email', 'phone', 'username', 'role', 'origin_institution', 'demo_note', 'demo_deal_status', 'admin_expires_at', 'created_at'])
             ->where('role', 'admin_demo')
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = trim((string) $request->input('search'));
@@ -88,8 +97,9 @@ class SuperAdminController extends Controller
             'sort' => $sort,
             'search' => trim((string) $request->input('search', '')),
         ];
+        $dealStatusOptions = self::DEMO_DEAL_STATUSES;
 
-        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status', 'returnQuery'));
+        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status', 'returnQuery', 'dealStatusOptions'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -104,6 +114,7 @@ class SuperAdminController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'origin_institution' => ['required', 'string', 'max:255'],
             'demo_note' => ['nullable', 'string', 'max:100000'],
+            'demo_deal_status' => ['required', Rule::in(array_keys(self::DEMO_DEAL_STATUSES))],
             'expiry_type' => 'required|in:date,duration',
             'expires_at' => 'nullable|date',
             'duration_days' => 'nullable|integer|min:0|max:365',
@@ -147,6 +158,7 @@ class SuperAdminController extends Controller
             'password' => Hash::make($request->password),
             'origin_institution' => $request->input('origin_institution'),
             'demo_note' => $this->sanitizeDemoNote($request->input('demo_note')),
+            'demo_deal_status' => $request->input('demo_deal_status', 'baru'),
             'role' => 'admin_demo',
             'admin_expires_at' => $expiresAt,
             'status' => 'aktif',
@@ -184,6 +196,7 @@ class SuperAdminController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'origin_institution' => ['required', 'string', 'max:255'],
             'demo_note' => ['nullable', 'string', 'max:100000'],
+            'demo_deal_status' => ['required', Rule::in(array_keys(self::DEMO_DEAL_STATUSES))],
         ], [
             'phone.required' => 'Nomor WhatsApp peminta wajib diisi.',
             'phone.regex' => 'Masukkan nomor WhatsApp aktif, contoh 081234567890.',
@@ -197,6 +210,7 @@ class SuperAdminController extends Controller
         $admin->username = $username;
         $admin->origin_institution = $request->input('origin_institution');
         $admin->demo_note = $this->sanitizeDemoNote($request->input('demo_note'));
+        $admin->demo_deal_status = $request->input('demo_deal_status');
 
         if ($request->filled('password')) {
             $admin->password = Hash::make($request->password);
@@ -289,13 +303,14 @@ class SuperAdminController extends Controller
                 'Username',
                 'Asal Bimbel',
                 'Catatan',
+                'Status Deal',
                 'Masa Berlaku',
                 'Status Akses',
                 'Ditambahkan',
             ];
             $sheet->fromArray($headers, null, 'A1');
-            $sheet->getStyle('A1:I1')->getFont()->setBold(true);
-            $sheet->getStyle('A1:I1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFEFF6FF');
+            $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+            $sheet->getStyle('A1:J1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFEFF6FF');
 
             $row = 2;
             User::query()
@@ -308,6 +323,7 @@ class SuperAdminController extends Controller
                     'username',
                     'origin_institution',
                     'demo_note',
+                    'demo_deal_status',
                     'admin_expires_at',
                     'created_at',
                 ])
@@ -322,6 +338,7 @@ class SuperAdminController extends Controller
                         $admin->username,
                         $admin->origin_institution,
                         $this->plainDemoNote($admin->demo_note),
+                        self::DEMO_DEAL_STATUSES[$admin->demo_deal_status] ?? self::DEMO_DEAL_STATUSES['baru'],
                         $admin->admin_expires_at?->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') ?? '-',
                         $expired ? 'Expired' : 'Aktif',
                         $admin->created_at?->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') ?? '-',
@@ -329,7 +346,7 @@ class SuperAdminController extends Controller
                     $row++;
                 });
 
-            foreach (range('A', 'I') as $column) {
+            foreach (range('A', 'J') as $column) {
                 $sheet->getColumnDimension($column)->setAutoSize(true);
             }
             $sheet->getColumnDimension('F')->setWidth(60);

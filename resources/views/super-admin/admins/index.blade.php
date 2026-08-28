@@ -68,6 +68,14 @@
                 <input type="text" name="origin_institution" value="{{ old('origin_institution') }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
             </div>
             <div>
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Status Deal Demo <span class="text-red-600">*</span></label>
+                <select name="demo_deal_status" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                    @foreach ($dealStatusOptions as $value => $label)
+                        <option value="{{ $value }}" @selected(old('demo_deal_status', 'baru') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                 <input type="password" name="password" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
             </div>
@@ -147,9 +155,10 @@
                         <th class="px-4 py-3 text-left">WhatsApp</th>
                         <th class="px-4 py-3 text-left">Asal Bimbel</th>
                         <th class="px-4 py-3 text-left">Catatan</th>
+                        <th class="px-4 py-3 text-center">Status Deal</th>
                         <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
-                        <th class="px-4 py-3 text-center">Status</th>
+                        <th class="px-4 py-3 text-center">Status Akses</th>
                         <th class="px-4 py-3 text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -177,6 +186,21 @@
                                     $notePreview = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $admin->demo_note), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
                                 @endphp
                                 <span title="{{ $notePreview }}">{{ \Illuminate\Support\Str::limit($notePreview, 80) ?: '-' }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                @php
+                                    $dealStatus = $admin->demo_deal_status ?: 'baru';
+                                    $dealStatusClasses = [
+                                        'baru' => 'bg-gray-100 text-gray-700',
+                                        'potensial' => 'bg-blue-100 text-blue-700',
+                                        'menunggu_keputusan' => 'bg-amber-100 text-amber-700',
+                                        'deal' => 'bg-emerald-100 text-emerald-700',
+                                        'tidak_jadi' => 'bg-red-100 text-red-700',
+                                    ];
+                                @endphp
+                                <span class="inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold {{ $dealStatusClasses[$dealStatus] ?? $dealStatusClasses['baru'] }}">
+                                    {{ $dealStatusOptions[$dealStatus] ?? $dealStatusOptions['baru'] }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-center">{{ $admin->created_at?->format('d M Y H:i') ?? '-' }}</td>
                             <td class="px-4 py-3 text-center">
@@ -215,7 +239,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
+                            <td colspan="10" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -273,6 +297,14 @@
                                     <div>
                                         <label class="mb-2 block text-sm font-semibold text-gray-700">Asal Bimbel <span class="text-red-600">*</span></label>
                                         <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                                    </div>
+                                    <div>
+                                        <label class="mb-2 block text-sm font-semibold text-gray-700">Status Deal Demo <span class="text-red-600">*</span></label>
+                                        <select name="demo_deal_status" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
+                                            @foreach ($dealStatusOptions as $value => $label)
+                                                <option value="{{ $value }}" @selected(old('demo_deal_status', $admin->demo_deal_status ?: 'baru') === $value)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                     <div>
                                         <label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
