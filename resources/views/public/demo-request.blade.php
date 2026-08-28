@@ -1,9 +1,17 @@
-@extends('general.layout')
-
-@section('title', 'Pengajuan Demo')
-
-@section('content')
-    <section class="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pengajuan Demo - {{ $clientBranding['name'] ?? 'BimbelHub' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
+    @vite('resources/css/app.css')
+    @include('components.branding-styles')
+    @include('components.favicon-link')
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900" data-app-selects>
+    <main class="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6">
+    <section class="w-full max-w-2xl">
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="bg-primary px-6 py-8 text-white sm:px-8">
                 <p class="text-sm font-semibold uppercase tracking-wide text-white/80">Akses Admin Demo</p>
@@ -70,4 +78,8 @@
             </div>
         </div>
     </section>
-@endsection
+    </main>
+
+    @vite('resources/js/app.js')
+</body>
+</html>
