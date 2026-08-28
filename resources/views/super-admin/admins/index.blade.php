@@ -3,20 +3,26 @@
 @section('content')
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-2xl font-bold">Admin Demo</h2>
             <p class="text-gray-500">Kelola akun admin dan batas akses waktunya.</p>
         </div>
-        <button type="button" data-open-modal="create-admin-modal" class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90">
-            <i class="ri-user-add-line text-lg"></i>
-            Tambah Admin
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('super-admin.admins.export-excel') }}" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                <i class="ri-file-excel-2-line text-lg"></i>
+                Export Excel
+            </a>
+            <button type="button" data-open-modal="create-admin-modal" class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-white hover:bg-primary/90">
+                <i class="ri-user-add-line text-lg"></i>
+                Tambah Admin
+            </button>
+        </div>
     </div>
 
     <div id="create-admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto px-4 py-6">
         <div class="absolute inset-0 bg-black/50" data-close-modal></div>
-        <div class="relative my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+        <div class="relative my-auto max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <div class="mb-4 flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500">Admin Demo</p>
@@ -36,6 +42,9 @@
             <form method="POST" action="{{ route('super-admin.admins.store') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @csrf
             <input type="hidden" name="form_context" value="create-admin">
+            @foreach ($returnQuery as $key => $value)
+                <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
+            @endforeach
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
                 <input type="text" name="name" value="{{ old('name') }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
@@ -64,8 +73,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Asal Sekolah (opsional)</label>
-                <input type="text" name="origin_institution" value="{{ old('origin_institution') }}" placeholder="Contoh: SMA Negeri 1 Jakarta" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Instansi <span class="text-red-600">*</span></label>
+                <input type="text" name="origin_institution" value="{{ old('origin_institution') }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
@@ -74,6 +83,13 @@
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Password</label>
                 <input type="password" name="password_confirmation" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
+            </div>
+            <div class="md:col-span-2">
+                <label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
+                <textarea name="demo_note" rows="6" data-summernote data-height="220"
+                    data-toolbar='[["font",["bold","underline","clear"]],["para",["ul","ol","paragraph"]],["insert",["link"]],["view",["codeview"]]]'
+                    class="summernote-field w-full rounded-lg border border-gray-200 px-4 py-2"
+                    placeholder="Tulis catatan internal tentang akun demo ini...">{{ old('demo_note') }}</textarea>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Tipe Batas Waktu</label>
@@ -138,6 +154,8 @@
                         <th class="px-4 py-3 text-left">Nama</th>
                         <th class="px-4 py-3 text-left">Email</th>
                         <th class="px-4 py-3 text-left">WhatsApp</th>
+                        <th class="px-4 py-3 text-left">Instansi</th>
+                        <th class="px-4 py-3 text-left">Catatan</th>
                         <th class="px-4 py-3 text-center">Ditambahkan</th>
                         <th class="px-4 py-3 text-center">Expired</th>
                         <th class="px-4 py-3 text-center">Status</th>
@@ -162,6 +180,13 @@
                                     <span class="text-xs font-medium text-red-600">Belum diisi</span>
                                 @endif
                             </td>
+                            <td class="px-4 py-3">{{ $admin->origin_institution ?: '-' }}</td>
+                            <td class="max-w-xs px-4 py-3">
+                                @php
+                                    $notePreview = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $admin->demo_note), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+                                @endphp
+                                <span title="{{ $notePreview }}">{{ \Illuminate\Support\Str::limit($notePreview, 80) ?: '-' }}</span>
+                            </td>
                             <td class="px-4 py-3 text-center">{{ $admin->created_at?->format('d M Y H:i') ?? '-' }}</td>
                             <td class="px-4 py-3 text-center">
                                 {{ $admin->admin_expires_at ? $admin->admin_expires_at->format('d M Y H:i') : '-' }}
@@ -171,30 +196,35 @@
                                     {{ $expired ? 'Expired' : 'Aktif' }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-center">
-                                <button type="button" data-open-modal="edit-admin-{{ $admin->id }}"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
-                                    <i class="ri-edit-line text-base"></i>
-                                    Edit
-                                </button>
-                                <button type="button" data-open-modal="extend-admin-{{ $admin->id }}"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition">
-                                    <i class="ri-time-line text-base"></i>
-                                    Perpanjang
-                                </button>
-                                <form method="POST" action="{{ route('super-admin.admins.reset-password', $admin) }}" class="inline-block"
-                                    onsubmit="return confirm('Reset password {{ $admin->name }} ke password default (password123)?');">
-                                    @csrf
-                                    <button type="submit" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border border-amber-500 text-amber-700 hover:bg-amber-500 hover:text-white transition">
-                                        <i class="ri-lock-password-line text-base"></i>
-                                        Reset Password
+                            <td class="min-w-[350px] px-4 py-3 align-middle text-right">
+                                <div class="flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
+                                    <button type="button" data-open-modal="edit-admin-{{ $admin->id }}"
+                                        class="inline-flex items-center gap-2 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
+                                        <i class="ri-edit-line text-base"></i>
+                                        Edit
                                     </button>
-                                </form>
+                                    <button type="button" data-open-modal="extend-admin-{{ $admin->id }}"
+                                        class="inline-flex items-center gap-2 rounded-full border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white">
+                                        <i class="ri-time-line text-base"></i>
+                                        Perpanjang
+                                    </button>
+                                    <form method="POST" action="{{ route('super-admin.admins.reset-password', $admin) }}" class="shrink-0"
+                                        onsubmit="return confirm('Reset password {{ $admin->name }} ke password default (password123)?');">
+                                        @csrf
+                                        @foreach ($returnQuery as $key => $value)
+                                            <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
+                                        @endforeach
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-500 hover:text-white">
+                                            <i class="ri-lock-password-line text-base"></i>
+                                            Reset Password
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
+                            <td colspan="9" class="px-4 py-6 text-center text-gray-500">Tidak ada admin demo pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -208,7 +238,7 @@
         @foreach($admins as $admin)
             <div id="edit-admin-{{ $admin->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
                 <div class="absolute inset-0 bg-black/50" data-close-edit-modal></div>
-                <div class="relative bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+                <div class="relative max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-gray-500">Edit data Admin Demo</p>
@@ -229,6 +259,9 @@
                                     @csrf
                                     @method('PUT')
                                     <input type="hidden" name="form_context" value="edit-admin-{{ $admin->id }}">
+                                    @foreach ($returnQuery as $key => $value)
+                                        <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
+                                    @endforeach
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
                                         <input type="text" name="name" value="{{ old('name', $admin->name) }}" class="w-full border border-gray-200 rounded-lg px-4 py-2" required>
@@ -257,18 +290,25 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Asal Sekolah (opsional)</label>
-                                            <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: SMA Negeri 1 Jakarta" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Instansi <span class="text-red-600">*</span></label>
+                                            <input type="text" name="origin_institution" value="{{ old('origin_institution', $admin->origin_institution) }}" placeholder="Contoh: Bimbel Cakrawala" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label class="mb-2 block text-sm font-semibold text-gray-700">Catatan</label>
+                                        <textarea name="demo_note" rows="6" data-summernote data-height="220"
+                                            data-toolbar='[["font",["bold","underline","clear"]],["para",["ul","ol","paragraph"]],["insert",["link"]],["view",["codeview"]]]'
+                                            class="summernote-field w-full rounded-lg border border-gray-200 px-4 py-2"
+                                            placeholder="Tulis catatan internal tentang akun demo ini...">{{ old('demo_note', $admin->demo_note) }}</textarea>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Password Baru (opsional)</label>
-                                            <input type="password" name="password" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Password Baru <span class="text-red-600">*</span></label>
+                                            <input type="password" name="password" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Konfirmasi Password</label>
-                                            <input type="password" name="password_confirmation" class="w-full border border-gray-200 rounded-lg px-4 py-2">
+                                            <label class="mb-2 block text-sm font-semibold text-gray-700">Konfirmasi Password <span class="text-red-600">*</span></label>
+                                            <input type="password" name="password_confirmation" class="w-full rounded-lg border border-gray-200 px-4 py-2" required>
                                         </div>
                                     </div>
                                     <div class="flex justify-end gap-2 pt-2">
@@ -283,7 +323,7 @@
 
             <div id="extend-admin-{{ $admin->id }}" class="fixed inset-0 z-50 hidden items-center justify-center px-4">
                 <div class="absolute inset-0 bg-black/50" data-close-edit-modal></div>
-                <div class="relative bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+                <div class="relative max-h-[calc(100vh-3rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-gray-500">Perpanjang akses Admin Demo</p>
@@ -305,6 +345,9 @@
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="form_context" value="extend-admin-{{ $admin->id }}">
+                        @foreach ($returnQuery as $key => $value)
+                            <input type="hidden" name="return_{{ $key }}" value="{{ $value }}">
+                        @endforeach
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Cara memperpanjang</label>
                             <select name="expiry_type" class="w-full border border-gray-200 rounded-lg px-4 py-2" data-expiry-select>
@@ -363,6 +406,7 @@
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            window.initSummernoteFields?.();
         };
 
         document.querySelectorAll('[data-open-modal]').forEach(button => {

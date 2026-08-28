@@ -12,6 +12,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SuperAdminController extends Controller
 {
@@ -78,7 +82,14 @@ class SuperAdminController extends Controller
             ->paginate(Pagination::perPage(20))
             ->withQueryString();
 
-        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status'));
+        $returnQuery = [
+            'page' => max(1, (int) $request->input('page', 1)),
+            'status' => $status,
+            'sort' => $sort,
+            'search' => trim((string) $request->input('search', '')),
+        ];
+
+        return view('super-admin.admins.index', compact('admins', 'counts', 'sortOptions', 'sort', 'status', 'returnQuery'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -92,7 +103,8 @@ class SuperAdminController extends Controller
             'username' => 'nullable|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
             'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
-            'origin_institution' => ['nullable', 'string', 'max:255'],
+            'origin_institution' => ['required', 'string', 'max:255'],
+            'demo_note' => ['nullable', 'string', 'max:100000'],
             'expiry_type' => 'required|in:date,duration',
             'expires_at' => 'nullable|date',
             'duration_days' => 'nullable|integer|min:0|max:365',
@@ -136,6 +148,7 @@ class SuperAdminController extends Controller
             'password' => Hash::make($request->password),
             'education_level' => $request->input('education_level'),
             'origin_institution' => $request->input('origin_institution'),
+            'demo_note' => $this->sanitizeDemoNote($request->input('demo_note')),
             'role' => 'admin_demo',
             'admin_expires_at' => $expiresAt,
             'status' => 'aktif',
@@ -147,7 +160,7 @@ class SuperAdminController extends Controller
             $admin->roles()->syncWithoutDetaching([$role->id]);
         }
 
-        return redirect()->route('super-admin.admins.index')
+        return redirect()->route('super-admin.admins.index', $this->indexReturnQuery($request))
             ->with('success', 'Akun admin demo berhasil dibuat.');
     }
 
@@ -170,9 +183,10 @@ class SuperAdminController extends Controller
             'email' => 'required|email|max:255|unique:users,email,'.$admin->id,
             'phone' => ['required', 'string', 'regex:/^628[0-9]{7,13}$/'],
             'username' => 'nullable|string|max:255|unique:users,username,'.$admin->id,
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => 'required|string|min:8|confirmed',
             'education_level' => ['nullable', 'string', 'in:SD,SMP,SMA,ALUMNI'],
-            'origin_institution' => ['nullable', 'string', 'max:255'],
+            'origin_institution' => ['required', 'string', 'max:255'],
+            'demo_note' => ['nullable', 'string', 'max:100000'],
         ], [
             'phone.required' => 'Nomor WhatsApp peminta wajib diisi.',
             'phone.regex' => 'Masukkan nomor WhatsApp aktif, contoh 081234567890.',
@@ -186,32 +200,33 @@ class SuperAdminController extends Controller
         $admin->username = $username;
         $admin->education_level = $request->input('education_level');
         $admin->origin_institution = $request->input('origin_institution');
+        $admin->demo_note = $this->sanitizeDemoNote($request->input('demo_note'));
 
-        if ($request->filled('password')) {
-            $admin->password = Hash::make($request->password);
-        }
+        $admin->password = Hash::make($request->password);
 
         $admin->save();
 
-        return redirect()->route('super-admin.admins.index')
+        return redirect()->route('super-admin.admins.index', $this->indexReturnQuery($request))
             ->with('success', 'Admin demo berhasil diperbarui.');
     }
 
     /**
      * Reset a demo admin password to the application default.
      */
-    public function resetPassword(User $admin): RedirectResponse
+    public function resetPassword(User $admin, ?Request $request = null): RedirectResponse
     {
         if ($admin->role !== 'admin_demo') {
             abort(404);
         }
+
+        $request ??= request();
 
         $admin->forceFill([
             'password' => Hash::make(self::DEFAULT_ADMIN_PASSWORD),
             'remember_token' => null,
         ])->save();
 
-        return redirect()->route('super-admin.admins.index')
+        return redirect()->route('super-admin.admins.index', $this->indexReturnQuery($request))
             ->with('success', 'Password admin demo berhasil direset ke password default.');
     }
 
@@ -256,8 +271,171 @@ class SuperAdminController extends Controller
 
         $admin->update(['admin_expires_at' => $expiresAt]);
 
-        return redirect()->route('super-admin.admins.index')
+        return redirect()->route('super-admin.admins.index', $this->indexReturnQuery($request))
             ->with('success', 'Masa akses admin demo berhasil diperpanjang.');
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $filename = 'admin-demo-'.now('Asia/Jakarta')->format('Ymd_His').'.xlsx';
+
+        return response()->streamDownload(function (): void {
+            $spreadsheet = new Spreadsheet;
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Admin Demo');
+
+            $headers = [
+                'Nama',
+                'Email',
+                'WhatsApp',
+                'Username',
+                'Instansi',
+                'Catatan',
+                'Masa Berlaku',
+                'Status Akses',
+                'Ditambahkan',
+            ];
+            $sheet->fromArray($headers, null, 'A1');
+            $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+            $sheet->getStyle('A1:I1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFEFF6FF');
+
+            $row = 2;
+            User::query()
+                ->where('role', 'admin_demo')
+                ->orderBy('id')
+                ->select([
+                    'name',
+                    'email',
+                    'phone',
+                    'username',
+                    'origin_institution',
+                    'demo_note',
+                    'admin_expires_at',
+                    'created_at',
+                ])
+                ->cursor()
+                ->each(function (User $admin) use ($sheet, &$row): void {
+                    $expired = $admin->admin_expires_at === null || now()->gte($admin->admin_expires_at);
+
+                    $sheet->fromArray([
+                        $admin->name,
+                        $admin->email,
+                        $admin->phone,
+                        $admin->username,
+                        $admin->origin_institution,
+                        $this->plainDemoNote($admin->demo_note),
+                        $admin->admin_expires_at?->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') ?? '-',
+                        $expired ? 'Expired' : 'Aktif',
+                        $admin->created_at?->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') ?? '-',
+                    ], null, 'A'.$row);
+                    $row++;
+                });
+
+            foreach (range('A', 'I') as $column) {
+                $sheet->getColumnDimension($column)->setAutoSize(true);
+            }
+            $sheet->getColumnDimension('F')->setWidth(60);
+            $sheet->getStyle('F2:F'.max(2, $row - 1))->getAlignment()->setWrapText(true);
+
+            try {
+                (new Xlsx($spreadsheet))->save('php://output');
+            } finally {
+                $spreadsheet->disconnectWorksheets();
+            }
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
+    /** @return array{page: int, status: string, sort: string, search: string} */
+    private function indexReturnQuery(Request $request): array
+    {
+        $status = (string) $request->input('return_status', 'all');
+        $sort = (string) $request->input('return_sort', 'latest');
+
+        return [
+            'page' => max(1, (int) $request->input('return_page', 1)),
+            'status' => in_array($status, ['all', 'active', 'expired'], true) ? $status : 'all',
+            'sort' => in_array($sort, ['latest', 'oldest', 'name_asc', 'name_desc', 'expiry_asc', 'expiry_desc'], true) ? $sort : 'latest',
+            'search' => mb_substr(trim((string) $request->input('return_search', '')), 0, 255),
+        ];
+    }
+
+    private function sanitizeDemoNote(?string $note): ?string
+    {
+        $note = trim((string) $note);
+        if ($note === '') {
+            return null;
+        }
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previousErrors = libxml_use_internal_errors(true);
+        $document->loadHTML(
+            '<!doctype html><html><body><div id="demo-note-root">'.$note.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $root = $document->getElementById('demo-note-root');
+        if (! $root) {
+            return null;
+        }
+
+        $html = '';
+        foreach ($root->childNodes as $node) {
+            $html .= $this->sanitizeDemoNoteNode($node);
+        }
+
+        return trim(strip_tags($html)) === '' ? null : trim($html);
+    }
+
+    private function sanitizeDemoNoteNode(\DOMNode $node): string
+    {
+        if ($node instanceof \DOMText) {
+            return htmlspecialchars($node->wholeText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        if (! $node instanceof \DOMElement) {
+            return '';
+        }
+
+        $tag = strtolower($node->tagName);
+        if (in_array($tag, ['script', 'style', 'iframe', 'object', 'embed'], true)) {
+            return '';
+        }
+
+        $content = '';
+        foreach ($node->childNodes as $child) {
+            $content .= $this->sanitizeDemoNoteNode($child);
+        }
+
+        $allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'a'];
+        if (! in_array($tag, $allowedTags, true)) {
+            return $content;
+        }
+
+        if ($tag === 'br') {
+            return '<br>';
+        }
+
+        if ($tag === 'a') {
+            $href = trim((string) $node->getAttribute('href'));
+            $scheme = strtolower((string) parse_url($href, PHP_URL_SCHEME));
+            if ($href !== '' && in_array($scheme, ['http', 'https', 'mailto'], true)) {
+                return '<a href="'.htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" rel="noopener noreferrer">'.$content.'</a>';
+            }
+
+            return $content;
+        }
+
+        return '<'.$tag.'>'.$content.'</'.$tag.'>';
+    }
+
+    private function plainDemoNote(?string $note): string
+    {
+        return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $note), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
     }
 
     private function normalizeWhatsAppNumber(?string $phone): string

@@ -10,6 +10,7 @@
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
+    @include('admin.partials.summernote')
     @stack('styles')
 </head>
 <body class="bg-gray-50" data-app-selects>

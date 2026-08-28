@@ -450,6 +450,7 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
+    Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
     Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
