@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\admin\AdminAssistantController;
+use App\Http\Controllers\admin\AdminTourController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
 use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
@@ -507,6 +508,10 @@ Route::prefix('{portal}')
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
         Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
+        Route::get('/tours/{tourKey}', [AdminTourController::class, 'show'])->name('tours.show');
+        Route::post('/tours/{tourKey}/start', [AdminTourController::class, 'start'])->name('tours.start');
+        Route::post('/tours/{tourKey}/steps/{stepId}', [AdminTourController::class, 'storeStep'])->name('tours.steps.store');
+        Route::post('/tours/{tourKey}/complete', [AdminTourController::class, 'complete'])->name('tours.complete');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
         Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');

@@ -5,10 +5,14 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Tryout</h2>
+            <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-bold">Manajemen Tryout</h2>
+                <x-admin.tour-button tour-key="admin.tryout.create" />
+            </div>
             <p class="text-gray-500">Kelola semua tryout dan ujian</p>
         </div>
         <a href="{{ route('admin.tryout.create') }}"
+            data-tour="tryout.create"
             class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
             <i class="ri-add-line"></i>
             Tambah Tryout

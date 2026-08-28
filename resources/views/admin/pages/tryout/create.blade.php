@@ -98,7 +98,8 @@
         <form
             action="{{ isset($tryout) ? route('admin.tryout.update', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) : route('admin.tryout.store') }}"
             method="POST"
-            enctype="multipart/form-data">
+            enctype="multipart/form-data"
+            data-tour="tryout.form">
             @csrf
             @if(isset($tryout))
             @method('PUT')
@@ -110,7 +111,7 @@
                     <div class="md:col-span-2">
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Nama Tryout <span
                                 class="text-red-500">*</span></label>
-                        <input type="text" id="name" name="name"
+                        <input type="text" id="name" name="name" data-tour="tryout.name"
                             value="{{ isset($tryout) ? $tryout->name : old('name') }}" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
@@ -272,7 +273,7 @@
                 </div>
 
                 <!-- Schedule -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" data-tour="tryout.schedule">
                     <div>
                         <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>
                         <input type="datetime-local" id="start_date" name="start_date"
