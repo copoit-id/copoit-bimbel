@@ -2046,7 +2046,7 @@ class PackageController extends Controller
         $attemptHistory = [];
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
-            $userAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
+            $userAnswers->loadMissing(['userAnswerDetails.question.questionOptions', 'tryoutDetail']);
             $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
                 ->select('tryout_detail_id', \DB::raw('count(*) as total'))
                 ->groupBy('tryout_detail_id')
@@ -2096,8 +2096,8 @@ class PackageController extends Controller
                         $totalScore += $subtestScore;
                         $totalMaxScore += $maxSubtestScore;
                         $details = $ua->userAnswerDetails;
-                        $totalCorrect += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && $detail->is_correct)->count();
-                        $totalWrong += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct)->count();
+                        $totalCorrect += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)))->count();
+                        $totalWrong += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail))->count();
                         $totalUnanswered += max(0, (int) ($questionCounts[$ua->tryout_detail_id] ?? 0) - $details->count());
                     }
 
@@ -2115,8 +2115,8 @@ class PackageController extends Controller
                     $totalScore = $rawScore;
                     $isPassed = $this->isAttemptPassed($userAnswers, 1);
                     $details = $singleAnswer->userAnswerDetails;
-                    $totalCorrect = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && $detail->is_correct)->count();
-                    $totalWrong = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct)->count();
+                    $totalCorrect = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)))->count();
+                    $totalWrong = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail))->count();
                     $totalUnanswered = max(0, (int) ($questionCounts[$singleAnswer->tryout_detail_id] ?? 0) - $details->count());
                 }
 

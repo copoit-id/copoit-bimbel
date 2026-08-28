@@ -1342,6 +1342,21 @@ class TryoutController extends Controller
         ];
     }
 
+    private function isPartiallyCorrectMultipleAnswerDetail(UserAnswerDetail $detail): bool
+    {
+        $question = $detail->question;
+
+        if (! $question || $this->normalizeQuestionType($question->question_type ?? '') !== 'multiple_answer') {
+            return false;
+        }
+
+        $scoringService = app(MultipleAnswerScoringService::class);
+
+        return $scoringService->isPartiallyCorrect(
+            $scoringService->evaluateDetail($question, $detail)
+        );
+    }
+
 
     private function getSubtestName($type)
     {
@@ -2547,7 +2562,7 @@ class TryoutController extends Controller
                     continue;
                 }
 
-                if ($detail->is_correct) {
+                if ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)) {
                     $correctAnswers++;
                 } else {
                     $wrongAnswers++;
@@ -2642,11 +2657,14 @@ class TryoutController extends Controller
 
             $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                return empty($meta['pending_review']) && $detail->is_correct;
+                return empty($meta['pending_review'])
+                    && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail));
             })->count();
             $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                return empty($meta['pending_review']) && !$detail->is_correct;
+                return empty($meta['pending_review'])
+                    && ! $detail->is_correct
+                    && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail);
             })->count();
             $pendingCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
