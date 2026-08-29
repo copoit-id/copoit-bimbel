@@ -53,7 +53,21 @@
     </aside>
 
     <header class="sticky top-0 z-30 border-b border-gray-200 bg-white lg:hidden">
-        <div class="flex items-center justify-between px-4 py-3"><a href="{{ route('tutor.dashboard') }}" class="font-bold text-primary">Portal Tutor</a><a href="{{ route('tutor.schedule.index') }}" class="text-sm font-semibold text-gray-600">Jadwal</a></div>
+        <div class="flex items-center justify-between gap-3 px-4 py-3">
+            <a href="{{ route('tutor.dashboard') }}" class="shrink-0 font-bold text-primary">Portal Tutor</a>
+            <button type="button" class="rounded-lg p-2 text-gray-600 hover:bg-gray-100" onclick="document.getElementById('tutor-mobile-nav').classList.toggle('hidden')" aria-label="Buka navigasi tutor">
+                <i class="ri-menu-line text-xl"></i>
+            </button>
+        </div>
+        <nav id="tutor-mobile-nav" class="hidden border-t border-gray-100 px-4 py-2 text-sm font-semibold">
+            <a href="{{ route('tutor.dashboard') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.dashboard') ? $activeLinkClass : $inactiveLinkClass }}">Dashboard</a>
+            <a href="{{ route('tutor.schedule.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}">Jadwal Mengajar</a>
+            @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}">Booking</a>@endif
+            @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}">Absensi</a>@endif
+            @if($canShowLearningProgress)<a href="{{ route('tutor.development.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.development.*') ? $activeLinkClass : $inactiveLinkClass }}">Perkembangan</a>@endif
+            @if($clientBranding['tutor_chat_enabled'] ?? false)<a href="{{ route('tutor.chat.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.chat.*') ? $activeLinkClass : $inactiveLinkClass }}">Chat Siswa</a>@endif
+            @if($canShowTutorProfile)<a href="{{ route('tutor.profile.edit') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.profile.*') ? $activeLinkClass : $inactiveLinkClass }}">Profil Saya</a>@endif
+        </nav>
     </header>
 
     <main class="responsive-shell min-h-screen px-4 py-6 sm:px-6 lg:ml-64 lg:px-8">

@@ -5,11 +5,11 @@
 
 <div data-admin-interactive-tour data-tour-base-url="{{ $tourBaseUrl }}"
     data-current-route="{{ request()->route()?->getName() }}" class="hidden">
-    <div data-admin-tour-overlay class="fixed inset-0 z-[1000] bg-slate-950/60"></div>
+    <div data-admin-tour-overlay class="fixed inset-0 z-[2000] bg-slate-950/60"></div>
 
     <section data-admin-tour-card role="dialog" aria-modal="true" aria-labelledby="admin-tour-title"
         aria-describedby="admin-tour-body" tabindex="-1"
-        class="fixed inset-x-4 bottom-4 z-[1002] max-w-sm rounded-2xl bg-white p-5 shadow-2xl sm:inset-x-auto sm:bottom-auto">
+        class="fixed inset-x-4 bottom-4 z-[2002] max-h-[calc(100vh-2rem)] max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:inset-x-auto sm:bottom-auto">
         <div class="mb-3 flex items-start justify-between gap-3">
             <p data-admin-tour-progress class="text-xs font-semibold uppercase tracking-wide text-primary"></p>
             <button type="button" data-admin-tour-close class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -47,6 +47,7 @@
                         this.nextButton = root.querySelector('[data-admin-tour-next]');
                         this.skipButton = root.querySelector('[data-admin-tour-skip]');
                         this.closeButton = root.querySelector('[data-admin-tour-close]');
+                        this.overlay = root.querySelector('[data-admin-tour-overlay]');
                         this.active = false;
                         this.bind();
                         this.resume();
@@ -59,6 +60,7 @@
                         this.nextButton.addEventListener('click', () => this.advance());
                         this.skipButton.addEventListener('click', () => this.close('skipped'));
                         this.closeButton.addEventListener('click', () => this.close('dismissed'));
+                        this.overlay.addEventListener('click', () => this.close('dismissed'));
                         window.addEventListener('resize', () => this.positionCard());
                         window.addEventListener('scroll', () => this.positionCard(), true);
                     }
@@ -83,7 +85,9 @@
                             body: body ? JSON.stringify(body) : null,
                         });
                         if (!response.ok) {
-                            throw new Error('Tutor Navigasi tidak tersedia untuk halaman ini.');
+                            let detail = '';
+                            try { detail = (await response.json()).message || ''; } catch (error) {}
+                            throw new Error(detail || `Tutor Navigasi gagal dimuat (${response.status}).`);
                         }
                         return response.json();
                     }
@@ -94,9 +98,10 @@
                         return this.tour;
                     }
 
-                    async start(key) {
+                        async start(key) {
                         try {
                             await this.load(key);
+                            if (!this.tour?.steps?.length) throw new Error('Tutor Navigasi ini belum memiliki langkah.');
                             const result = await this.request(this.baseUrl + '/' + encodeURIComponent(key) + '/start', 'POST');
                             this.openStep(result.current_step_id || this.tour.steps[0].id);
                         } catch (error) {
@@ -123,12 +128,17 @@
 
                     openStep(stepId) {
                         const step = this.tour.steps.find((item) => item.id === stepId);
-                        if (!step || step.route !== this.currentRoute) return;
+                        if (!step) {
+                            this.clearResume();
+                            window.alert('Langkah Tutor Navigasi tidak ditemukan. Tour direset.');
+                            return;
+                        }
+                        if (step.route !== this.currentRoute) return;
 
                         const target = document.querySelector(step.target);
                         if (!target) {
                             this.clearResume();
-                            window.alert('Halaman berubah. Silakan mulai ulang Tutor Navigasi.');
+                            window.alert('Target langkah tidak ditemukan di halaman ini. Tour direset.');
                             return;
                         }
 
@@ -141,13 +151,14 @@
                         this.body.textContent = step.body;
                         this.progress.textContent = 'Langkah ' + (this.tour.steps.indexOf(step) + 1) + ' dari ' + this.tour.steps.length;
                         this.nextButton.textContent = step.type === 'complete' ? 'Selesai' : 'Lanjut';
+                        this.nextButton.classList.toggle('hidden', step.type === 'click_target');
                         this.nextButton.disabled = step.type === 'input_target' && !this.hasInputValue();
                         this.nextButton.classList.toggle('opacity-50', this.nextButton.disabled);
                         this.nextButton.classList.toggle('cursor-not-allowed', this.nextButton.disabled);
                         this.highlight();
                         this.installGuards();
                         target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-                        this.positionCard();
+                        requestAnimationFrame(() => this.positionCard());
                         setTimeout(() => this.card.focus(), 0);
                     }
 
@@ -296,12 +307,18 @@
                     }
 
                     positionCard() {
-                        if (!this.active || !this.target || window.innerWidth < 640) return;
+                        if (!this.active || !this.target) return;
+                        if (window.innerWidth < 640) {
+                            this.card.style.left = '';
+                            this.card.style.top = '';
+                            this.card.style.bottom = '';
+                            return;
+                        }
 
                         const rect = this.target.getBoundingClientRect();
                         const cardWidth = this.card.offsetWidth || 360;
                         const preferredLeft = rect.right + 16;
-                        const left = preferredLeft + cardWidth < window.innerWidth - 16
+                        const left = preferredLeft + cardWidth <= window.innerWidth - 16
                             ? preferredLeft
                             : Math.max(16, rect.left - cardWidth - 16);
                         const top = Math.max(16, Math.min(rect.top, window.innerHeight - this.card.offsetHeight - 16));
@@ -321,11 +338,11 @@
         <style>
             .admin-tour-target {
                 position: relative !important;
-                z-index: 1001 !important;
+                z-index: 2001 !important;
                 outline: 4px solid rgb(59 130 246) !important;
                 outline-offset: 4px !important;
                 border-radius: 0.5rem;
-                box-shadow: 0 0 0 9999px rgb(15 23 42 / 0.60) !important;
+                box-shadow: 0 0 0 4px rgb(59 130 246 / 0.15) !important;
             }
 
             @media (prefers-reduced-motion: no-preference) {

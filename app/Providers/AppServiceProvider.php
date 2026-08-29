@@ -118,7 +118,7 @@ class AppServiceProvider extends ServiceProvider
             'ai_discussion_admin_configurable' => false,
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
-            'admin_tours_enabled' => true,
+            'admin_tours_enabled' => false,
             'recurring_bill_menu_enabled' => false,
             'billing_dashboard_enabled' => true,
             'tutor_chat_enabled' => false,

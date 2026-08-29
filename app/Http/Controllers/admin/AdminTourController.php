@@ -16,17 +16,19 @@ class AdminTourController extends Controller
         private readonly AdminTourProgressService $progressService,
     ) {}
 
-    public function show(Request $request, string $portal, string $tourKey): JsonResponse
+    public function show(Request $request, string $tourKey): JsonResponse
     {
+        $portal = $this->portalFor($request);
         return response()->json([
             'tour' => $this->registry->payload($this->tourForRequest($request, $portal, $tourKey)),
         ]);
     }
 
-    public function start(Request $request, string $portal, string $tourKey): JsonResponse
+    public function start(Request $request, string $tourKey): JsonResponse
     {
+        $portal = $this->portalFor($request);
         $tour = $this->tourForRequest($request, $portal, $tourKey);
-        $progress = $this->progressService->start($request->user(), $tour);
+        $progress = $this->progressService->restart($request->user(), $tour);
 
         return response()->json([
             'status' => $progress->status,
@@ -34,12 +36,13 @@ class AdminTourController extends Controller
         ]);
     }
 
-    public function storeStep(Request $request, string $portal, string $tourKey, string $stepId): JsonResponse
+    public function storeStep(Request $request, string $tourKey, string $stepId): JsonResponse
     {
         $request->validate([
             'event' => ['required', Rule::in(['completed', 'skipped', 'dismissed'])],
         ]);
 
+        $portal = $this->portalFor($request);
         $tour = $this->tourForRequest($request, $portal, $tourKey);
         $stepIds = array_column($tour['steps'], 'id');
         abort_unless(in_array($stepId, $stepIds, true), 404);
@@ -55,8 +58,9 @@ class AdminTourController extends Controller
         ]);
     }
 
-    public function complete(Request $request, string $portal, string $tourKey): JsonResponse
+    public function complete(Request $request, string $tourKey): JsonResponse
     {
+        $portal = $this->portalFor($request);
         $tour = $this->tourForRequest($request, $portal, $tourKey);
         $progress = $this->progressService->close($request->user(), $tour, 'completed');
 
@@ -74,5 +78,10 @@ class AdminTourController extends Controller
         abort_unless($tour, 404);
 
         return $tour;
+    }
+
+    private function portalFor(Request $request): string
+    {
+        return $request->user()?->isTutor() ? 'tutor' : 'admin';
     }
 }

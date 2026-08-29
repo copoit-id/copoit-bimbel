@@ -13,7 +13,7 @@ return new class extends Migration
         }
 
         Schema::table('client_profile', function (Blueprint $table): void {
-            $table->boolean('admin_tours_enabled')->default(true);
+            $table->boolean('admin_tours_enabled')->default(false);
         });
     }
 

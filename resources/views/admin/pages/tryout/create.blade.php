@@ -1163,7 +1163,7 @@
                     class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
                     Batal
                 </a>
-                <button type="submit"
+                <button type="submit" id="tryout-submit"
                     class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5">
                     {{ isset($tryout) ? 'Perbarui Tryout' : 'Simpan Tryout' }}
                 </button>

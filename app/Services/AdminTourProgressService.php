@@ -37,6 +37,34 @@ class AdminTourProgressService
     }
 
     /**
+     * Explicitly start a fresh run from the first step.
+     *
+     * This is intentionally separate from start(), which is also used while
+     * resuming and completing a step.
+     *
+     * @param  array<string, mixed>  $tour
+     */
+    public function restart(User $user, array $tour): AdminTourProgress
+    {
+        return DB::transaction(function () use ($user, $tour): AdminTourProgress {
+            return AdminTourProgress::query()->updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'tour_key' => $tour['key'],
+                    'tour_version' => $tour['version'],
+                ],
+                [
+                    'status' => 'in_progress',
+                    'current_step_id' => $tour['steps'][0]['id'],
+                    'completed_at' => null,
+                    'skipped_at' => null,
+                    'metadata' => null,
+                ],
+            );
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $tour
      */
     public function completeStep(User $user, array $tour, string $stepId): AdminTourProgress
