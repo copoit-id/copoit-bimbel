@@ -12,6 +12,11 @@ use InvalidArgumentException;
 
 class TryoutQuestionDownloadService
 {
+    public function __construct(
+        private LatexPdfRenderer $latexPdfRenderer,
+    ) {
+    }
+
     /**
      * Generate a PDF containing questions, with optional answer discussions.
      *
@@ -25,6 +30,8 @@ class TryoutQuestionDownloadService
 
         $options = new Options;
         $options->set('isRemoteEnabled', false);
+
+        $questions = $this->renderQuestionMath($questions);
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml(view('pdf.tryout-questions', [
@@ -43,6 +50,42 @@ class TryoutQuestionDownloadService
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.Str::slug($tryout->name).'-'.$type.'.pdf"',
         ]);
+    }
+
+    /**
+     * Render every formula once before Dompdf receives the HTML, because Dompdf
+     * cannot execute browser-side MathJax.
+     *
+     * @param Collection<int, \App\Models\Question> $questions
+     * @return Collection<int, \App\Models\Question>
+     */
+    private function renderQuestionMath(Collection $questions): Collection
+    {
+        $fragments = [];
+        $bindings = [];
+
+        foreach ($questions as $question) {
+            $questionKey = 'question-'.$question->getKey();
+            $fragments[$questionKey] = $question->question_text;
+            $bindings[$questionKey] = [$question, 'question_text'];
+
+            $explanationKey = 'explanation-'.$question->getKey();
+            $fragments[$explanationKey] = $question->explanation;
+            $bindings[$explanationKey] = [$question, 'explanation'];
+
+            foreach ($question->questionOptions as $option) {
+                $optionKey = 'option-'.$option->getKey();
+                $fragments[$optionKey] = $option->option_text;
+                $bindings[$optionKey] = [$option, 'option_text'];
+            }
+        }
+
+        $renderedFragments = $this->latexPdfRenderer->renderMany($fragments);
+        foreach ($bindings as $key => [$model, $attribute]) {
+            $model->setAttribute($attribute, $renderedFragments[$key] ?? $model->getAttribute($attribute));
+        }
+
+        return $questions;
     }
 
     private function brandLogoDataUrl(): ?string

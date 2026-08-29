@@ -38,6 +38,9 @@
         .explanation { margin-top: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; background: #f9fafb; line-height: 1.45; }
         .answer p, .explanation p { margin: 0; }
         .label { margin-bottom: 2px; font-weight: bold; }
+        .math-equation { display: inline-block; vertical-align: middle; }
+        .math-equation-display { display: block; margin: 6px 0; text-align: center; }
+        .math-equation-display .math-equation { vertical-align: middle !important; }
         img { max-width: 100%; height: auto; }
     </style>
 </head>

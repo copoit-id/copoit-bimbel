@@ -17,8 +17,10 @@
         "vite": "^6.2.4"
     },
     "dependencies": {
+        "@resvg/resvg-js": "^2.6.2",
         "chart.js": "^4.5.1",
         "laravel-echo": "^2.4.0",
+        "mathjax-full": "^3.2.2",
         "pusher-js": "^8.5.0"
     }
 }
