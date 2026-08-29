@@ -1,7 +1,7 @@
 @extends('user.layout.new-user')
 @section('title', 'Pembahasan Tryout')
 @section('content')
-<div class="package-bimbel flex flex-col gap-4">
+<div class="package-bimbel flex flex-col gap-4 pb-28">
     @php
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
@@ -942,16 +942,19 @@
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex flex-wrap justify-center gap-3">
+    <!-- Floating Action Buttons -->
+    <div class="fixed inset-x-3 bottom-3 z-40 flex justify-center sm:inset-x-6 sm:bottom-5">
+    <div class="flex max-w-4xl flex-wrap justify-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl backdrop-blur sm:gap-3 sm:p-3">
         @if($package)
-            <x-ui.button :href="route('user.package.tryout', $package->package_id)" variant="outline" size="md" icon="ri-arrow-left-line">
+            <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
                 Kembali ke Tryout
-            </x-ui.button>
+            </x-ui.history-back>
         @else
-            <x-ui.button :href="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-arrow-left-line">
+            <x-ui.history-back :fallback="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
                 Kembali ke Hasil
-            </x-ui.button>
+            </x-ui.history-back>
         @endif
 
         @if($package)
@@ -975,6 +978,7 @@
         <x-ui.button :href="route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-refresh-line">
             Coba Lagi
         </x-ui.button>
+    </div>
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)

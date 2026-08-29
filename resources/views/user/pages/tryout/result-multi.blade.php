@@ -270,10 +270,10 @@
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
         @endif
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
-        </a>
+        </x-ui.history-back>
         @else
         @if($tryout->show_discussion)
         <a href="{{ route('user.package.tryout.pembahasan', ['free', $tryout->tryout_id, $latestAttemptToken]) }}"
@@ -287,10 +287,10 @@
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
         @endif
-        <a href="{{ route('user.event.index') }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', 'free')"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-        </a>
+            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+        </x-ui.history-back>
         @endif
     </div>
 </div>
