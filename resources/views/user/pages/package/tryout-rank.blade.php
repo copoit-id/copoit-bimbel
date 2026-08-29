@@ -168,26 +168,7 @@
                         @endphp
                         @if($hasMultipleSubtests)
                             @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
-                                @php
-                                    $subtestName = $subtest->type_subtest ?? $subtest->name;
-                                    $map = [
-                                        'twk' => 'TWK',
-                                        'tiu' => 'TIU',
-                                        'tkp' => 'TKP',
-                                        'penalaran_umum' => 'PU',
-                                        'pengetahuan_umum' => 'PPU',
-                                        'pengetahuan_kuantitatif' => 'PK',
-                                        'pemahaman_bacaan_menulis' => 'PBM',
-                                        'literasi_bahasa_indonesia' => 'LBI',
-                                        'literasi_bahasa_inggris' => 'LBE',
-                                        'penalaran_matematika' => 'PM',
-                                        'writing' => 'WT',
-                                        'reading' => 'RD',
-                                        'listening' => 'LS'
-                                    ];
-                                    $alias = $map[strtolower($subtestName)] ?? strtoupper(\Illuminate\Support\Str::limit($subtestName, 3, ''));
-                                @endphp
-                                <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $alias }}</th>
+                                <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $subtest->display_name }}</th>
                             @endforeach
                         @endif
                         <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $hasMultipleSubtests ? 'Final Score' : 'Skor' }}

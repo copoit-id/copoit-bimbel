@@ -77,7 +77,7 @@ class TryoutController extends Controller
             $filterStatus = null;
         }
 
-        $tryouts = Tryout::with(['tryoutDetails.questions'])
+        $tryouts = Tryout::with(['tryoutDetails.materialCategory', 'tryoutDetails.questions'])
             ->withCount([
                 'userAnswers as utbk_pending_count' => function ($query) {
                     $query->where('status', 'pending_release');
@@ -104,7 +104,7 @@ class TryoutController extends Controller
 
         $tryouts->getCollection()->each(function ($tryout) {
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
         });
 
@@ -500,6 +500,7 @@ class TryoutController extends Controller
                 'tryoutDetails' => function ($query) {
                     $query->orderBy('tryout_detail_id');
                 },
+                'tryoutDetails.materialCategory',
                 'tryoutDetails.questions' => function ($query) {
                     $query->with('questionOptions')
                         ->orderBy('question_id');
@@ -508,7 +509,7 @@ class TryoutController extends Controller
 
             // Tambahkan properti 'subtest_name' ke setiap detail
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
 
             return view('admin.pages.tryout.preview', compact('tryout'));

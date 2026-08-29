@@ -163,7 +163,7 @@
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <div class="mt-2">
                 <span class="inline-flex px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-                    SKD Full - {{ $tryoutDetails->count() }} Subtest
+                    {{ $subtestGroupLabel }}
                 </span>
             </div>
             @endif
@@ -215,7 +215,7 @@
         </div>
     </div>
 
-    <!-- SKD Full Subtest Summary (if multiple subtests) -->
+    <!-- Subtest Summary (if multiple subtests) -->
     @if(!empty($subtestSummaries))
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
         <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Per Subtest</h3>
@@ -224,7 +224,7 @@
             <div
                 class="p-4 border rounded-lg {{ $showPassingGrade ? ($summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50') : 'border-gray-200 bg-white' }}">
                 <div class="text-center mb-3">
-                    <h4 class="font-semibold text-gray-800">{{ strtoupper($summary['type']) }}
+                    <h4 class="font-semibold text-gray-800">{{ $summary['abbreviation'] ?? \App\Models\TryoutDetail::abbreviationFromName($summary['name'] ?? '') }}
                     </h4>
                     <p class="text-sm text-gray-600">{{ $summary['name'] }}</p>
                 </div>
@@ -392,7 +392,7 @@
             <div class="flex items-center gap-3 mb-4">
                 <div
                     class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    {{ strtoupper($detail->subtest_type) }}
+                    <i class="ri-book-open-line"></i>
                 </div>
                 <h3 class="text-xl font-bold text-primary">{{ $detail->subtest_name }}</h3>
             </div>
@@ -420,7 +420,7 @@
             <div class="flex flex-wrap items-center justify-start gap-4">
                 <p class="font-semibold">Soal {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                    {{ strtoupper($detail->subtest_type) }}
+                    {{ $detail->subtest_name }}
                 </span>
                 @if($scoringModeInfo)
                 <span class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">

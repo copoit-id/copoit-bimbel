@@ -244,7 +244,8 @@ class QuestionBankController extends Controller
         $referenceBanks = QuestionBank::query()->withCount('questions')->orderBy('name')->get(['id', 'name']);
         $referenceTryouts = Tryout::query()
             ->with(['tryoutDetails' => fn ($query) => $query
-                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest'])
+                ->with('materialCategory:category_id,name')
+                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest', 'material_category_id'])
                 ->orderBy('type_subtest')])
             ->latest('created_at')
             ->limit(100)

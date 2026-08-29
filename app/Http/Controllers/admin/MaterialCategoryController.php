@@ -4,8 +4,10 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MaterialCategory;
+use App\Models\TryoutDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class MaterialCategoryController extends Controller
@@ -104,11 +106,20 @@ class MaterialCategoryController extends Controller
 
         $validated['is_active'] = $request->boolean('is_active');
 
-        if (blank($category->code)) {
+        if ($category->name !== $validated['name']) {
             $validated['code'] = $this->generateUniqueCode($validated['name'], $category);
         }
 
-        $category->update($validated);
+        DB::transaction(function () use ($category, $validated): void {
+            $previousCode = $category->code;
+            $category->update($validated);
+
+            if ($category->code !== $previousCode) {
+                TryoutDetail::query()
+                    ->where('material_category_id', $category->category_id)
+                    ->update(['type_subtest' => $category->code]);
+            }
+        });
 
         return redirect()->route('admin.material.material-category.index')
             ->with('success', !empty($validated['parent_id'])

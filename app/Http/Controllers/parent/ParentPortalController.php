@@ -119,7 +119,11 @@ class ParentPortalController extends Controller
             ? UserAnswer::query()
                 ->where('user_id', $child->id)
                 ->where('status', 'completed')
-                ->with(['tryout:tryout_id,name', 'tryoutDetail:tryout_detail_id,type_subtest'])
+                ->with([
+                    'tryout:tryout_id,name',
+                    'tryoutDetail:tryout_detail_id,type_subtest,material_category_id',
+                    'tryoutDetail.materialCategory:category_id,name',
+                ])
                 ->latest('finished_at')
                 ->paginate(Pagination::perPage(15))
                 ->withQueryString()

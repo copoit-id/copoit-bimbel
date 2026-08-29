@@ -23,7 +23,7 @@
     $initialReferenceTryoutDetailId = (int) old('reference_tryout_detail_id', $requestData['reference_tryout_detail_id'] ?? 0);
     $isTryoutGenerator = ($generatorMode ?? 'bank') === 'tryout';
     $generatorTargetName = $isTryoutGenerator
-        ? ($tryoutDetail->tryout->name ?? 'Tryout') . ' · ' . strtoupper($tryoutDetail->type_subtest ?? 'Subtest')
+        ? ($tryoutDetail->tryout->name ?? 'Tryout') . ' · ' . $tryoutDetail->display_name
         : $bank->name;
     $previewRoute = $isTryoutGenerator
         ? route('admin.question.ai-generator.preview', $tryoutDetail)
@@ -82,10 +82,10 @@
     <div class="rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
         @if($isTryoutGenerator)
         Soal yang disimpan akan langsung masuk ke tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span>
-        - subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
+        - subtest <span class="font-semibold">{{ $tryoutDetail->display_name }}</span>.
         @else
         Konteks import untuk tryout <span class="font-semibold">{{ $tryoutDetail->tryout->name ?? '-' }}</span>
-        - subtest <span class="font-semibold">{{ strtoupper($tryoutDetail->type_subtest ?? '-') }}</span>.
+        - subtest <span class="font-semibold">{{ $tryoutDetail->display_name }}</span>.
         @endif
     </div>
     @endif
@@ -181,7 +181,7 @@
                                     <option value="">Pilih subtest</option>
                                     @foreach($referenceTryouts as $referenceTryout)
                                         @foreach($referenceTryout->tryoutDetails as $referenceTryoutDetail)
-                                            <option value="{{ $referenceTryoutDetail->tryout_detail_id }}" x-show="tryoutId === '{{ $referenceTryout->tryout_id }}'" @selected($initialReferenceTryoutDetailId === $referenceTryoutDetail->tryout_detail_id)>{{ strtoupper($referenceTryoutDetail->type_subtest ?: 'Subtest') }}</option>
+                                            <option value="{{ $referenceTryoutDetail->tryout_detail_id }}" x-show="tryoutId === '{{ $referenceTryout->tryout_id }}'" @selected($initialReferenceTryoutDetailId === $referenceTryoutDetail->tryout_detail_id)>{{ $referenceTryoutDetail->display_name }}</option>
                                         @endforeach
                                     @endforeach
                                 </select>

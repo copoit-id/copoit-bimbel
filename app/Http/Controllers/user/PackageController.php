@@ -15,6 +15,7 @@ use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
+use App\Models\TryoutDetail;
 use App\Models\AiDiscussionUsageLog;
 use App\Models\AiGatewayTransaction;
 use App\Models\UserAnswer;
@@ -1986,7 +1987,7 @@ class PackageController extends Controller
 
     public function riwayatTryout($id_package, $id_tryout)
     {
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
         $package = null;
         $packageRouteId = $id_package;
 
@@ -2035,7 +2036,7 @@ class PackageController extends Controller
         $attempts = \App\Models\UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
-            ->with(['tryout', 'tryoutDetail'])
+            ->with(['tryout', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2046,7 +2047,7 @@ class PackageController extends Controller
         $attemptHistory = [];
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
-            $userAnswers->loadMissing(['userAnswerDetails.question.questionOptions', 'tryoutDetail']);
+            $userAnswers->loadMissing(['userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory']);
             $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
                 ->select('tryout_detail_id', \DB::raw('count(*) as total'))
                 ->groupBy('tryout_detail_id')
@@ -3382,7 +3383,7 @@ class PackageController extends Controller
 
     public function rankingTryout($id_package, $id_tryout)
     {
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
         if (! $tryout->show_leaderboard) {
             return redirect()->route('user.package.my', ['tab' => 'tryouts'])
                 ->with('error', 'Leaderboard tryout ini tidak tersedia.');
@@ -3769,7 +3770,7 @@ class PackageController extends Controller
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
-            ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
+            ->with(['tryout.tryoutDetails.materialCategory', 'userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -3783,6 +3784,14 @@ class PackageController extends Controller
         $latestUserAnswers = $userAnswers->where('attempt_token', $latestAttemptToken);
 
         $tryoutDetails = $tryout->tryoutDetails;
+        $tryout->loadMissing('materialCategory');
+        $subtestGroupLabel = $tryoutDetails->count() > 1
+            ? sprintf(
+                '%s (%d Subtest)',
+                $tryout->materialCategory?->name ?: Str::headline((string) $tryout->type_tryout),
+                $tryoutDetails->count()
+            )
+            : null;
 
         $answeredDetailsByQuestionId = collect();
         foreach ($latestUserAnswers as $userAnswer) {
@@ -3793,7 +3802,7 @@ class PackageController extends Controller
 
             foreach ($answerDetails as $detail) {
                 $detail->subtest_type = $userAnswer->tryoutDetail->type_subtest;
-                $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail->type_subtest);
+                $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail);
             }
 
             foreach ($answerDetails as $detail) {
@@ -3802,7 +3811,7 @@ class PackageController extends Controller
         }
 
         $userAnswersByTryoutDetailId = $latestUserAnswers->keyBy('tryout_detail_id');
-        $questions = \App\Models\Question::with('questionOptions')
+        $questions = \App\Models\Question::with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
             ->orderBy('tryout_detail_id')
             ->orderBy('question_id')
@@ -3827,8 +3836,9 @@ class PackageController extends Controller
             }
 
             $detail->setRelation('question', $question);
-            $detail->subtest_type = $userAnswer?->tryoutDetail?->type_subtest ?? $question->tryoutDetail?->type_subtest;
-            $detail->subtest_name = $this->getSubtestName($detail->subtest_type);
+            $subtestDetail = $userAnswer?->tryoutDetail ?? $question->tryoutDetail;
+            $detail->subtest_type = $subtestDetail?->type_subtest;
+            $detail->subtest_name = $this->getSubtestName($subtestDetail ?? $detail->subtest_type);
             $detail->is_unanswered = !$detail->exists || (
                 !$detail->question_option_id
                 && blank($detail->answer_text)
@@ -3978,7 +3988,8 @@ class PackageController extends Controller
 
                     return [
                         'type' => $type,
-                        'name' => $this->getSubtestName($type),
+                        'name' => $this->getSubtestName($detail),
+                        'abbreviation' => $detail->display_abbreviation,
                         'score' => $score,
                         'max_score' => $max,
                         'display_score' => $displayScore['formatted'],
@@ -4022,7 +4033,8 @@ class PackageController extends Controller
 
                     return [
                         'type' => $type,
-                        'name' => $this->getSubtestName($type),
+                        'name' => $this->getSubtestName($detail),
+                        'abbreviation' => $detail->display_abbreviation,
                         'score' => $score,
                         'max_score' => $max,
                         'display_score' => $displayScore['formatted'],
@@ -4072,6 +4084,7 @@ class PackageController extends Controller
             'packageRouteId',
             'tryout',
             'tryoutDetails',
+            'subtestGroupLabel',
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
@@ -4146,7 +4159,7 @@ class PackageController extends Controller
 
         $isFreeTryout = $id_package === 'free';
         $package = $isFreeTryout ? null : Package::findOrFail($id_package);
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
 
         if (!$tryout->show_discussion) {
             return response()->json([
@@ -4181,7 +4194,7 @@ class PackageController extends Controller
             ->where('tryout_id', $tryout->tryout_id)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
-            ->with('tryoutDetail')
+            ->with('tryoutDetail.materialCategory')
             ->latest()
             ->get();
 
@@ -4191,7 +4204,7 @@ class PackageController extends Controller
             ], 404);
         }
 
-        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail'])
+        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->where('question_id', $validated['question_id'])
             ->whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
             ->firstOrFail();
@@ -4223,7 +4236,7 @@ class PackageController extends Controller
         try {
             $result = $aiDiscussionService->chat($validated['message'], [
                 'tryout_name' => $tryout->name,
-                'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
+                'subtest_name' => $this->getSubtestName($question->tryoutDetail),
                 'question' => $question,
                 'answer_detail' => $answerDetail,
                 'conversation_history' => $conversationHistory,
@@ -4377,8 +4390,13 @@ class PackageController extends Controller
         return trim((string) $explanation) ?: $plainText;
     }
 
-    private function getSubtestName($type)
+    private function getSubtestName(TryoutDetail|string|null $subtest): string
     {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_name;
+        }
+
+        $type = $subtest;
         switch ($type) {
             case 'twk':
                 return 'Tes Wawasan Kebangsaan';

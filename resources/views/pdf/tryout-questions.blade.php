@@ -76,7 +76,7 @@
             <section class="question">
                 <div class="number">Soal {{ $index + 1 }}</div>
                 @if($question->tryoutDetail)
-                    <div class="subtest">{{ strtoupper((string) $question->tryoutDetail->type_subtest) }}</div>
+                    <div class="subtest">{{ $question->tryoutDetail->display_name }}</div>
                 @endif
                 <div class="content">{!! $question->question_text !!}</div>
                 @if($question->questionOptions->isNotEmpty())

@@ -38,8 +38,8 @@ class QuestionController extends Controller
     public function index($tryout_detail_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.question.index', compact('tryout', 'tryout_detail', 'questions'));
@@ -57,7 +57,7 @@ class QuestionController extends Controller
         $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
         $tryout = Tryout::findOrFail($tryoutDetail->tryout_id);
         $questions = Question::query()
-            ->with(['questionOptions', 'tryoutDetail'])
+            ->with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
             ->orderBy('question_id')
             ->get();
@@ -68,8 +68,8 @@ class QuestionController extends Controller
     public function create($tryout_detail_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
             return view('admin.pages.question.create', compact('tryout', 'tryout_detail'));
         } catch (\Exception $e) {
@@ -255,8 +255,8 @@ class QuestionController extends Controller
     public function edit($tryout_detail_id, $question_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $question = Question::with(['questionOptions' => function ($query) {
                 $query->orderBy('question_option_id');
             }])->where('question_id', $question_id)

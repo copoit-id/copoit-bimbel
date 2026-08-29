@@ -867,7 +867,10 @@ class TryoutController extends Controller
         }
 
         // Get tryout details untuk menampilkan info di lobby
-        $tryoutDetails = $tryout->tryoutDetails()->orderBy('tryout_detail_id')->get();
+        $tryoutDetails = $tryout->tryoutDetails()
+            ->with('materialCategory')
+            ->orderBy('tryout_detail_id')
+            ->get();
 
         // Calculate total duration dan questions untuk SKD Full
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
@@ -1018,7 +1021,7 @@ class TryoutController extends Controller
         }
 
         // Get all tryout details dalam urutan yang benar
-        $tryoutDetails = $tryout->tryoutDetails()->get(); // ambil semua dulu
+        $tryoutDetails = $tryout->tryoutDetails()->with('materialCategory')->get(); // ambil semua dulu
 
         if ($tryout->system_tryout === 'toefl') {
             // Tentukan urutan khusus TOEFL
@@ -1052,7 +1055,7 @@ class TryoutController extends Controller
 
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
-                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->subtest_name = $this->getSubtestName($detail);
                 $question->tryout_detail = $detail;
             }
 
@@ -1060,8 +1063,8 @@ class TryoutController extends Controller
 
             $subtestInfo[] = [
                 'type' => $detail->type_subtest,
-                'name' => $this->getSubtestName($detail->type_subtest),
-                'alias' => $this->getSubtestAlias($detail->type_subtest),
+                'name' => $this->getSubtestName($detail),
+                'alias' => $this->getSubtestAlias($detail),
                 'start_number' => $allQuestions->count() - $questions->count() + 1,
                 'end_number' => $allQuestions->count(),
                 'duration' => $detail->duration,
@@ -1149,7 +1152,7 @@ class TryoutController extends Controller
             $questions = $renderedQuestionsByDetail->get($detail->tryout_detail_id, collect());
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
-                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->subtest_name = $this->getSubtestName($detail);
                 $question->tryout_detail = $detail;
                 $question->setAttribute('tryout_number', $questionNumbersById->get($question->question_id));
             }
@@ -1380,8 +1383,13 @@ class TryoutController extends Controller
     }
 
 
-    private function getSubtestName($type)
+    private function getSubtestName(TryoutDetail|string|null $subtest): string
     {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_name;
+        }
+
+        $type = $subtest;
         switch ($type) {
             case 'twk':
                 return 'Tes Wawasan Kebangsaan';
@@ -1436,8 +1444,13 @@ class TryoutController extends Controller
         }
     }
 
-    private function getSubtestAlias($type)
+    private function getSubtestAlias(TryoutDetail|string|null $subtest): string
     {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_abbreviation;
+        }
+
+        $type = $subtest;
         $map = [
             'penalaran_umum' => 'PU',
             'pengetahuan_umum' => 'PPU',
@@ -1848,7 +1861,7 @@ class TryoutController extends Controller
                 'live_score' => [
                     'tryout_detail_id' => $tryoutDetailId,
                     'type' => $userAnswer->tryoutDetail->type_subtest,
-                    'name' => $this->getSubtestName($userAnswer->tryoutDetail->type_subtest),
+                    'name' => $this->getSubtestName($userAnswer->tryoutDetail),
                     'raw_score' => $rawScore,
                     'max_score' => $maxScore,
                     'percentage' => round($percentage, 2),
@@ -2470,7 +2483,7 @@ class TryoutController extends Controller
             ->where('tryout_id', $id_tryout)
             ->whereIn('status', ['completed', 'pending_release'])
             ->when($requestedAttemptToken !== '', fn ($query) => $query->where('attempt_token', $requestedAttemptToken))
-            ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
+            ->with(['tryout.tryoutDetails.materialCategory', 'userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2544,7 +2557,7 @@ class TryoutController extends Controller
                 })->count();
                 $sectionResults[] = [
                     'type'             => $sectionType,
-                    'name'             => $this->getSubtestName($sectionType),
+                    'name'             => $this->getSubtestName($userAnswer->tryoutDetail),
                     'raw_score'        => $toeflResults[$sectionKey]['raw_score'],
                     'scaled_score'     => $toeflResults[$sectionKey]['scaled_score'],
                     'correct_answers'  => $correctCount,
@@ -2619,7 +2632,7 @@ class TryoutController extends Controller
 
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
-                'name' => $this->getSubtestName($answer->tryoutDetail->type_subtest),
+                'name' => $this->getSubtestName($answer->tryoutDetail),
                 'correct' => $correctCount,
                 'wrong' => $wrongCount,
                 'unanswered' => $unansweredCount,
@@ -2815,8 +2828,8 @@ class TryoutController extends Controller
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
-                'name' => $this->getSubtestName($detail->type_subtest),
-                'alias' => $this->getSubtestAlias($detail->type_subtest),
+                'name' => $this->getSubtestName($detail),
+                'alias' => $this->getSubtestAlias($detail),
                 'total_questions' => $totalQuestions,
                 'correct_answers' => $correctCount,
                 'wrong_answers' => $wrongCount,

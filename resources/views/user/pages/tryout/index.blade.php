@@ -361,8 +361,7 @@
                                         $isCurrentSubtest =
                                             $currentSubtest && $currentSubtest['type'] === $subtest['type'];
                                         $isCompleted = $number > $subtest['end_number'];
-                                        $displayLabel =
-                                            $subtest['alias'] ?? \Illuminate\Support\Str::limit($subtest['name'], 18);
+                                        $displayLabel = $subtest['name'];
                                     @endphp
                                     <div class="w-full rounded-lg border border-gray-100 px-3 py-2.5">
                                         <div class="flex items-center gap-3">

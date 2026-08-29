@@ -14,7 +14,7 @@
 </div>
 <x-page-desc title="{{ isset($question) ? 'Edit Soal' : 'Tambah Soal' }} - {{ $tryout->name }}">
     <x-slot name="description">
-        Subtest: {{ strtoupper($tryout_detail->type_subtest) }} • Durasi: {{ $tryout_detail->duration }} menit
+        Subtest: {{ $tryout_detail->display_name }} • Durasi: {{ $tryout_detail->duration }} menit
     </x-slot>
 </x-page-desc>
 
