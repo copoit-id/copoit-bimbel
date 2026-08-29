@@ -99,7 +99,7 @@
                                     @elseif($session->can_user_attend)
                                         <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" enctype="multipart/form-data" class="space-y-2">
                                             @csrf
-                                            @if(($session->schedule->attendanceSetting?->mode ?? 'button') === 'photo')
+                                            @if($session->attendance_mode === \App\Models\AttendanceSetting::MODE_PHOTO)
                                                 <input type="file" name="photo" accept="image/*" required class="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-[10px]">
                                             @endif
                                             <button class="w-full rounded-lg bg-primary px-2 py-1.5 text-xs font-semibold text-white">Absen</button>

@@ -156,8 +156,8 @@
                 <div>
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
                     <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="button" @selected(old('attendance_mode') === 'button')>Tombol saja</option>
-                        <option value="photo" @selected(old('attendance_mode') === 'photo')>Wajib foto</option>
+                        <option value="button" @selected(old('attendance_mode', 'button') === 'button')>Tombol saja</option>
+                        <option value="photo" @selected(old('attendance_mode', 'button') === 'photo')>Wajib foto</option>
                     </select>
                 </div>
 

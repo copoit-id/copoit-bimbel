@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceSetting;
 use App\Models\ClassAttendance;
 use App\Models\ClassModel;
 use App\Models\ClassSession;
@@ -119,6 +120,9 @@ class UserClassScheduleController extends Controller
             $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
 
             $session->user_attendance = $attendance;
+            // Expose the resolved mode once so the view and submit flow use the
+            // same schedule setting.
+            $session->attendance_mode = $setting?->mode ?? AttendanceSetting::MODE_BUTTON;
             $session->attendance_open_at = $openAt;
             $session->attendance_close_at = $closeAt;
             $session->can_user_attend = $canUseAttendance
@@ -187,7 +191,7 @@ class UserClassScheduleController extends Controller
         }
 
         $rules = [];
-        if (($setting?->mode ?? 'button') === 'photo') {
+        if ($setting?->requiresPhoto()) {
             $rules['photo'] = ['required', 'image', 'max:4096'];
         }
 
