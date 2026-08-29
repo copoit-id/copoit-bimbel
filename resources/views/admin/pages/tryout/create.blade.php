@@ -6,9 +6,7 @@
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
     $tryoutTypeOptions = $tryoutTypeOptions ?? [];
-    $dynamicTryoutSubtests = collect($tryoutTypeOptions)
-        ->mapWithKeys(fn ($option, $type) => !empty($option['subtests']) ? [$type => $option['subtests']] : [])
-        ->all();
+    $dynamicTryoutSubtests = $dynamicTryoutSubtests ?? [];
     $selectedTryoutType = old('type_tryout', $tryout->type_tryout ?? '');
     $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
     $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;

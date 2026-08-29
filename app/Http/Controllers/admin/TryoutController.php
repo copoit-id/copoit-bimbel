@@ -162,6 +162,7 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
+        $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
         $certificateTemplates = CertificateTemplate::query()
             ->where('client_profile_id', $this->clientProfileId())
             ->where('is_active', true)
@@ -169,7 +170,7 @@ class TryoutController extends Controller
             ->get();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
@@ -258,6 +259,7 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
+            $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
             $certificateTemplates = CertificateTemplate::query()
                 ->where('client_profile_id', $this->clientProfileId())
                 ->where(function ($query) use ($tryout): void {
@@ -268,7 +270,7 @@ class TryoutController extends Controller
                 ->get();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -653,6 +655,16 @@ class TryoutController extends Controller
                 );
                 break;
         }
+    }
+
+    /** @param array<string, array<string, mixed>> $options */
+    private function dynamicTryoutSubtests(array $options): array
+    {
+        return collect($options)
+            ->mapWithKeys(static fn (array $option, string $type): array => ! empty($option['subtests'])
+                ? [$type => $option['subtests']]
+                : [])
+            ->all();
     }
 
     private function createSubtest($tryoutId, $type, $duration, $passingScore, $passingType)
