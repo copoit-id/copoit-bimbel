@@ -4727,15 +4727,18 @@ class PackageController extends Controller
         $sortedMaterials = $package->materialsThroughDetail->sortBy(function ($material) {
             return $material->order_number ?? $material->material_id;
         });
-        
+        $materialProgressById = UserMaterialAccess::query()
+            ->where('user_id', $user->id)
+            ->whereIn('material_id', $sortedMaterials->pluck('material_id'))
+            ->get()
+            ->keyBy('material_id');
+
         foreach ($sortedMaterials as $material) {
             if (! $liveSessionAvailable && $material->type === 'live_session') {
                 continue;
             }
 
-            $progress = UserMaterialAccess::where('user_id', $user->id)
-                ->where('material_id', $material->material_id)
-                ->first();
+            $progress = $materialProgressById->get($material->material_id);
             $isCompleted = $progress && $progress->is_completed;
             $isInProgress = $progress && $progress->is_in_progress;
             $itemProgress = $progress ? (int) ($progress->progress_percentage ?? 0) : 0;
@@ -4804,12 +4807,15 @@ class PackageController extends Controller
 
             $orderCounter++;
         }
-        
+
         // Process tryouts (append at the end)
+        $tryoutAttemptsById = UserAnswer::query()
+            ->where('user_id', $user->id)
+            ->whereIn('tryout_id', $package->tryouts->pluck('tryout_id'))
+            ->get(['tryout_id', 'status'])
+            ->groupBy('tryout_id');
         foreach ($package->tryouts as $tryout) {
-            $attempts = UserAnswer::where('user_id', $user->id)
-                ->where('tryout_id', $tryout->tryout_id)
-                ->get();
+            $attempts = $tryoutAttemptsById->get($tryout->tryout_id, collect());
             $isCompleted = $attempts->where('status', 'completed')->isNotEmpty();
             $isInProgress = $attempts->where('status', 'in_progress')->isNotEmpty();
             
@@ -4835,12 +4841,14 @@ class PackageController extends Controller
         }
 
         if ($tesKoranEnabled) {
+            $completedTesKoranById = TesKoranResult::query()
+                ->where('user_id', $user->id)
+                ->whereIn('tes_koran_id', $package->tesKorans->pluck('id'))
+                ->where('status', 'completed')
+                ->get(['tes_koran_id'])
+                ->keyBy('tes_koran_id');
             foreach ($package->tesKorans as $tesKoran) {
-                $attempt = TesKoranResult::where('user_id', $user->id)
-                    ->where('tes_koran_id', $tesKoran->id)
-                    ->where('status', 'completed')
-                    ->first();
-                $isCompleted = $attempt !== null;
+                $isCompleted = $completedTesKoranById->has($tesKoran->id);
 
                 if ($isCompleted) {
                     $completedCount++;
@@ -4942,6 +4950,38 @@ class PackageController extends Controller
         };
 
         $tryouts = $tryoutsQuery->get();
+        $tryoutIds = $tryouts->pluck('tryout_id')->map(static fn ($id): int => (int) $id);
+        $questionCountsByTryout = $tryoutIds->isNotEmpty()
+            ? TryoutDetail::query()
+                ->whereIn('tryout_id', $tryoutIds)
+                ->withCount('questions')
+                ->get()
+                ->groupBy('tryout_id')
+                ->map(static fn ($details): int => (int) $details->sum('questions_count'))
+            : collect();
+        $directTryoutAccessIds = $user
+            ? UserTryoutAccess::query()
+                ->where('user_id', $user->id)
+                ->active()
+                ->whereIn('tryout_id', $tryoutIds)
+                ->pluck('tryout_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
+        $purchasedTryoutIds = $user
+            ? IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', Tryout::class)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->whereIn('purchasable_id', $tryoutIds)
+                ->where(function ($query): void {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
+                ->pluck('purchasable_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
         $pendingIndividualTryoutIds = $user
             ? \App\Models\IndividualPurchase::query()
                 ->where('user_id', $user->id)
@@ -4956,18 +4996,40 @@ class PackageController extends Controller
         foreach ($tryouts as $tryout) {
             $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
             $tryout->has_package_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
-            $tryout->has_access = $user && ($tryout->has_package_access || $tryout->canUserAccess($user->id));
+            $tryoutId = (int) $tryout->tryout_id;
+            $tryout->has_access = $user && ($tryout->has_package_access
+                || in_array($tryoutId, $directTryoutAccessIds, true)
+                || in_array($tryoutId, $purchasedTryoutIds, true));
             $tryout->is_pending_individual = $user && in_array((int) $tryout->tryout_id, $pendingIndividualTryoutIds, true);
             $tryout->route_package_id = $tryout->has_package_access
                 ? collect($tryoutPackageIds)->first(fn ($packageId) => in_array($packageId, $accessiblePackageIds))
                 : 'free';
             $tryout->access_via_package = $tryout->packages->first();
+            $tryout->total_questions = $questionCountsByTryout->get($tryoutId, 0);
+            $tryout->total_duration = (int) $tryout->tryoutDetails->sum('duration');
         }
+
+        $completedTryoutCount = $user
+            ? $tryouts->filter(fn (Tryout $tryout): bool => $tryout->userAnswers
+                ->whereIn('status', ['completed', 'pending_release'])
+                ->pluck('attempt_token')
+                ->filter()
+                ->unique()
+                ->isNotEmpty())->count()
+            : 0;
         
         $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
         $combinedAiPayment = $user ? $this->activeCombinedAiPayment($request) : null;
 
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans', 'combinedAiPayment'));
+        return view('user.pages.tryout.new-list', compact(
+            'tryouts',
+            'accessiblePackageIds',
+            'search',
+            'sort',
+            'aiGatewayPlans',
+            'combinedAiPayment',
+            'completedTryoutCount',
+        ));
     }
 
     /**

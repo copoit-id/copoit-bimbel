@@ -7,6 +7,7 @@ use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\AdminLayoutContextService;
 use App\Services\AdminNavigationService;
+use App\Services\UserNavigationService;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorContentVisibilityService;
@@ -29,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(PlanModuleService::class);
         $this->app->scoped(TutorContentVisibilityService::class);
+        $this->app->scoped(UserNavigationService::class);
     }
 
     /**
@@ -62,6 +64,9 @@ class AppServiceProvider extends ServiceProvider
                 'questionPickerDetail' => $questionPickerDetail,
                 'isQuestionPickerMode' => $questionPickerDetail !== null,
             ]);
+        });
+        View::composer(['user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
+            $view->with(app(UserNavigationService::class)->context(auth()->user()));
         });
         $defaultAsset = 'img/logo/logo-copoit.png';
 

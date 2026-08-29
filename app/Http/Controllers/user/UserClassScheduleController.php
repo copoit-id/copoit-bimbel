@@ -111,6 +111,32 @@ class UserClassScheduleController extends Controller
             ->paginate(\App\Support\Pagination::perPage(15))
             ->withQueryString();
 
+        $currentTime = now();
+        $sessions->getCollection()->transform(function (ClassSession $session) use ($canUseAttendance, $canUseTutorChat, $currentTime): ClassSession {
+            $attendance = $session->attendances->first();
+            $setting = $session->schedule->attendanceSetting;
+            $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 15);
+            $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
+
+            $session->user_attendance = $attendance;
+            $session->attendance_open_at = $openAt;
+            $session->attendance_close_at = $closeAt;
+            $session->can_user_attend = $canUseAttendance
+                && $currentTime->between($openAt, $closeAt)
+                && ! $attendance;
+            $session->tentor_name = $session->tentor?->name
+                ?? $session->schedule?->tentor?->name
+                ?? $session->class?->tentor?->name
+                ?? $session->class?->mentor;
+            $session->can_chat_tutor = $canUseTutorChat
+                && $session->schedule?->schedule_type === 'recurring'
+                && $session->schedule?->is_active
+                && $session->schedule?->tentor?->is_active
+                && $session->schedule?->tentor?->user_id;
+
+            return $session;
+        });
+
         $liveClasses = $canUseClass
             ? ClassModel::query()
                 ->with('tentor')

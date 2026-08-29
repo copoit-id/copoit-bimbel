@@ -1,6 +1,4 @@
 @php
-$user = auth()->user();
-$currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $headerPrimary = $clientBranding['header_primary_color'] ?? false;
 $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
@@ -8,42 +6,6 @@ $bimbelNavLabel = $clientBranding['bimbel_nav_label'] ?? 'Bimbel';
 $materialNavLabel = $clientBranding['material_nav_label'] ?? 'Kelas & Materi';
 $packageNavLabel = $clientBranding['package_nav_label'] ?? 'Paket Belajar';
 $tryoutNavLabel = $clientBranding['tryout_nav_label'] ?? 'Ujian & Try Out';
-$planModules = app(\App\Services\PlanModuleService::class);
-$canShowDashboard = $planModules->allows('dashboard');
-$canShowProfile = $planModules->allows('profile');
-$canShowPackage = $planModules->allows('package');
-$canShowSchedule = $user
-    && $planModules->allows('schedule')
-    && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
-$canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
-    && $planModules->allows('booking')
-    && \Illuminate\Support\Facades\Route::has('user.booking.index');
-$canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
-    && $planModules->allows('booking')
-    && \Illuminate\Support\Facades\Route::has('user.development.index');
-$canShowMaterial = $planModules->allows('material');
-$canShowTryout = $planModules->allows('tryout');
-$canShowTesKoran = $planModules->allows('tes_koran');
-$canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
-    && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
-$canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
-$tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTesKoran;
-$canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
-    && $planModules->allows('affiliate')
-    && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canUseTutorChat = $user
-    && ! $user->isTutor()
-    && (bool) ($clientBranding['tutor_chat_enabled'] ?? false)
-    && $planModules->allows('discussion')
-    && \Illuminate\Support\Facades\Route::has('user.chat.schedule.show');
-$tutorChatService = $canUseTutorChat ? app(\App\Services\TutorChatService::class) : null;
-$tutorChatContacts = $tutorChatService
-    ? $tutorChatService->chatContactsForStudent($user)
-    : collect();
-$canShowTutorChat = $tutorChatContacts->isNotEmpty();
-$tutorChatUnreadCount = $canShowTutorChat
-    ? $tutorChatService->unreadCountFor($user)
-    : 0;
 $canShowBimbel = $canShowPackage || $canShowSchedule || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
@@ -67,7 +29,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.ai-gateway', $currentRoute);
 
 function isActive($route, $current) {
-    return str_starts_with($current, $route);
+    return str_starts_with((string) $current, $route);
 }
 @endphp
 
