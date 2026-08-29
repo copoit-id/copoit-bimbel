@@ -5,6 +5,7 @@
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     @php
         $showResultScores = $tryout->shouldShowResultScores();
+        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
         $showPassingGrade = $tryout->shouldShowPassingGrade();
         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
     @endphp
@@ -21,7 +22,7 @@
         <div class="text-center">
             <h2 class="text-2xl font-bold mb-2">Skor Total</h2>
             <div class="text-5xl font-bold mb-2">{{ number_format($overallPercentage, 1) }}%</div>
-            <p class="text-lg">{{ $rawScore }} dari {{ $maxScore }} poin</p>
+            <p class="text-lg">{{ $rawScore }}@if($showScoreMaximum) dari {{ $maxScore }} poin@endif</p>
 
             @if($showPassingGrade && $tryout->type_tryout === 'computer')
             @if($overallPercentage >= 70)
@@ -207,7 +208,7 @@
                     @if($showResultScores || $showPassingGrade)
                         <p class="text-sm text-gray-500">
                             @if($showResultScores)
-                                {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
+                                {{ $subtest['display_score']['formatted'] ?? $subtest['raw_score'] }}@if($showScoreMaximum)/{{ $subtest['display_score']['formatted_maximum'] ?? $subtest['max_score'] }}@endif
                             @endif
                             @if($showResultScores && $showPassingGrade)
                                 <span class="mx-1">-</span>

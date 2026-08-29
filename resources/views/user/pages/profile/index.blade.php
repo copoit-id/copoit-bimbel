@@ -108,9 +108,8 @@ $user = auth()->user();
                     </div>
                     <div>
                         <label for="origin_institution" class="block text-sm font-medium text-gray-700 mb-1">Asal Sekolah</label>
-                        <input id="origin_institution" name="origin_institution" type="text" value="{{ old('origin_institution', $user->origin_institution ?? '') }}" placeholder="Contoh: SMA Negeri 1 Jakarta"
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent"
-                            style="--tw-ring-color: {{ $primaryColor }}40">
+                        <x-form.origin-institution-input :value="old('origin_institution', $user->origin_institution ?? '')" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:border-transparent" />
+                        <p class="mt-1 text-xs text-gray-500">Cari sekolah yang sudah ada atau isi nama sekolah baru.</p>
                     </div>
                 </div>
 

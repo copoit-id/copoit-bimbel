@@ -32,6 +32,7 @@
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
     $showPassingGradeChecked = old('show_passing_grade', $tryout->show_passing_grade ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
+    $showScoreMaximumChecked = old('show_score_maximum', $tryout->show_score_maximum ?? true);
     $resultScoreScale = old('result_score_scale', $tryout->result_score_scale ?? 'raw');
     $securityOptions = [
         'enable_anti_copy' => [
@@ -475,6 +476,17 @@
 
                         <input type="hidden" name="result_score_display" value="total_and_subtest">
                         <fieldset id="resultScoreScaleOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <label class="mb-4 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                                <span>
+                                    <span class="block text-sm font-medium text-gray-800">Tampilkan nilai maksimum</span>
+                                    <span class="block text-xs text-gray-500">Contoh: 240 / 300. Aktif secara default.</span>
+                                </span>
+                                <input type="checkbox" id="show_score_maximum" name="show_score_maximum" value="1"
+                                    @checked($showScoreMaximumChecked) class="sr-only peer tryout-toggle-input">
+                                <span class="tryout-toggle-track relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                    <span class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                                </span>
+                            </label>
                             <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Skala nilai yang ditampilkan</legend>
                             <div class="grid gap-2 sm:grid-cols-2">
                                 <label class="cursor-pointer">
@@ -490,7 +502,7 @@
                                         @checked($resultScoreScale === 'scale_100') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
                                         <span class="block font-semibold">Skala 0 - 100</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Dihitung dari jumlah jawaban benar dibanding jumlah soal.</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">IRT dikonversi dari 0–1000; tryout biasa dari jawaban benar dibanding total soal.</span>
                                     </span>
                                 </label>
                             </div>
@@ -1458,6 +1470,20 @@
       resultScoreScaleOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
     }
 
+    function syncPassingTypesWithScoreScale() {
+      const usesHundredScale = root.querySelector('input[name="result_score_scale"]:checked')?.value === 'scale_100';
+      root.querySelectorAll('select[name^="passing_type_"]').forEach((selectEl) => {
+        const value = usesHundredScale ? 'percentage' : 'score';
+        const changed = selectEl.value !== value;
+        selectEl.value = value;
+        if (changed) {
+          selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncPassingScoreLimit(selectEl);
+      });
+    }
+
     function syncCertificateTemplateField() {
       certificateTemplateField?.classList.toggle('hidden', !certificationCheckbox?.checked);
     }
@@ -1492,6 +1518,11 @@
 
       if (event.target && event.target.matches('#show_result_scores')) {
         syncResultScoreDisplay();
+      }
+
+      if (event.target && event.target.matches('input[name="result_score_scale"]')) {
+        syncResultScoreDisplay();
+        syncPassingTypesWithScoreScale();
       }
 
       if (event.target && event.target.matches('#is_certification')) {

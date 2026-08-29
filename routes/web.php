@@ -54,6 +54,7 @@ use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
+use App\Http\Controllers\OriginInstitutionLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Http\Controllers\superadmin\AiUsageController;
@@ -97,6 +98,7 @@ Route::get('/statistik-ptn/snbt/data-ptn', [GeneralPageController::class, 'proxy
 Route::get('/statistik-ptn/snbt/data-prodi', [GeneralPageController::class, 'proxyProdiListSnbt'])->name('statistics.snbt.proxy.prodi');
 Route::get('/participant-destinations/official/institutions', [ParticipantDestinationLookupController::class, 'institutions'])->name('participant-destinations.official.institutions');
 Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
+Route::get('/origin-institutions', OriginInstitutionLookupController::class)->name('origin-institutions.lookup');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 Route::get('/ai-gateway-payments/{externalId}/qris', [AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');

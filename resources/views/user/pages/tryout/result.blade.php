@@ -16,6 +16,7 @@
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
                         $showResultScores = $tryout->shouldShowResultScores();
+                        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
                         $showPassingGrade = $tryout->shouldShowPassingGrade();
                         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
@@ -24,7 +25,9 @@
                         @if ($showTotalResultScore && isset($rawScore) && isset($maxScore))
                             <div class="flex justify-center items-end text-center gap-2 my-6">
                                 <p class="text-5xl font-semibold text-gray-900">{{ $displayScore['formatted'] ?? $rawScore }}</p>
-                                <p class="text-xl text-gray-500">/ {{ $displayScore['formatted_maximum'] ?? $maxScore }}</p>
+                                @if($showScoreMaximum)
+                                    <p class="text-xl text-gray-500">/ {{ $displayScore['formatted_maximum'] ?? $maxScore }}</p>
+                                @endif
                             </div>
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
@@ -256,7 +259,7 @@
                                                 @if ($showResultScores || $showPassingGrade)
                                                     @if ($showResultScores)
                                                         <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                            {{ $result['display_score']['formatted'] ?? $result['raw_score'] }}@if(($result['display_score']['scale'] ?? 'raw') === 'raw')/{{ $result['display_score']['formatted_maximum'] ?? $result['max_score'] }}@endif
+                                                            {{ $result['display_score']['formatted'] ?? $result['raw_score'] }}@if($showScoreMaximum)/{{ $result['display_score']['formatted_maximum'] ?? $result['max_score'] }}@endif
                                                         </span>
                                                     @endif
                                                     @if ($showResultScores && $showPassingGrade)

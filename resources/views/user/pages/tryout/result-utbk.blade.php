@@ -5,6 +5,7 @@
 @section('content')
 @php
     $showResultScores = $tryout->shouldShowResultScores();
+    $showScoreMaximum = $tryout->shouldShowScoreMaximum();
     $showPassingGrade = $tryout->shouldShowPassingGrade();
     $showTotalResultScore = $tryout->shouldShowTotalResultScore();
 @endphp
@@ -20,7 +21,7 @@
                 <div class="text-center">
                     @if($showTotalResultScore)
                         <p class="text-sm text-gray-500">Nilai Total</p>
-                        <p class="text-4xl font-bold text-primary">{{ $totalDisplayScore['formatted'] }}</p>
+                        <p class="text-4xl font-bold text-primary">{{ $totalDisplayScore['formatted'] }}@if($showScoreMaximum)<span class="text-lg font-medium text-gray-400"> / {{ $totalDisplayScore['formatted_maximum'] }}</span>@endif</p>
                         <p class="text-xs text-gray-400 mt-1">{{ $totalDisplayScore['label'] }}</p>
                     @elseif(! $showResultScores)
                         <p class="text-sm text-gray-500">Nilai tidak ditampilkan</p>
@@ -64,7 +65,7 @@
                             <td class="px-4 py-3 text-center text-sm text-gray-900">{{ $subtest['unanswered'] }}</td>
                             @if($showResultScores)
                                 <td class="px-4 py-3 text-center">
-                                    <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ $subtest['display_score']['formatted'] }}</span>
+                                    <span class="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">{{ $subtest['display_score']['formatted'] }}@if($showScoreMaximum) / {{ $subtest['display_score']['formatted_maximum'] }}@endif</span>
                                 </td>
                             @endif
                             @if($showPassingGrade)

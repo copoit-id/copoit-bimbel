@@ -341,7 +341,9 @@ class LaporanController extends Controller
                         $tryout,
                         $latestScore,
                         $subtests->sum('correct'),
-                        $subtests->sum('total_questions')
+                        $subtests->sum('total_questions'),
+                        null,
+                        $subtests->count()
                     )['formatted'],
                     'last_finished' => $latest->finished_at,
                     'latest_attempt' => $latest,
@@ -395,10 +397,10 @@ class LaporanController extends Controller
 
         $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
         $statistics['average_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? $this->formatNumericScore($participants->avg(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100))
+            ? $this->formatNumericScore($participants->avg(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $subtests->count())))
             : $this->formatNumericScore($statistics['average_score']);
         $statistics['highest_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? $this->formatNumericScore($participants->max(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100))
+            ? $this->formatNumericScore($participants->max(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $subtests->count())))
             : $this->formatNumericScore($statistics['highest_score']);
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
@@ -818,7 +820,7 @@ class LaporanController extends Controller
                     'status_label' => $isInProgress ? 'Sedang Mengerjakan' : 'Selesai',
                     'total_score' => round($totalScore, 2),
                     'total_score_display' => $tryout->requiresIrtScoring()
-                        ? $scoreDisplayService->present($tryout, $totalScore)['formatted']
+                        ? $scoreDisplayService->present($tryout, $totalScore, 0, 0, null, $subtests->count())['formatted']
                         : $this->formatNumericScore($totalScore),
                     'started_at' => $latest->started_at ? Carbon::parse($latest->started_at) : null,
                     'finished_at' => $latest->finished_at ? Carbon::parse($latest->finished_at) : null,
@@ -966,7 +968,14 @@ class LaporanController extends Controller
                 (int) ($scoreStats->total_questions ?? 0)
             );
             if ($tryout->requiresIrtScoring()) {
-                $scorePresentation = $scoreDisplayService->present($tryout, $tryout->avg_score);
+                $scorePresentation = $scoreDisplayService->present(
+                    $tryout,
+                    $tryout->avg_score,
+                    0,
+                    0,
+                    null,
+                    $tryout->tryoutDetails->count()
+                );
                 $tryout->report_score = $scorePresentation['value'];
                 $tryout->report_score_display = $scorePresentation['formatted'];
                 $tryout->report_score_label = $scorePresentation['label'];

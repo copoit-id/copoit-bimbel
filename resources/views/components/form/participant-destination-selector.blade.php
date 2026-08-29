@@ -48,7 +48,7 @@
     <input type="hidden" name="{{ $fieldPrefix }}_institution_name" data-destination-institution-name value="{{ $selectedInstitutionName }}">
     <input type="hidden" name="{{ $fieldPrefix }}_program_name" data-destination-program-name value="{{ $selectedProgramName }}">
 
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div class="grid grid-cols-1 gap-3">
         <div>
             <label for="{{ $fieldPrefix }}_institution" class="mb-1 block text-sm font-medium text-gray-700">
                 Instansi Tujuan
@@ -64,7 +64,7 @@
                     <option value="{{ $category->id }}" @selected((int) $selectedInstitutionId === (int) $category->id)>{{ $category->name }}</option>
                 @endforeach
                 @if($selectedSource === 'snpmb' && $selectedInstitutionName !== '')
-                    <option value="api:snpmb:{{ $selectedExternalId }}" data-external-id="{{ $selectedExternalId }}" data-name="{{ $selectedInstitutionName }}" selected>[Resmi] {{ $selectedInstitutionName }}</option>
+                    <option value="api:snpmb:{{ $selectedExternalId }}" data-external-id="{{ $selectedExternalId }}" data-name="{{ $selectedInstitutionName }}" selected>{{ $selectedInstitutionName }}</option>
                 @endif
             </select>
         </div>
@@ -78,7 +78,7 @@
                     <option value="{{ $child->id }}" @selected((int) $selectedProgramId === (int) $child->id)>{{ $child->name }}</option>
                 @endforeach
                 @if($selectedSource === 'snpmb' && $selectedProgramName !== '')
-                    <option value="api:snpmb:{{ $selectedExternalId }}:program" data-external-id="{{ $selectedExternalId }}" data-name="{{ $selectedProgramName }}" selected>[Resmi] {{ $selectedProgramName }}</option>
+                    <option value="api:snpmb:{{ $selectedExternalId }}:program" data-external-id="{{ $selectedExternalId }}" data-name="{{ $selectedProgramName }}" selected>{{ $selectedProgramName }}</option>
                 @endif
             </select>
         </div>
@@ -126,9 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 categoryId.value = '';
                 source.value = 'snpmb';
                 externalId.value = institutionOption?.dataset.externalId || institutionValue.replace('api:snpmb:', '');
-                institutionName.value = institutionOption?.dataset.name || institutionOption?.textContent?.replace('[Resmi]', '').trim() || '';
+                institutionName.value = institutionOption?.dataset.name || institutionOption?.textContent?.trim() || '';
                 programName.value = isOfficialValue(program.value)
-                    ? (selectedProgramOption?.dataset.name || selectedProgramOption?.textContent?.replace('[Resmi]', '').trim() || '')
+                    ? (selectedProgramOption?.dataset.name || selectedProgramOption?.textContent?.trim() || '')
                     : '';
                 return;
             }
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             programCache.get(cacheKey).forEach((item) => {
                 const option = document.createElement('option');
                 option.value = `api:snpmb:${item.id_prodi || item.kode_prodi || item.nama}:program`;
-                option.textContent = `[Resmi] ${item.nama}`;
+                option.textContent = item.nama;
                 option.dataset.externalId = item.id_prodi || item.kode_prodi || item.nama || selected.id_ptn || '';
                 option.dataset.name = item.nama || '';
                 option.selected = item.nama === selectedOfficialProgramName;
@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if ([...institution.options].some((option) => option.value === value)) return;
                 const option = document.createElement('option');
                 option.value = value;
-                option.textContent = `[Resmi] ${item.nama}`;
+                option.textContent = item.nama;
                 option.dataset.externalId = item.id_ptn || '';
                 option.dataset.name = item.nama || '';
                 option.dataset.sourceIds = JSON.stringify(item.source_ids || {});
@@ -225,12 +225,18 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = 'Memuat data instansi resmi...';
             try {
                 if (!institutionCache.has('all')) {
-                    const response = await fetch(`${officialInstitutionsUrl}?source=all`, { headers: { Accept: 'application/json' } });
-                    if (!response.ok) throw new Error('Gagal memuat data instansi resmi.');
-                    const payload = await response.json();
-                    institutionCache.set('all', Array.isArray(payload.data) ? payload.data : []);
+                    institutionCache.set('all', fetch(`${officialInstitutionsUrl}?source=all`, { headers: { Accept: 'application/json' } })
+                        .then(async (response) => {
+                            if (!response.ok) throw new Error('Gagal memuat data instansi resmi.');
+                            const payload = await response.json();
+                            return Array.isArray(payload.data) ? payload.data : [];
+                        })
+                        .catch((error) => {
+                            institutionCache.delete('all');
+                            throw error;
+                        }));
                 }
-                addOfficialInstitutions(institutionCache.get('all'));
+                addOfficialInstitutions(await institutionCache.get('all'));
                 status.textContent = '';
             } catch (error) {
                 status.textContent = error.message || 'Gagal memuat data instansi resmi.';

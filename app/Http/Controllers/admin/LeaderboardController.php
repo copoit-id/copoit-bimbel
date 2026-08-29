@@ -464,7 +464,7 @@ class LeaderboardController extends Controller
                 $representative->is_passed = $allSubtestsPassed;
                 $representative->subtest_scores = $subtestScores;
                 $representative->display_score = $scoreDisplayService->present(
-                    $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore
+                    $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore, $attempt->count()
                 );
                 $representative->started_at = $attempt->min('started_at');
                 $representative->finished_at = $attempt->max('finished_at');

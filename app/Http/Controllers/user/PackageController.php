@@ -2130,7 +2130,8 @@ class PackageController extends Controller
                 $totalScore,
                 $totalCorrect,
                 $totalCorrect + $totalWrong + $totalUnanswered,
-                $tryout->requiresIrtScoring() ? 1000 : ($totalMaxScore ?? null)
+                $tryout->requiresIrtScoring() ? 1000 : ($totalMaxScore ?? null),
+                $userAnswers->count()
             );
 
             $attemptHistory[] = [
@@ -3542,7 +3543,7 @@ class PackageController extends Controller
                         if ($totalQuestions < 1) {
                             $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
                         }
-                        $displayScore = $scoreDisplayService->present($tryout, $score, $correctAnswers, $totalQuestions, 1000);
+                        $displayScore = $scoreDisplayService->present($tryout, $score, $correctAnswers, $totalQuestions, 1000, $attempt->count());
                         $displaySubtestScores = collect($subtestScores)
                             ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
                             ->all();
@@ -3586,7 +3587,7 @@ class PackageController extends Controller
                             'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
                             'max_score' => 677, // TOEFL max score
-                            'display_score' => $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677),
+                            'display_score' => $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677, $attempt->count()),
                             'percentage' => $toeflScore,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3634,7 +3635,7 @@ class PackageController extends Controller
                             'user' => $attempt->first()->user,
                             'raw_score' => $totalScore,
                             'max_score' => $totalMaxScore,
-                            'display_score' => $scoreDisplayService->present($tryout, $totalScore, $correctAnswers, $totalQuestions, $totalMaxScore),
+                            'display_score' => $scoreDisplayService->present($tryout, $totalScore, $correctAnswers, $totalQuestions, $totalMaxScore, $attempt->count()),
                             'percentage' => $percentage,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3940,7 +3941,8 @@ class PackageController extends Controller
             $totalScore,
             $correctAnswers,
             $totalQuestions,
-            $maxScore
+            $maxScore,
+            $latestUserAnswers->count()
         );
 
         $overallStats = [

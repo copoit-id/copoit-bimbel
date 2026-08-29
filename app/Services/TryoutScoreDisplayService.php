@@ -13,7 +13,9 @@ class TryoutScoreDisplayService
     /**
      * Present a score without changing the score persisted for scoring,
      * ranking, or passing-grade calculations. The 0-100 scale is based on
-     * correct answers divided by the total question count.
+     * IRT scores are converted from their original 0-1000 range, while
+     * standard tryouts use correct answers divided by total questions. The
+     * total score accumulates a 0-100 score for every subtest.
      *
      * @return array{value: float, maximum: int, formatted: string, formatted_maximum: string, label: string, scale: string}
      */
@@ -22,22 +24,29 @@ class TryoutScoreDisplayService
         float|int|null $rawScore,
         int $correctAnswers = 0,
         int $totalQuestions = 0,
-        ?float $rawMaximum = null
+        ?float $rawMaximum = null,
+        int $subtestCount = 1
     ): array
     {
         $score = (float) ($rawScore ?? 0);
+        $subtestCount = max(1, $subtestCount);
 
         if ($this->usesHundredScale($tryout)) {
-            $value = $totalQuestions > 0
-                ? min(100, max(0, ($correctAnswers / $totalQuestions) * 100))
-                : 0;
+            $maximum = 100 * $subtestCount;
+            $value = $tryout->requiresIrtScoring()
+                ? min($maximum, max(0, ($score / 10) * $subtestCount))
+                : ($totalQuestions > 0
+                    ? min($maximum, max(0, ($correctAnswers / $totalQuestions) * $maximum))
+                    : ($rawMaximum && $rawMaximum > 0
+                        ? min($maximum, max(0, ($score / $rawMaximum) * $maximum))
+                        : $score));
 
             return [
                 'value' => $value,
-                'maximum' => 100,
+                'maximum' => $maximum,
                 'formatted' => $this->formatNumber($value),
-                'formatted_maximum' => '100',
-                'label' => 'Skala 0 - 100',
+                'formatted_maximum' => (string) $maximum,
+                'label' => "Skala 0 - {$maximum}",
                 'scale' => self::SCALE_HUNDRED,
             ];
         }
@@ -47,7 +56,7 @@ class TryoutScoreDisplayService
             'maximum' => $rawMaximum ?? ($tryout->requiresIrtScoring() ? 1000 : $score),
             'formatted' => $this->formatNumber($score),
             'formatted_maximum' => $this->formatNumber($rawMaximum ?? ($tryout->requiresIrtScoring() ? 1000 : $score)),
-            'label' => 'Skor asli',
+            'label' => $tryout->requiresIrtScoring() ? 'Skor asli (0 - 1000)' : 'Skor asli',
             'scale' => self::SCALE_RAW,
         ];
     }

@@ -3,6 +3,7 @@
 @section('content')
 @php
     $showResultScores = $tryout->shouldShowResultScores();
+    $showScoreMaximum = $tryout->shouldShowScoreMaximum();
     $showTotalResultScore = $tryout->shouldShowTotalResultScore();
 @endphp
 
@@ -96,7 +97,7 @@
                 @if($showResultScores)
                     <div class="flex justify-between">
                         <span class="text-gray-600">Raw Score:</span>
-                        <span class="font-medium">{{ $result['raw_score'] }}/{{ $result['total_questions'] }}</span>
+                        <span class="font-medium">{{ $result['raw_score'] }}@if($showScoreMaximum)/{{ $result['total_questions'] }}@endif</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">

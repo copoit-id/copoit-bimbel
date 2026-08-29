@@ -2637,7 +2637,8 @@ class TryoutController extends Controller
             $totalScore,
             $subtests->sum('correct'),
             $subtests->sum(fn (array $subtest) => $subtest['correct'] + $subtest['wrong'] + $subtest['unanswered']),
-            1000
+            1000,
+            $subtests->count()
         );
         $overallPassed = $subtests->every('is_passed');
 
@@ -2716,7 +2717,6 @@ class TryoutController extends Controller
         // Calculate overall percentage
         $overallPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
-        $displayScore = $scoreDisplayService->present($tryout, $rawScore, $correctAnswers, $totalQuestions, $maxScore);
         $subtestResults = collect($subtestResults)->map(function (array $result) use ($tryout, $scoreDisplayService) {
             $result['display_score'] = $scoreDisplayService->present(
                 $tryout,
@@ -2728,6 +2728,14 @@ class TryoutController extends Controller
 
             return $result;
         })->values()->all();
+        $displayScore = $scoreDisplayService->present(
+            $tryout,
+            $rawScore,
+            $correctAnswers,
+            $totalQuestions,
+            $maxScore,
+            count($subtestResults)
+        );
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
 

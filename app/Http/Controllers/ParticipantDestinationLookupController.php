@@ -18,7 +18,7 @@ class ParticipantDestinationLookupController extends Controller
 
         return response()->json([
             'data' => $destinationService->institutions($validated['source']),
-        ]);
+        ])->header('Cache-Control', 'private, max-age=300');
     }
 
     public function programs(Request $request, OfficialParticipantDestinationService $destinationService)
@@ -39,6 +39,6 @@ class ParticipantDestinationLookupController extends Controller
                 $validated['ptn_snbt'] ?? null,
                 $validated['ptn_snbp'] ?? null
             ),
-        ]);
+        ])->header('Cache-Control', 'private, max-age=300');
     }
 }
