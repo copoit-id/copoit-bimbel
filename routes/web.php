@@ -518,7 +518,11 @@ Route::prefix('{portal}')
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
-        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
+        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])
+            ->middleware('throttle:20,10')
+            ->name('assistant.chat');
+        Route::get('/assistant/history', [AdminAssistantController::class, 'history'])
+            ->name('assistant.history');
         Route::get('/tours/{tourKey}', [AdminTourController::class, 'show'])->name('tours.show');
         Route::post('/tours/{tourKey}/start', [AdminTourController::class, 'start'])->name('tours.start');
         Route::post('/tours/{tourKey}/steps/{stepId}', [AdminTourController::class, 'storeStep'])->name('tours.steps.store');

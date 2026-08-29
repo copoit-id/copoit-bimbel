@@ -74,7 +74,7 @@ class AiGatewayController extends Controller
             'external_user_email' => 'nullable|email|max:255',
             'project_base_url' => 'nullable|url|max:2048',
             'question_reference' => 'nullable|string|max:120',
-            'feature' => 'nullable|in:discussion,learning_note,learning_recommendation,learning_question,learning_flashcard',
+            'feature' => 'nullable|in:discussion,admin_assistant,learning_note,learning_recommendation,learning_question,learning_flashcard',
             'context' => 'required|array',
             'context.tryout_name' => 'nullable|string|max:255',
             'context.subtest_name' => 'nullable|string|max:255',
@@ -89,6 +89,26 @@ class AiGatewayController extends Controller
             'context.response_style' => 'nullable|in:chat,guru_suara',
         ]);
         $externalUserId = trim($data['external_user_id']);
+        $feature = $data['feature'] ?? 'discussion';
+        $isAdminAssistant = $feature === 'admin_assistant';
+        $monthlyLimit = (int) $client->monthly_token_limit;
+        $monthlyUsed = $isAdminAssistant
+            ? (int) AiGatewayUsageLog::query()
+                ->where('ai_gateway_client_id', $client->id)
+                ->where('feature', 'admin_assistant')
+                ->where('created_at', '>=', now()->startOfMonth())
+                ->sum('total_tokens')
+            : 0;
+
+        if ($isAdminAssistant && $monthlyLimit > 0 && $monthlyUsed >= $monthlyLimit) {
+            return response()->json(['message' => 'Batas token bulanan Asisten Admin sudah habis.'], 429);
+        }
+
+        if ($isAdminAssistant) {
+            $subscription = null;
+            $trial = null;
+            $remainingTokenQuota = $monthlyLimit > 0 ? $monthlyLimit - $monthlyUsed : null;
+        } else {
         $subscriptions = AiGatewaySubscription::with('plan')
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
@@ -141,6 +161,7 @@ class AiGatewayController extends Controller
             : ($trial && $client->free_token_limit > 0
                 ? max(1, (int) $client->free_token_limit - (int) $trial->tokens_used)
                 : null);
+        }
 
         try {
             $result = $ai->chat(
@@ -148,7 +169,7 @@ class AiGatewayController extends Controller
                 $data['context'],
                 true,
                 $remainingTokenQuota,
-                $data['feature'] ?? 'discussion',
+                $feature,
             );
         } catch (\RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -176,7 +197,7 @@ class AiGatewayController extends Controller
             'external_user_email' => $data['external_user_email'] ?? null,
             'origin_base_url' => $client->base_url,
             'question_reference' => $data['question_reference'] ?? null,
-            'feature' => $data['feature'] ?? 'discussion',
+            'feature' => $feature,
             'provider' => $result['provider'],
             'model' => $result['model'],
             'input_tokens' => $result['usage']['input'],
@@ -202,7 +223,16 @@ class AiGatewayController extends Controller
         }
         $client->update(['last_used_at' => now()]);
 
-        $quota = $subscription
+        $quota = $isAdminAssistant
+            ? [
+                'type' => 'project',
+                'token_limit' => $monthlyLimit,
+                'tokens_used' => $monthlyUsed + (int) $result['usage']['total'],
+                'remaining_tokens' => $monthlyLimit > 0
+                    ? max(0, $monthlyLimit - $monthlyUsed - (int) $result['usage']['total'])
+                    : null,
+            ]
+            : ($subscription
             ? [
                 'type' => $subscription->free_claim_key ? 'free_package' : 'package',
                 'token_limit' => (int) ($subscription->token_limit ?: $subscription->plan->token_limit),
@@ -216,7 +246,7 @@ class AiGatewayController extends Controller
                 'tokens_used' => (int) $trial->tokens_used,
                 'chat_limit' => (int) $client->free_chat_limit,
                 'chats_used' => (int) $trial->chats_used,
-            ];
+            ]);
 
         return response()->json([...$result, 'quota' => $quota]);
     }

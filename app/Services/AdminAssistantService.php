@@ -18,13 +18,25 @@ use App\Models\UserMaterialAccess;
 use App\Models\UserPackageAcces;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
 class AdminAssistantService
 {
     private const TIMEZONE = 'Asia/Jakarta';
+
+    public function __construct(
+        private readonly AiDiscussionService $aiDiscussionService,
+        private readonly AdminAssistantProjectContextService $projectContextService,
+        private readonly AdminAssistantHistoryService $historyService,
+    ) {}
+
+    /** @return array<int, array{role: string, text: string, created_at: string|null}> */
+    public function history(User $user): array
+    {
+        return $this->historyService->recent($user);
+    }
 
     public function chat(string $message): array
     {
@@ -40,16 +52,9 @@ class AdminAssistantService
         $period = $this->detectPeriod($message);
         $detection = $this->detectIntent($message);
 
-        if ($this->shouldUseAiClassifier($detection)) {
-            $aiDetection = $this->detectIntentWithAi($message, $period['key']);
-            if ($aiDetection !== null) {
-                $detection = $aiDetection;
-            }
-        }
-
         $intent = $detection['intent'] ?? null;
 
-        return match ($intent) {
+        $response = match ($intent) {
             'overview' => $this->overview($period),
             'revenue_summary' => $this->revenueSummary($period),
             'revenue_comparison' => $this->revenueComparison($period),
@@ -58,6 +63,7 @@ class AdminAssistantService
             'package_requests' => $this->packageRequests($period),
             'material_summary' => $this->materialSummary($period),
             'tryout_summary' => $this->tryoutSummary($period),
+            'how_to' => $this->howTo($message),
             'admin_count' => $this->adminCount(),
             'student_registration' => $this->studentRegistration($period),
             'question_summary' => $this->questionSummary(),
@@ -66,6 +72,15 @@ class AdminAssistantService
             'pending_actions' => $this->pendingActions(),
             default => $this->fallback($message),
         };
+
+        $user = auth()->user();
+        if ($user && ! ($response['cache_hit'] ?? false)) {
+            $context = $this->projectContextService->snapshot($user);
+            $contextHash = hash('sha256', json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->historyService->store($user, $message, $response, $contextHash);
+        }
+
+        return $response;
     }
 
     public function suggestions(): array
@@ -85,6 +100,15 @@ class AdminAssistantService
     private function detectIntent(string $message): array
     {
         $normalized = $this->normalize($message);
+
+        if ($this->isHowToQuestion($normalized)) {
+            return [
+                'intent' => 'how_to',
+                'confidence' => 1,
+                'source' => 'local',
+            ];
+        }
+
         $intents = $this->intents();
         $bestIntent = null;
         $bestScore = 0;
@@ -547,10 +571,131 @@ class AdminAssistantService
 
     private function fallback(string $message): array
     {
+        $user = auth()->user();
+        if ($user && filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key'))) {
+            $projectContext = $this->projectContextService->snapshot(auth()->user());
+            $contextHash = hash('sha256', json_encode($projectContext, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $cachedResponse = $this->historyService->reusable($user, $message, $contextHash);
+            if ($cachedResponse) {
+                return [
+                    ...$cachedResponse,
+                    'suggestions' => $this->suggestions(),
+                ];
+            }
+
+            try {
+                $result = $this->aiDiscussionService->chat(
+                    $message,
+                    [
+                        'question_text' => $message,
+                        'explanation' => json_encode(
+                            $projectContext,
+                            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                        ),
+                    ],
+                    feature: 'admin_assistant',
+                );
+
+                $response = [
+                    'answer' => trim((string) ($result['message'] ?? '')),
+                    'intent' => 'ai_assistant',
+                    'source' => 'project_context',
+                    'confidence' => 'verified',
+                    'usage' => $result['usage'] ?? null,
+                    'suggestions' => $this->suggestions(),
+                ];
+                return $response;
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $localGuide = $this->localProjectGuide($message);
+        if ($localGuide) {
+            return $localGuide;
+        }
+
         return $this->response(
-            'Aku belum paham pertanyaan itu. Coba tanyakan data seperti pendapatan, pembayaran, paket, pengajuan paket, peserta baru, tryout, materi, soal, admin, atau tes koran.',
+            'Aku belum bisa memverifikasi pertanyaan itu dari data dan struktur project yang tersedia. Coba tanyakan data seperti pendapatan, pembayaran, paket, peserta baru, tryout, materi, soal, admin, atau tes koran.',
             'fallback'
         );
+    }
+
+    private function howTo(string $message): array
+    {
+        return $this->fallback($message);
+    }
+
+    private function isHowToQuestion(string $normalized): bool
+    {
+        $normalized = preg_replace('/^ara\b/', 'cara', $normalized) ?? $normalized;
+
+        foreach ([
+            'cara', 'bagaimana', 'gimana', 'langkah', 'tutorial',
+            'tambah', 'tambahkan', 'buat', 'membuat', 'atur', 'mengatur',
+            'edit', 'ubah', 'mengubah', 'hapus', 'menghapus',
+        ] as $keyword) {
+            if (preg_match('/(?:^|\s)'.preg_quote($keyword, '/').'(?:\s|$)/', $normalized) === 1) {
+                return true;
+            }
+        }
+
+        return str_contains($normalized, 'gimana cara')
+            || str_contains($normalized, 'bagaimana cara');
+    }
+
+    private function localProjectGuide(string $message): ?array
+    {
+        $normalized = $this->normalize($message);
+        $subjectWords = collect(preg_split('/\s+/', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [])
+            ->reject(fn (string $word): bool => in_array($word, [
+                'cara', 'bagaimana', 'gimana', 'langkah', 'tutorial', 'tambah', 'tambahkan',
+                'buat', 'membuat', 'atur', 'mengatur', 'edit', 'ubah', 'mengubah', 'hapus',
+                'menghapus', 'untuk', 'di', 'ke', 'pada', 'dengan',
+            ], true))
+            ->values();
+        if ($subjectWords->isEmpty()) {
+            return null;
+        }
+
+        $routes = $this->projectContextService->snapshot(auth()->user())['available_admin_routes'] ?? [];
+        $matches = collect($routes)
+            ->map(function (array $route) use ($subjectWords): array {
+                $haystack = Str::lower($route['name'].' '.$route['uri']);
+                $keywordScore = $subjectWords->sum(fn (string $word): int => str_contains($haystack, $word) ? 1 : 0);
+                $isPage = in_array('GET', $route['methods'], true)
+                    && ! str_contains(str_replace('{portal}', '', $route['uri']), '{');
+
+                return [...$route, 'score' => $keywordScore + ($isPage ? 1 : 0), 'keyword_score' => $keywordScore, 'is_page' => $isPage];
+            })
+            ->filter(fn (array $route): bool => $route['keyword_score'] > 0 && $route['is_page'])
+            ->sortByDesc('score')
+            ->take(2)
+            ->values();
+
+        if ($matches->isEmpty()) {
+            return null;
+        }
+
+        $subject = Str::ucfirst($subjectWords->implode(' '));
+        $steps = $matches->map(function (array $route, int $index): string {
+            $label = Str::of($route['uri'])
+                ->replace(['{portal}', 'admin/', 'tutor/', '/'], ' ')
+                ->replace('-', ' ')
+                ->squish()
+                ->title();
+
+            return ($index + 1).'. Buka halaman '.$label.' (route '.$route['name'].').';
+        })->implode("\n");
+
+        return [
+            ...$this->response(
+                "Untuk menambahkan {$subject}:\n\n{$steps}\n".(count($matches) > 0 ? (count($matches) + 1).'. Gunakan tombol tambah pada halaman tersebut, isi data yang diminta, lalu simpan.' : ''),
+                'how_to'
+            ),
+            'confidence' => 'partial',
+            'source' => 'project_routes',
+        ];
     }
 
     private function response(string $answer, string $intent): array
@@ -650,70 +795,4 @@ class AdminAssistantService
         return trim(preg_replace('/\s+/', ' ', $message) ?? $message);
     }
 
-    private function shouldUseAiClassifier(array $detection): bool
-    {
-        return (bool) config('client.branding.admin_assistant_enabled', false)
-            && filled(config('services.openai.api_key'))
-            && ($detection['intent'] === null || ($detection['confidence'] ?? 0) < 0.6);
-    }
-
-    private function detectIntentWithAi(string $message, string $periodKey): ?array
-    {
-        $allowedIntents = array_keys($this->intents());
-        $model = (string) config('services.openai.question_model', 'gpt-5.4-mini');
-
-        $prompt = 'Klasifikasikan pertanyaan admin bimbel ke salah satu intent berikut: '
-            . implode(', ', $allowedIntents)
-            . ". Jawab JSON saja dengan field intent dan period. Period default: {$periodKey}. Pertanyaan: {$message}";
-
-        try {
-            $response = Http::withToken((string) config('services.openai.api_key'))
-                ->acceptJson()
-                ->asJson()
-                ->timeout(8)
-                ->post(rtrim((string) config('services.openai.base_url'), '/') . '/responses', [
-                    'model' => $model,
-                    'input' => [
-                        ['role' => 'system', 'content' => 'Anda hanya mengklasifikasikan intent. Jangan membuat query database.'],
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                    'max_output_tokens' => 120,
-                ])
-                ->throw()
-                ->json();
-        } catch (\Throwable) {
-            return null;
-        }
-
-        $text = $this->extractOpenAiOutputText($response);
-        $decoded = json_decode($text, true);
-        $intent = is_array($decoded) ? ($decoded['intent'] ?? null) : null;
-
-        if (!is_string($intent) || !in_array($intent, $allowedIntents, true)) {
-            return null;
-        }
-
-        return [
-            'intent' => $intent,
-            'confidence' => 0.75,
-            'source' => 'ai',
-        ];
-    }
-
-    private function extractOpenAiOutputText(array $response): string
-    {
-        if (isset($response['output_text']) && is_string($response['output_text'])) {
-            return trim($response['output_text']);
-        }
-
-        foreach (($response['output'] ?? []) as $item) {
-            foreach (($item['content'] ?? []) as $content) {
-                if (($content['type'] ?? null) === 'output_text' && isset($content['text'])) {
-                    return trim((string) $content['text']);
-                }
-            }
-        }
-
-        return '';
-    }
 }
