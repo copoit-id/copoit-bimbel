@@ -448,10 +448,14 @@ Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])-
 Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->middleware('throttle:120,1')->name('webhook.ipaymu');
 
 // Add route for checking payment status (for debugging)
-Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.check');
 
 // Add route for manual payment activation
-Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.activate');
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {

@@ -27,7 +27,9 @@ class TryoutDetail extends Model
     ];
 
     protected $casts = [
-        'duration' => 'decimal:2',
+        // Durasi subtest disimpan dalam menit dan dipakai sebagai nilai integer
+        // pada form, scoring, serta kalkulasi total durasi.
+        'duration' => 'integer',
         'material_category_id' => 'integer',
         'passing_score' => 'decimal:2',
         'passing_type' => 'string',

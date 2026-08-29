@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
 use App\Models\Role;
+use App\Services\AdminLayoutContextService;
+use App\Services\AdminNavigationService;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorContentVisibilityService;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 
@@ -43,6 +46,23 @@ class AppServiceProvider extends ServiceProvider
 
         Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
         Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
+        View::composer('admin.components.sidebar', function ($view): void {
+            $view->with(
+                'generalPublicVisibility',
+                app(AdminNavigationService::class)->publicPageVisibility(),
+            );
+        });
+        View::composer('admin.layout.admin', function ($view): void {
+            $isQuestionPickerRoute = request()->routeIs('admin.question-bank.*');
+            $questionPickerDetail = $isQuestionPickerRoute
+                ? app(AdminLayoutContextService::class)->questionPickerDetail(request()->integer('import_for'))
+                : null;
+
+            $view->with([
+                'questionPickerDetail' => $questionPickerDetail,
+                'isQuestionPickerMode' => $questionPickerDetail !== null,
+            ]);
+        });
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [

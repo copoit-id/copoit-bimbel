@@ -3,21 +3,22 @@
 namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Package;
 use App\Models\Setting;
 use App\Models\User;
-use App\Models\UserPackageAcces;
+use App\Models\ClassModel;
 use App\Models\Payment;
 use App\Models\Tryout;
-use App\Models\ClassModel;
 use App\Models\UserAnswer;
+use App\Models\UserPackageAcces;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View|RedirectResponse
     {
         // Redirect super admin to super admin dashboard
         if (auth()->user()->isSuperAdmin()) {
@@ -143,7 +144,7 @@ class DashboardController extends Controller
     /**
      * Calculate date ranges based on period
      */
-    private function getDateRanges($period)
+    private function getDateRanges(string $period): array
     {
         $now = Carbon::now();
         
@@ -183,7 +184,7 @@ class DashboardController extends Controller
     /**
      * Calculate trend percentage
      */
-    private function calculateTrend($current, $previous)
+    private function calculateTrend(int|float $current, int|float $previous): array
     {
         if ($previous == 0) {
             return [
@@ -206,113 +207,64 @@ class DashboardController extends Controller
     /**
      * Get tryout attempts chart data
      */
-    private function getTryoutChartData($period)
+    private function getTryoutChartData(string $period): array
     {
-        $now = Carbon::now();
-        $labels = [];
-        $data = [];
-
-        switch ($period) {
-            case '7d':
-                for ($i = 6; $i >= 0; $i--) {
-                    $date = $now->copy()->subDays($i);
-                    $labels[] = $date->format('D');
-                    $data[] = UserAnswer::whereDate('started_at', $date)->count();
-                }
-                break;
-            
-            case '90d':
-                for ($i = 11; $i >= 0; $i--) {
-                    $startOfWeek = $now->copy()->subWeeks($i)->startOfWeek();
-                    $endOfWeek = $now->copy()->subWeeks($i)->endOfWeek();
-                    $labels[] = 'W' . $startOfWeek->format('W');
-                    $data[] = UserAnswer::whereBetween('started_at', [$startOfWeek, $endOfWeek])->count();
-                }
-                break;
-            
-            case '1y':
-                for ($i = 11; $i >= 0; $i--) {
-                    $month = $now->copy()->subMonths($i);
-                    $labels[] = $month->format('M');
-                    $data[] = UserAnswer::whereMonth('started_at', $month->month)
-                        ->whereYear('started_at', $month->year)
-                        ->count();
-                }
-                break;
-            
-            case '30d':
-            default:
-                for ($i = 29; $i >= 0; $i--) {
-                    $date = $now->copy()->subDays($i);
-                    $labels[] = $date->format('d M');
-                    $data[] = UserAnswer::whereDate('started_at', $date)->count();
-                }
-                break;
-        }
-
-        return [
-            'labels' => $labels,
-            'data' => $data,
-        ];
+        return $this->getChartData($period, 'user_answers', 'started_at', 'count');
     }
 
     /**
      * Get revenue chart data
      */
-    private function getRevenueChartData($period)
+    private function getRevenueChartData(string $period): array
     {
+        return $this->getChartData($period, 'payments', 'created_at', 'sum', 'status', 'success');
+    }
+
+    private function getChartData(
+        string $period,
+        string $table,
+        string $dateColumn,
+        string $aggregation,
+        ?string $filterColumn = null,
+        ?string $filterValue = null,
+    ): array {
         $now = Carbon::now();
+        $periodDays = $period === '7d' ? 7 : ($period === '90d' ? 90 : ($period === '1y' ? 365 : 30));
+        $from = $now->copy()->subDays($periodDays - 1)->startOfDay();
+        $to = $now->copy()->endOfDay();
+        $valueExpression = $aggregation === 'sum' ? 'SUM(total_amount)' : 'COUNT(*)';
+
+        $dailyRows = DB::table($table)
+            ->whereBetween($dateColumn, [$from, $to])
+            ->when($filterColumn !== null, fn ($query) => $query->where($filterColumn, $filterValue))
+            ->selectRaw("DATE({$dateColumn}) as bucket, {$valueExpression} as total")
+            ->groupByRaw("DATE({$dateColumn})")
+            ->pluck('total', 'bucket');
+
         $labels = [];
         $data = [];
+        $bucketCount = $period === '7d' ? 7 : ($period === '90d' ? 12 : ($period === '1y' ? 12 : 30));
 
-        switch ($period) {
-            case '7d':
-                for ($i = 6; $i >= 0; $i--) {
-                    $date = $now->copy()->subDays($i);
-                    $labels[] = $date->format('D');
-                    $data[] = Payment::where('status', 'success')
-                        ->whereDate('created_at', $date)
-                        ->sum('total_amount');
-                }
-                break;
-            
-            case '90d':
-                for ($i = 11; $i >= 0; $i--) {
-                    $startOfWeek = $now->copy()->subWeeks($i)->startOfWeek();
-                    $endOfWeek = $now->copy()->subWeeks($i)->endOfWeek();
-                    $labels[] = 'W' . $startOfWeek->format('W');
-                    $data[] = Payment::where('status', 'success')
-                        ->whereBetween('created_at', [$startOfWeek, $endOfWeek])
-                        ->sum('total_amount');
-                }
-                break;
-            
-            case '1y':
-                for ($i = 11; $i >= 0; $i--) {
-                    $month = $now->copy()->subMonths($i);
-                    $labels[] = $month->format('M');
-                    $data[] = Payment::where('status', 'success')
-                        ->whereMonth('created_at', $month->month)
-                        ->whereYear('created_at', $month->year)
-                        ->sum('total_amount');
-                }
-                break;
-            
-            case '30d':
-            default:
-                for ($i = 29; $i >= 0; $i--) {
-                    $date = $now->copy()->subDays($i);
-                    $labels[] = $date->format('d M');
-                    $data[] = Payment::where('status', 'success')
-                        ->whereDate('created_at', $date)
-                        ->sum('total_amount');
-                }
-                break;
+        for ($index = $bucketCount - 1; $index >= 0; $index--) {
+            $date = match ($period) {
+                '90d' => $now->copy()->subWeeks($index)->startOfWeek(),
+                '1y' => $now->copy()->subMonths($index)->startOfMonth(),
+                default => $now->copy()->subDays($index)->startOfDay(),
+            };
+            $bucketTotal = match ($period) {
+                '90d' => collect(range(0, 6))->sum(fn (int $day) => (float) $dailyRows->get($date->copy()->addDays($day)->toDateString(), 0)),
+                '1y' => collect(range(0, $date->daysInMonth - 1))->sum(fn (int $day) => (float) $dailyRows->get($date->copy()->addDays($day)->toDateString(), 0)),
+                default => (float) $dailyRows->get($date->toDateString(), 0),
+            };
+            $labels[] = match ($period) {
+                '7d' => $date->format('D'),
+                '90d' => 'W'.$date->format('W'),
+                '1y' => $date->format('M'),
+                default => $date->format('d M'),
+            };
+            $data[] = $aggregation === 'sum' ? round($bucketTotal, 2) : (int) $bucketTotal;
         }
 
-        return [
-            'labels' => $labels,
-            'data' => $data,
-        ];
+        return compact('labels', 'data');
     }
 }

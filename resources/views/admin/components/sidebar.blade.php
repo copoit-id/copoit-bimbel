@@ -141,11 +141,7 @@
         || request()->routeIs('admin.pembayaran.*')
         || ($canShowRecurringBillMenu && request()->routeIs('admin.recurring-bills.*'))
         || ($canShowTutorPayrollMenu && request()->routeIs('admin.tutor-payrolls.*'));
-    $generalPublicVisibility = \Illuminate\Support\Facades\Schema::hasTable('general_pages')
-        ? \App\Models\GeneralPage::query()
-            ->whereIn('page_key', ['landing', 'statistik-ptn', 'artikel'])
-            ->pluck('is_active', 'page_key')
-        : collect();
+    $generalPublicVisibility = $generalPublicVisibility ?? collect();
     $isGeneralPagePublicVisible = fn (string $pageKey): bool => (bool) $generalPublicVisibility->get($pageKey, false);
     $canShowAdminLanding = $canFeatureView('general_page') && $isGeneralPagePublicVisible('landing');
     $canShowAdminArticles = $canFeatureView('artikel') && $isGeneralPagePublicVisible('artikel');

@@ -12,8 +12,8 @@ class AdminInteractiveTourRegistryTest extends TestCase
     {
         $tour = app(AdminTourRegistry::class)->definitions()['admin.tryout.create'];
 
-        $this->assertSame(1, $tour['version']);
-        $this->assertSame(['admin'], $tour['portal']);
+        $this->assertSame(3, $tour['version']);
+        $this->assertSame(['admin', 'tutor'], $tour['portal']);
         $this->assertSame(['feature' => 'tryout', 'action' => 'create'], $tour['required_permission']);
         $this->assertSame(
             ['open_create', 'fill_name', 'set_schedule', 'complete'],

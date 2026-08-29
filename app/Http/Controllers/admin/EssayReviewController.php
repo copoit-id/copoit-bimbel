@@ -8,16 +8,17 @@ use App\Models\EssayCorrectionJob;
 use App\Models\Question;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
-use App\Services\PlanQuotaService;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\PlanQuotaService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class EssayReviewController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $tab = $request->get('tab', 'manual');
 
@@ -100,12 +101,38 @@ class EssayReviewController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        // Stats lengkap
+        $detailsByJob = UserAnswerDetail::query()
+            ->with(['question', 'userAnswer'])
+            ->whereIn('user_answer_id', $jobs->pluck('user_answer_id')->filter()->unique())
+            ->whereHas('question', fn ($query) => $query->where('question_type', 'essay'))
+            ->get()
+            ->groupBy('user_answer_id');
+
+        $filter = $request->string('filter')->toString();
+        $allowedFilters = ['pending', 'queued', 'processing', 'completed', 'failed'];
+        $currentFilter = in_array($filter, $allowedFilters, true) ? $filter : 'all';
+        $filteredJobs = $currentFilter === 'all'
+            ? $jobs
+            : $jobs->where('status', $currentFilter)->values();
+        $filterCounts = $jobs->countBy('status');
+        $filters = [
+            'all' => ['label' => 'Semua', 'count' => $jobs->count()],
+            'pending' => ['label' => 'Menunggu', 'count' => $filterCounts->get('pending', 0)],
+            'queued' => ['label' => 'Antrian', 'count' => $filterCounts->get('queued', 0)],
+            'processing' => ['label' => 'Diproses', 'count' => $filterCounts->get('processing', 0)],
+            'completed' => ['label' => 'Selesai', 'count' => $filterCounts->get('completed', 0)],
+            'failed' => ['label' => 'Gagal', 'count' => $filterCounts->get('failed', 0)],
+        ];
+
+        $statusCounts = EssayCorrectionJob::query()
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
         $stats = [
-            'total_pending_ai' => EssayCorrectionJob::where('status', 'pending')->count(),
-            'total_processing' => EssayCorrectionJob::whereIn('status', ['queued', 'processing'])->count(),
-            'total_completed' => EssayCorrectionJob::where('status', 'completed')->count(),
-            'total_failed' => EssayCorrectionJob::where('status', 'failed')->count(),
+            'total_pending_ai' => (int) $statusCounts->get('pending', 0),
+            'total_processing' => (int) ($statusCounts->get('queued', 0) + $statusCounts->get('processing', 0)),
+            'total_completed' => (int) $statusCounts->get('completed', 0),
+            'total_failed' => (int) $statusCounts->get('failed', 0),
             'total_completed_today' => EssayCorrectionJob::where('status', 'completed')
                 ->whereDate('created_at', today())
                 ->count(),
@@ -114,6 +141,10 @@ class EssayReviewController extends Controller
         return view('admin.pages.essay-review.index', [
             'tab' => 'automatic',
             'jobs' => $jobs,
+            'filteredJobs' => $filteredJobs,
+            'currentFilter' => $currentFilter,
+            'filters' => $filters,
+            'detailsByJob' => $detailsByJob,
             'stats' => $stats,
         ]);
     }

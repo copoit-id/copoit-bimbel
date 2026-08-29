@@ -40,16 +40,6 @@
     @yield('styles')
 </head>
 
-@php
-    $questionPickerDetail = null;
-    if (request()->routeIs('admin.question-bank.*') && request()->filled('import_for')) {
-        $questionPickerDetail = \App\Models\TryoutDetail::query()
-            ->with('tryout:tryout_id,name')
-            ->find(request()->integer('import_for'));
-    }
-    $isQuestionPickerMode = $questionPickerDetail !== null;
-@endphp
-
 <body data-app-selects>
     @if ($isQuestionPickerMode)
         <x-question-bank.picker-context :tryout-detail="$questionPickerDetail" />
