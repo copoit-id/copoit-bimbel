@@ -479,6 +479,35 @@ class SuperAdminController extends Controller
         ]);
     }
 
+    public function copyText(): StreamedResponse
+    {
+        return response()->stream(function (): void {
+            $isFirst = true;
+
+            User::query()
+                ->where('role', 'admin_demo')
+                ->select(['name', 'phone', 'origin_institution', 'demo_note'])
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->cursor()
+                ->each(function (User $admin) use (&$isFirst): void {
+                    if (! $isFirst) {
+                        echo "\n\n";
+                    }
+
+                    echo 'Nama: '.trim((string) $admin->name)."\n";
+                    echo 'WA: '.trim((string) ($admin->phone ?: '-'))."\n";
+                    echo 'Bimbel: '.trim((string) ($admin->origin_institution ?: '-'))."\n";
+                    echo 'Catatan: '.$this->plainDemoNote($admin->demo_note);
+
+                    $isFirst = false;
+                });
+        }, 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
     /** @return array{tab: string, page: int, status: string, sort: string, search: string} */
     private function indexReturnQuery(Request $request): array
     {
