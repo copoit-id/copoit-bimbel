@@ -483,22 +483,27 @@ class SuperAdminController extends Controller
     {
         return response()->stream(function (): void {
             $isFirst = true;
+            $number = 0;
 
             User::query()
                 ->where('role', 'admin_demo')
-                ->select(['name', 'phone', 'origin_institution', 'demo_note'])
+                ->select(['name', 'phone', 'origin_institution', 'demo_note', 'demo_deal_status', 'created_at'])
                 ->orderBy('created_at')
                 ->orderBy('id')
                 ->cursor()
-                ->each(function (User $admin) use (&$isFirst): void {
+                ->each(function (User $admin) use (&$isFirst, &$number): void {
                     if (! $isFirst) {
                         echo "\n\n";
                     }
 
+                    $number++;
+                    echo 'Nomor: '.$number."\n";
                     echo 'Nama: '.trim((string) $admin->name)."\n";
                     echo 'WA: '.trim((string) ($admin->phone ?: '-'))."\n";
                     echo 'Bimbel: '.trim((string) ($admin->origin_institution ?: '-'))."\n";
-                    echo 'Catatan: '.$this->plainDemoNote($admin->demo_note);
+                    echo 'Catatan: '.$this->plainDemoNote($admin->demo_note)."\n";
+                    echo 'Status Deal: '.(self::DEMO_DEAL_STATUSES[$admin->demo_deal_status] ?? self::DEMO_DEAL_STATUSES['baru'])."\n";
+                    echo 'Ditambahkan: '.($admin->created_at?->setTimezone('Asia/Jakarta')->format('d M Y H:i') ?? '-');
 
                     $isFirst = false;
                 });
