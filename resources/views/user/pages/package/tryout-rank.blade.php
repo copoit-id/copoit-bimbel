@@ -1,54 +1,91 @@
-@extends('user.layout.user')
+@extends('user.layout.new-user')
 @section('title', 'Ranking Tryout')
+@section('container_width', 'max-w-7xl')
 @section('content')
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
+        $usesIrtScoreScale = ($tryout->result_score_scale ?? 'raw') === 'scale_100';
+        $showPassingGrade = $tryout->shouldShowPassingGrade();
     @endphp
-    <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
-        <x-page-desc title="Ranking - {{ $tryout->name }}" description="Leaderboard peserta tryout"
-            name_link="Kembali ke Tryout">
-        </x-page-desc>
+    <div class="package-bimbel space-y-6">
+        <section class="rounded-2xl border border-border bg-white p-5 sm:p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <i class="ri-trophy-line text-xl"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <h1 class="truncate text-xl font-bold text-dark sm:text-2xl">Ranking - {{ $tryout->name }}</h1>
+                        <p class="mt-1 text-sm text-gray-500">Leaderboard peserta tryout</p>
+                    </div>
+                </div>
+                <x-ui.button :href="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-arrow-left-line">
+                    Kembali ke Hasil
+                </x-ui.button>
+            </div>
 
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-4 mb-5">
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
-                    Semua Peserta
-                    <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
-                </a>
-                @if($profileNeedsCompletion)
-                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
-                        class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
-                        Ranking Sesuai Profil
+            <div class="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id]) }}"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                        Semua Peserta
+                        <span class="ml-1 text-xs opacity-80">({{ $allRankings->count() }})</span>
                     </a>
-                @else
-                    <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile']) }}"
-                        class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
-                        Sesuai Profil Saya
-                        <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
-                    </a>
+                    @if($profileNeedsCompletion)
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $selectedProfileChoice]) }}"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
+                            Ranking Sesuai Profil
+                        </a>
+                    @else
+                        <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $selectedProfileChoice]) }}"
+                            class="px-4 py-2 rounded-lg text-sm font-semibold border transition {{ $activeRankingTab === 'profile' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary hover:text-primary' }}">
+                            Sesuai Profil Saya
+                            <span class="ml-1 text-xs opacity-80">({{ $profileRankings->count() }})</span>
+                        </a>
+                    @endif
+                </div>
+
+                @if($activeRankingTab === 'profile')
+                    <div class="flex flex-wrap items-center gap-2">
+                        @foreach($profileChoices as $choice => $profileChoice)
+                            @php
+                                $isSelectedChoice = $selectedProfileChoice === $choice;
+                            @endphp
+                            @if($profileChoice['needs_completion'])
+                                <a href="{{ route('user.profile.index') }}" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+                                    Pilihan {{ $choice }} · Lengkapi Profil
+                                </a>
+                            @else
+                                <a href="{{ route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id, 'tab' => 'profile', 'profile_choice' => $choice]) }}"
+                                    class="rounded-lg border px-3 py-2 text-xs font-semibold transition {{ $isSelectedChoice ? 'border-primary bg-primary text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-primary hover:text-primary' }}">
+                                    Pilihan {{ $choice }}
+                                    <span class="ml-1 font-normal opacity-80">({{ $profileRankingsByChoice->get($choice, collect())->count() }})</span>
+                                </a>
+                            @endif
+                        @endforeach
+                    </div>
+                @elseif($profileNeedsCompletion)
+                    <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Lengkapi instansi/prodi tujuan di profil untuk membuka ranking berdasarkan profil.
+                    </div>
                 @endif
             </div>
 
             @if($activeRankingTab === 'profile' && $profileDestinationLabel)
-                <div class="text-sm text-gray-500">
-                    Filter: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
-                </div>
-            @elseif($profileNeedsCompletion)
-                <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Lengkapi instansi/prodi tujuan di profil untuk membuka ranking sesuai profil.
+                <div class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                    Filter Pilihan {{ $selectedProfileChoice }}: <span class="font-semibold text-gray-700">{{ $profileDestinationLabel }}</span>
                 </div>
             @endif
-        </div>
+        </section>
 
         <!-- Statistics Cards -->
-        @if($rankings->count() > 0)
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-4">
+        @if($rankingSummary->isNotEmpty())
+            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-5' : 'md:grid-cols-4' }}">
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Total Peserta</p>
-                            <p class="text-2xl font-bold text-dark">{{ $rankings->count() }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $rankingSummary->count() }}</p>
                         </div>
                         <i class="ri-group-line text-3xl text-dark"></i>
                     </div>
@@ -56,8 +93,8 @@
                 <div class="bg-white p-4 rounded-lg border border-border">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-600">Rata-rata Skor</p>
-                            <p class="text-2xl font-bold text-dark">{{ number_format($rankings->avg('raw_score'), 1) }}</p>
+                            <p class="text-sm text-gray-600">Rata-rata {{ $usesIrtScoreScale ? 'Nilai' : 'Skor' }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankingSummary->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1) : number_format($rankingSummary->avg('raw_score'), 1) }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>
@@ -67,11 +104,18 @@
                         <div>
                             <p class="text-sm text-gray-600">Skor Tertinggi</p>
                             @php
-                                $highestScore = $rankings->max('raw_score');
-                                $highestMaxScore = $rankings->max('max_score');
+                                $highestScore = $usesIrtScoreScale
+                                    ? $rankingSummary->max(fn ($ranking) => $ranking['display_score']['value'] ?? 0)
+                                    : $rankingSummary->max('raw_score');
+                                $highestScoreDisplay = $usesIrtScoreScale
+                                    ? ($rankingSummary->sortByDesc(fn ($ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
+                                    : number_format($highestScore ?? 0, 0);
+                                $highestMaxScore = $usesIrtScoreScale
+                                    ? ($rankingSummary->first()['display_score']['maximum'] ?? null)
+                                    : $rankingSummary->max('max_score');
                             @endphp
                             <p class="text-2xl font-bold text-dark">
-                                {{ number_format($highestScore ?? 0, 0) }}
+                                {{ $highestScoreDisplay }}
                                 @if($highestMaxScore)
                                     <span class="text-base font-semibold text-gray-500">/ {{ number_format($highestMaxScore, 0)
                                                                                                     }}</span>
@@ -81,23 +125,39 @@
                         <i class="ri-trophy-line text-3xl text-dark"></i>
                     </div>
                 </div>
-                <div class="bg-white p-4 rounded-lg border border-border">
+                @if($showPassingGrade)
+                    <div class="bg-white p-4 rounded-lg border border-border">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
+                                @php
+                                    $passedCount = $rankingSummary->where('is_passed', true)->count();
+                                    $passRate = $rankingSummary->isNotEmpty() ? ($passedCount / $rankingSummary->count()) * 100 : 0;
+                                @endphp
+                                <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
+                            </div>
+                            <i class="ri-check-double-line text-3xl text-dark"></i>
+                        </div>
+                    </div>
+                @endif
+                <div class="bg-primary/5 p-4 rounded-lg border border-primary/20">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
-                            @php
-                                $passedCount = $rankings->where('is_passed', true)->count();
-                                $passRate = $rankings->count() > 0 ? ($passedCount / $rankings->count()) * 100 : 0;
-                            @endphp
-                            <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
+                            <p class="text-sm text-gray-600">Ranking Saya</p>
+                            @if($myRanking)
+                                <p class="text-2xl font-bold text-primary">#{{ $myRanking['rank'] }}</p>
+                                <p class="text-xs text-gray-500">dari {{ $myRanking['total'] }} peserta</p>
+                            @else
+                                <p class="mt-1 text-sm font-semibold text-gray-500">Belum masuk ranking</p>
+                            @endif
                         </div>
-                        <i class="ri-check-double-line text-3xl text-dark"></i>
+                        <i class="ri-user-star-line text-3xl text-primary"></i>
                     </div>
                 </div>
             </div>
         @endif
 
-        <div class="relative mt-4 overflow-x-auto rounded-lg border border-gray-200">
+        <div class="relative overflow-x-auto rounded-lg border border-gray-200">
             <table class="w-full min-w-[640px] text-left text-sm text-gray-600">
                 <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-600">
                     <tr>
@@ -108,48 +168,33 @@
                         @endphp
                         @if($hasMultipleSubtests)
                             @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
-                                @php
-                                    $subtestName = $subtest->type_subtest ?? $subtest->name;
-                                    $map = [
-                                        'twk' => 'TWK',
-                                        'tiu' => 'TIU',
-                                        'tkp' => 'TKP',
-                                        'penalaran_umum' => 'PU',
-                                        'pengetahuan_umum' => 'PPU',
-                                        'pengetahuan_kuantitatif' => 'PK',
-                                        'pemahaman_bacaan_menulis' => 'PBM',
-                                        'literasi_bahasa_indonesia' => 'LBI',
-                                        'literasi_bahasa_inggris' => 'LBE',
-                                        'penalaran_matematika' => 'PM',
-                                        'writing' => 'WT',
-                                        'reading' => 'RD',
-                                        'listening' => 'LS'
-                                    ];
-                                    $alias = $map[strtolower($subtestName)] ?? strtoupper(\Illuminate\Support\Str::limit($subtestName, 3, ''));
-                                @endphp
-                                <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $alias }}</th>
+                                <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $subtest->display_name }}</th>
                             @endforeach
                         @endif
                         <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">{{ $hasMultipleSubtests ? 'Final Score' : 'Skor' }}
                         </th>
                         <th scope="col" class="px-3 py-2.5 text-center whitespace-nowrap">Selesai</th>
-                        <th scope="col" class="px-3 py-2.5 text-center">Status</th>
+                        @if($showPassingGrade)
+                            <th scope="col" class="px-3 py-2.5 text-center">Status</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($rankings as $index => $ranking)
                                 @php
-                                    $rank = $index + 1;
+                                    $rank = ($rankings->firstItem() ?? 1) + $index;
                                     $rawScoreValue = $ranking['raw_score'] ?? 0;
                                     $maxScoreValue = $ranking['max_score'] ?? null;
-                                    $rawScoreDisplay = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                                    $rawScoreDisplay = $ranking['display_score']['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
                                         ? number_format($rawScoreValue, 0)
-                                        : number_format($rawScoreValue, 2);
-                                    $maxScoreDisplay = $maxScoreValue
+                                        : number_format($rawScoreValue, 2));
+                                    $maxScoreDisplay = isset($ranking['display_score'])
+                                        ? $ranking['display_score']['formatted_maximum']
+                                        : ($maxScoreValue
                                         ? (abs($maxScoreValue - round($maxScoreValue)) < 0.01
                                             ? number_format($maxScoreValue, 0)
                                             : number_format($maxScoreValue, 2))
-                                        : null;
+                                        : null);
                                     $bgClass = '';
                                     if ($rank == 1)
                                         $bgClass = 'bg-yellow-50/50';
@@ -212,9 +257,9 @@
                                         @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
                                             @php
                                                 $subscoreValue = (float) ($ranking['subtest_scores'][$subtest->tryout_detail_id] ?? 0);
-                                                $subscoreDisplay = abs($subscoreValue - round($subscoreValue)) < 0.01
+                                                $subscoreDisplay = $ranking['display_subtest_scores'][$subtest->tryout_detail_id]['formatted'] ?? (abs($subscoreValue - round($subscoreValue)) < 0.01
                                                     ? number_format($subscoreValue, 0)
-                                                    : number_format($subscoreValue, 2);
+                                                    : number_format($subscoreValue, 2));
                                             @endphp
                                             <td class="px-3 py-2.5 text-center">
                                                 <span class="font-semibold">{{ $subscoreDisplay }}</span>
@@ -246,9 +291,10 @@
                                         </div>
                                     </td>
 
-                                    <td class="px-3 py-2.5">
-                                        <div class="flex justify-center items-center">
-                                            @if($ranking['is_passed'])
+                                    @if($showPassingGrade)
+                                        <td class="px-3 py-2.5">
+                                            <div class="flex justify-center items-center">
+                                                @if($ranking['is_passed'])
                                                 <span
                                                     class="flex items-center gap-1 rounded-md border border-green bg-green-light px-2 py-1 text-xs">
                                                     <i class="ri-checkbox-circle-fill text-green"></i>
@@ -263,13 +309,14 @@
                                                         Belum Lulus
                                                     </span>
                                                 </span>
-                                            @endif
-                                        </div>
-                                    </td>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    @endif
                                 </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ 5 + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
+                            <td colspan="{{ ($showPassingGrade ? 5 : 4) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
                                     <p>Belum ada peserta yang menyelesaikan tryout ini</p>
@@ -281,11 +328,14 @@
             </table>
         </div>
 
-        @if($rankings->count() > 0)
-            <div class="flex justify-between items-center mt-4">
-                <p class="text-gray-500 text-sm">
-                    Menampilkan {{ $rankings->count() }} peserta
+        @if($rankingSummary->isNotEmpty())
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-gray-500">
+                    Menampilkan {{ $rankings->firstItem() }}–{{ $rankings->lastItem() }} dari {{ $rankings->total() }} peserta
                 </p>
+                <div>
+                    {{ $rankings->onEachSide(1)->links() }}
+                </div>
             </div>
         @endif
     </div>

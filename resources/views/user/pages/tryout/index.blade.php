@@ -361,8 +361,7 @@
                                         $isCurrentSubtest =
                                             $currentSubtest && $currentSubtest['type'] === $subtest['type'];
                                         $isCompleted = $number > $subtest['end_number'];
-                                        $displayLabel =
-                                            $subtest['alias'] ?? \Illuminate\Support\Str::limit($subtest['name'], 18);
+                                        $displayLabel = $subtest['name'];
                                     @endphp
                                     <div class="w-full rounded-lg border border-gray-100 px-3 py-2.5">
                                         <div class="flex items-center gap-3">
@@ -424,6 +423,24 @@
                 class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                 Saya Mengerti
             </button>
+        </div>
+    </div>
+
+    <div id="tabSwitchFreezeOverlay" class="fixed inset-0 z-[2147483647] hidden items-center justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-md" role="alertdialog" aria-modal="true" aria-labelledby="tabSwitchFreezeTitle">
+        <div class="w-full max-w-lg rounded-3xl bg-white px-8 py-9 text-center shadow-[0_28px_80px_rgba(15,23,42,0.35)] sm:px-12">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-white">
+                <i class="ri-shield-check-line text-3xl"></i>
+            </div>
+            <p class="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-primary">Keamanan Ujian</p>
+            <h3 id="tabSwitchFreezeTitle" class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Pengerjaan Dibekukan</h3>
+            <div class="mt-6">
+                <div class="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-primary/5 text-primary ring-8 ring-primary/10">
+                    <span id="tabSwitchFreezeCountdown" class="text-4xl font-bold tabular-nums">15</span>
+                </div>
+            </div>
+            <p class="mt-6 text-base font-semibold text-slate-900">Silakan tetap berada di halaman ujian.</p>
+            <p id="tabSwitchFreezeMessage" class="mx-auto mt-2 max-w-xs text-sm leading-6 text-slate-500">Akses pengerjaan akan dibuka kembali setelah waktu freeze berakhir.</p>
+            <p class="mt-6 text-xs font-medium text-slate-400">Kamu dapat melanjutkan setelah countdown selesai.</p>
         </div>
     </div>
 
@@ -546,6 +563,9 @@
         $proctoringSettingsForJs = [
             'antiCopy' => (bool) $effectiveProctoringSettings['enable_anti_copy'],
             'tabSwitch' => (bool) $effectiveProctoringSettings['enable_tab_switch_detection'],
+            'tabSwitchFreeze' => (bool) $effectiveProctoringSettings['tab_switch_freeze'],
+            'tabSwitchFreezeSeconds' => (int) $effectiveProctoringSettings['tab_switch_freeze_seconds'],
+            'tabSwitchResetAnswer' => (bool) $effectiveProctoringSettings['tab_switch_reset_answer'],
             'webcam' => (bool) $effectiveProctoringSettings['enable_webcam_check'],
             'screen' => (bool) $effectiveProctoringSettings['enable_screen_check'],
             'snapshotIntervalMs' => 600000,
@@ -564,6 +584,7 @@
             const isCombinedSubtestView = @json($isCombinedSubtestView ?? false);
             const displayRemainingSeconds = @json((int) ($displayRemainingSeconds ?? $remainingSeconds ?? 1));
             const timeExpiredOnLoad = @json((bool) ($timeExpiredOnLoad ?? false));
+            const restoredTabSwitchFreezeSeconds = @json((int) ($tabSwitchFreezeRemainingSeconds ?? 0));
             const subtestRanges = @json($subtestRangesForJs);
             const allServerAnswers = @json($allAnswerDetailsForJs);
             const trackTabSwitchUrl =
@@ -577,6 +598,9 @@
             let answerCache = loadAnswers();
             let lastTabSwitchTrackedAt = 0;
             let tabSwitchInFlight = false;
+            let isTabFrozen = false;
+            let tabSwitchFreezeTimer = null;
+            let pendingTabSwitch = null;
             let isLeavingTryout = false;
             let actionModalHandler = null;
             let actionModalBusy = false;
@@ -726,15 +750,18 @@
             });
             persistAnswers();
 
-            function showTabSwitchAlert(count) {
+            function showTabSwitchAlert(count, punishments = {}) {
                 const modal = document.getElementById('tabSwitchAlert');
                 const message = document.getElementById('tabSwitchAlertMessage');
                 const countMessage = document.getElementById('tabSwitchAlertCount');
                 if (!modal) return;
 
                 if (message) {
-                    message.textContent =
-                        'Tetap berada di halaman tryout selama ujian berlangsung. Pelanggaran ini sudah tercatat.';
+                    const messages = ['Tetap berada di halaman tryout selama ujian berlangsung. Pelanggaran ini sudah tercatat.'];
+                    if (punishments.reset_answer) {
+                        messages.push('Jawaban pada soal aktif telah dihapus.');
+                    }
+                    message.textContent = messages.join(' ');
                 }
 
                 if (countMessage) {
@@ -750,12 +777,77 @@
                 modal.classList.add('flex');
             }
 
+            function startTabSwitchFreeze(seconds, count, answerWasReset) {
+                const overlay = document.getElementById('tabSwitchFreezeOverlay');
+                const countdown = document.getElementById('tabSwitchFreezeCountdown');
+                const message = document.getElementById('tabSwitchFreezeMessage');
+                if (!overlay || !countdown || !message) {
+                    showTabSwitchAlert(count, { reset_answer: answerWasReset });
+                    return;
+                }
+
+                if (tabSwitchFreezeTimer) clearInterval(tabSwitchFreezeTimer);
+
+                isTabFrozen = true;
+                let remainingSeconds = Math.max(1, Number.parseInt(seconds, 10) || 15);
+                message.textContent = answerWasReset
+                    ? 'Pelanggaran pindah tab tercatat dan jawaban pada soal aktif telah dihapus.'
+                    : 'Pelanggaran pindah tab telah tercatat. Akses pengerjaan akan dibuka kembali setelah waktu freeze berakhir.';
+                countdown.textContent = remainingSeconds;
+                overlay.classList.remove('hidden');
+                overlay.classList.add('flex');
+
+                tabSwitchFreezeTimer = setInterval(() => {
+                    remainingSeconds -= 1;
+                    countdown.textContent = Math.max(0, remainingSeconds);
+
+                    if (remainingSeconds > 0) return;
+
+                    clearInterval(tabSwitchFreezeTimer);
+                    tabSwitchFreezeTimer = null;
+                    isTabFrozen = false;
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                }, 1000);
+            }
+
             function getCurrentQuestionId() {
                 const wrapper = document.getElementById(`question-wrapper-${currentNumber}`);
                 return wrapper ? wrapper.dataset.questionId : null;
             }
 
-            async function trackTabSwitch(reason) {
+            function resetAnswerFromPunishment(qid) {
+                if (!qid) return;
+
+                delete answerCache[qid];
+                persistAnswers();
+
+                const wrapper = document.querySelector(`.question-wrapper[data-question-id="${qid}"]`);
+                if (!wrapper) return;
+
+                wrapper.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(input => {
+                    input.checked = false;
+                });
+                wrapper.querySelectorAll('select').forEach(select => {
+                    select.value = '';
+                });
+                wrapper.querySelectorAll('.short-answer-input').forEach(input => {
+                    if (input.debounce) {
+                        clearTimeout(input.debounce);
+                        input.debounce = null;
+                    }
+                    input.value = '';
+                });
+                wrapper.querySelectorAll('.audio-answer-input').forEach(input => {
+                    input.value = '';
+                });
+                wrapper.querySelectorAll('.audio-answer-preview').forEach(preview => {
+                    preview.innerHTML = '';
+                });
+                updateSidebarIcon(qid);
+            }
+
+            async function trackTabSwitch(reason, activeQuestionId = getCurrentQuestionId()) {
                 if (!proctoringSettings.tabSwitch || isLeavingTryout) {
                     return;
                 }
@@ -779,13 +871,21 @@
                         },
                         body: JSON.stringify({
                             attempt_token: attemptToken,
-                            question_id: getCurrentQuestionId(),
+                            question_id: activeQuestionId,
                             reason: reason
                         })
                     });
 
                     const data = await response.json().catch(() => ({}));
-                    showTabSwitchAlert(data.count);
+                    const punishments = data.punishments || {};
+                    if (punishments.reset_answer && proctoringSettings.tabSwitchResetAnswer) {
+                        resetAnswerFromPunishment(activeQuestionId);
+                    }
+                    if (punishments.freeze && proctoringSettings.tabSwitchFreeze) {
+                        startTabSwitchFreeze(punishments.freeze_seconds || proctoringSettings.tabSwitchFreezeSeconds, data.count, punishments.reset_answer);
+                    } else {
+                        showTabSwitchAlert(data.count, punishments);
+                    }
                 } catch (e) {
                     showTabSwitchAlert();
                 } finally {
@@ -799,24 +899,47 @@
                     closeAlert.addEventListener('click', function() {
                         const modal = document.getElementById('tabSwitchAlert');
                         if (!modal) return;
+                        isTabFrozen = false;
                         modal.classList.add('hidden');
                         modal.classList.remove('flex');
                     });
                 }
 
+                const markTabSwitch = (reason) => {
+                    if (isLeavingTryout || pendingTabSwitch) return;
+
+                    pendingTabSwitch = {
+                        reason,
+                        questionId: getCurrentQuestionId(),
+                    };
+                };
+
+                const processPendingTabSwitch = () => {
+                    if (!pendingTabSwitch || document.visibilityState !== 'visible') return;
+
+                    const violation = pendingTabSwitch;
+                    pendingTabSwitch = null;
+                    trackTabSwitch(violation.reason, violation.questionId);
+                };
+
                 document.addEventListener('visibilitychange', function() {
                     if (document.visibilityState === 'hidden') {
-                        trackTabSwitch('visibility_hidden');
+                        markTabSwitch('visibility_hidden');
+                    } else {
+                        processPendingTabSwitch();
                     }
                 });
 
-                window.addEventListener('blur', function() {
-                    trackTabSwitch('window_blur');
-                });
+                window.addEventListener('blur', () => markTabSwitch('window_blur'));
+                window.addEventListener('focus', processPendingTabSwitch);
             }
 
             if (proctoringSettings.tabSwitch) {
                 setupTabSwitchGuard();
+            }
+
+            if (restoredTabSwitchFreezeSeconds > 0) {
+                startTabSwitchFreeze(restoredTabSwitchFreezeSeconds, null, false);
             }
 
             function setupCopyGuard() {
@@ -1241,23 +1364,49 @@
             function isAnswered(qid) {
                 const ans = answerCache[qid];
                 if (!ans) return false;
-                if (ans.answered === true) return true;
+                return hasAnswerContent(ans);
+            }
 
-                // Compatibility check for various types
-                if (ans.option_id) return true;
-                if (ans.option_ids && ans.option_ids.length > 0) return true;
-                if (ans.answer_text && ans.answer_text.trim() !== '') return true;
-                if (ans.mtf_answers && Object.values(ans.mtf_answers).some(v => v !== '')) return true;
-                if (ans.matching_answers && Object.values(ans.matching_answers).some(v => v !== '')) return true;
-                if (ans.answer_audio_base64 || ans.answer_audio_remote) return true;
-                return false;
+            function hasAnswerContent(answer) {
+                if (!answer || typeof answer !== 'object') return false;
+
+                switch (answer.type) {
+                    case 'multiple_answer':
+                        return Array.isArray(answer.option_ids) && answer.option_ids.length > 0;
+                    case 'multiple_choice':
+                    case 'true_false':
+                        return Boolean(answer.option_id);
+                    case 'matching':
+                        return answer.matching_answers &&
+                            Object.values(answer.matching_answers).length > 0 &&
+                            Object.values(answer.matching_answers).every(value => String(value).trim() !== '');
+                    case 'multiple_true_false':
+                        return answer.mtf_answers &&
+                            Object.values(answer.mtf_answers).some(value => ['true', 'false'].includes(String(value).toLowerCase()));
+                    case 'short_answer':
+                    case 'essay':
+                        return typeof answer.answer_text === 'string' && answer.answer_text.trim() !== '';
+                    case 'audio':
+                        return Boolean(answer.answer_audio_base64 || answer.answer_audio_remote);
+                    default:
+                        // Compatibility for answers stored by earlier versions of the tryout page.
+                        return Boolean(
+                            answer.option_id ||
+                            (Array.isArray(answer.option_ids) && answer.option_ids.length > 0) ||
+                            (typeof answer.answer_text === 'string' && answer.answer_text.trim() !== '') ||
+                            (answer.mtf_answers && Object.values(answer.mtf_answers).some(value => value !== '')) ||
+                            (answer.matching_answers && Object.values(answer.matching_answers).some(value => value !== '')) ||
+                            answer.answer_audio_base64 ||
+                            answer.answer_audio_remote
+                        );
+                }
             }
 
             function setAnswer(qid, data) {
                 answerCache[qid] = {
                     question_id: qid,
                     ...data,
-                    answered: true,
+                    answered: hasAnswerContent(data),
                     synced: false,
                     updated_at: Date.now()
                 };
@@ -1465,8 +1614,11 @@
                 const subtestQuestions = Array.from(document.querySelectorAll(
                         `.question-wrapper[data-subtest-detail-id="${detailId}"]`))
                     .map(w => w.dataset.questionId);
-                const payload = Object.values(answerCache).filter(a => subtestQuestions.includes(a
-                    .question_id) && !a.synced);
+                const payload = Object.values(answerCache).filter(answer =>
+                    subtestQuestions.includes(answer.question_id) &&
+                    !answer.synced &&
+                    hasAnswerContent(answer)
+                );
 
                 const response = await fetch(
                     '{{ url('/user/tryout/' . ($package ? $package->package_id : 'free') . '/' . $tryout->tryout_id . '/subtest/flush') }}', {
@@ -1510,7 +1662,9 @@
                 isLeavingTryout = true;
                 capturePendingTextAnswers();
 
-                const unsynced = Object.values(answerCache).filter(answer => !answer.synced);
+                const unsynced = Object.values(answerCache).filter(answer =>
+                    !answer.synced && hasAnswerContent(answer)
+                );
                 document.getElementById('answersPayloadInput').value = JSON.stringify(unsynced);
                 document.getElementById('currentQuestionNumberInput').value = currentNumber;
                 setTryoutSubmissionOverlay(true);

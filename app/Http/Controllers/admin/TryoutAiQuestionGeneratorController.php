@@ -29,7 +29,7 @@ class TryoutAiQuestionGeneratorController extends Controller
     ): View {
         abort_unless($aiGeneratorService->isEnabled(), 404);
 
-        $tryoutDetail->load('tryout');
+        $tryoutDetail->load(['tryout', 'materialCategory']);
         $models = $aiGeneratorService->availableModels();
         abort_if(empty($models), 404);
 
@@ -349,7 +349,8 @@ class TryoutAiQuestionGeneratorController extends Controller
     {
         return Tryout::query()
             ->with(['tryoutDetails' => fn ($query) => $query
-                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest'])
+                ->with('materialCategory:category_id,name')
+                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest', 'material_category_id'])
                 ->orderBy('type_subtest')])
             ->latest('created_at')
             ->limit(100)

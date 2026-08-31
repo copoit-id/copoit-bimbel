@@ -35,12 +35,12 @@
     <x-website-translation-head />
 </head>
 
-<body>
+<body data-app-selects>
     @include('components.login-as-header')
     @include('user.components.navbar')
     @include('user.components.sidebar')
 
-    <div class="p-3 md:p-4 sm:ml-64 pt-4 mt-14">
+    <div class="responsive-shell p-3 md:p-4 sm:ml-64 pt-4 mt-14">
         @yield('content')
     </div>
     <div class="sm:ml-64">

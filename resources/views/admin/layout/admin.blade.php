@@ -40,20 +40,25 @@
     @yield('styles')
 </head>
 
-<body data-admin-selects>
+<body data-app-selects>
+    @if ($isQuestionPickerMode)
+        <x-question-bank.picker-context :tryout-detail="$questionPickerDetail" />
+    @endif
     @include('admin.components.navbar')
     @include('components.confirm-modal')
     @include('admin.components.sidebar')
     @include('components.flash-alert')
 
 
-    <div class="p-6 md:p-12 sm:ml-64 mt-16 md:mt-10">
+    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isQuestionPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
         @yield('content')
     </div>
 
     @if(config('client.branding.admin_assistant_enabled', false) && !auth()->user()?->isTutor())
         <x-admin.assistant />
     @endif
+
+    <x-admin.interactive-tour />
 
     {{-- jquery --}}
     <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"

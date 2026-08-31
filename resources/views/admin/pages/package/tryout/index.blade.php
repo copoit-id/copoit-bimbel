@@ -96,7 +96,7 @@
                                 <a href="{{ route('admin.package.tryout.soal', ['package_id' => $package->package_id, 'tryout_detail_id' => $detail->tryout_detail_id]) }}"
                                     class="flex items-center justify-between w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                     <div>
-                                        <h4 class="font-medium text-gray-900">{{ strtoupper($detail->type_subtest) }}
+                                        <h4 class="font-medium text-gray-900">{{ $detail->display_name }}
                                         </h4>
                                         <p class="text-sm text-gray-500">{{ $detail->duration }} menit • {{
                                             $detail->questions->count() ?? 0 }} soal</p>

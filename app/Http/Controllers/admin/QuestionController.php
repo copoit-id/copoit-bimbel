@@ -9,8 +9,11 @@ use App\Models\TryoutDetail;
 use App\Models\Tryout;
 use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
+use App\Services\TryoutQuestionDownloadService;
+use App\Services\MultipleAnswerScoringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
@@ -35,8 +38,8 @@ class QuestionController extends Controller
     public function index($tryout_detail_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.question.index', compact('tryout', 'tryout_detail', 'questions'));
@@ -46,11 +49,27 @@ class QuestionController extends Controller
         }
     }
 
+    public function download(Request $request, int $tryout_detail_id, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    {
+        $type = $request->validate([
+            'type' => ['nullable', 'in:soal,pembahasan'],
+        ])['type'] ?? 'soal';
+        $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
+        $tryout = Tryout::findOrFail($tryoutDetail->tryout_id);
+        $questions = Question::query()
+            ->with(['questionOptions', 'tryoutDetail.materialCategory'])
+            ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
+            ->orderBy('question_id')
+            ->get();
+
+        return $questionDownloadService->download($tryout, $questions, $type);
+    }
+
     public function create($tryout_detail_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
             return view('admin.pages.question.create', compact('tryout', 'tryout_detail'));
         } catch (\Exception $e) {
@@ -168,7 +187,7 @@ class QuestionController extends Controller
                         ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
                         : [strtoupper((string) $request->input('correct_answer', 'A'))];
                     $multipleAnswerWeight = $isMultipleAnswer
-                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        ? (float) $multipleAnswerScores['score_correct']
                         : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
@@ -236,8 +255,8 @@ class QuestionController extends Controller
     public function edit($tryout_detail_id, $question_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $question = Question::with(['questionOptions' => function ($query) {
                 $query->orderBy('question_option_id');
             }])->where('question_id', $question_id)
@@ -367,7 +386,7 @@ class QuestionController extends Controller
                         ? collect($request->input('correct_answers', []))->map(fn($item) => strtoupper((string) $item))->unique()->values()->all()
                         : [strtoupper((string) $request->input('correct_answer', 'A'))];
                     $multipleAnswerWeight = $isMultipleAnswer
-                        ? max(0, (float) $multipleAnswerScores['score_correct']) * max(1, count($correctAnswers))
+                        ? (float) $multipleAnswerScores['score_correct']
                         : $this->resolveQuestionWeight($request, $tryoutDetail->type_subtest);
 
                     if ($questionType === 'true_false') {
@@ -1066,7 +1085,7 @@ class QuestionController extends Controller
             ->orderBy('user_answer_id')
             ->chunkById(200, function ($answers) use ($tryoutDetail, $totalQuestions) {
                 foreach ($answers as $answer) {
-                    $answer->loadMissing(['userAnswerDetails.question', 'userAnswerDetails.questionOption', 'tryoutDetail']);
+                    $answer->loadMissing(['userAnswerDetails.question.questionOptions', 'userAnswerDetails.questionOption', 'tryoutDetail']);
                     $details = $answer->userAnswerDetails;
                     $correctAnswers = 0;
                     $wrongAnswers = 0;
@@ -1101,7 +1120,7 @@ class QuestionController extends Controller
                                     $wrongAnswers++;
                                 }
 
-                                $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                                $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                                 break;
                             case 'matching':
                                 if ($detail->is_correct) {
@@ -1208,8 +1227,7 @@ class QuestionController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'matching':
                     $matchingMeta = is_array($question->metadata['matching_scores'] ?? null) ? $question->metadata['matching_scores'] : [];

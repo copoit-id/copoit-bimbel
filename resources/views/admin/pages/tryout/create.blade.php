@@ -6,9 +6,7 @@
     $utbkSingleTypes = $utbkSingleTypes ?? [];
     $allowUtbkTypes = $allowUtbkTypes ?? (!empty($utbkSubtests) || !empty($utbkSingleTypes));
     $tryoutTypeOptions = $tryoutTypeOptions ?? [];
-    $dynamicTryoutSubtests = collect($tryoutTypeOptions)
-        ->mapWithKeys(fn ($option, $type) => !empty($option['subtests']) ? [$type => $option['subtests']] : [])
-        ->all();
+    $dynamicTryoutSubtests = $dynamicTryoutSubtests ?? [];
     $selectedTryoutType = old('type_tryout', $tryout->type_tryout ?? '');
     $storedScoringMethod = isset($tryout) ? ($tryout->scoring_method ?? null) : null;
     $storedScoringMethod = $storedScoringMethod === 'irt' ? 'irt_utbk' : $storedScoringMethod;
@@ -32,7 +30,8 @@
     $showLeaderboardChecked = old('show_leaderboard', $tryout->show_leaderboard ?? true);
     $showPassingGradeChecked = old('show_passing_grade', $tryout->show_passing_grade ?? true);
     $showResultScoresChecked = old('show_result_scores', $tryout->show_result_scores ?? true);
-    $resultScoreDisplay = old('result_score_display', $tryout->result_score_display ?? 'total_and_subtest');
+    $showScoreMaximumChecked = old('show_score_maximum', $tryout->show_score_maximum ?? true);
+    $resultScoreScale = old('result_score_scale', $tryout->result_score_scale ?? 'raw');
     $securityOptions = [
         'enable_anti_copy' => [
             'label' => 'Anti Copy Soal',
@@ -60,6 +59,22 @@
         ],
     ];
     $securityOptions = array_filter($securityOptions, fn ($option) => $option['available']);
+    $tabSwitchPunishmentOptions = array_filter([
+        'tab_switch_freeze' => [
+            'label' => 'Freeze halaman ujian',
+            'description' => 'Kunci halaman sampai peserta mengakui pelanggaran.',
+            'available' => $securityDefaults['tab_switch_freeze'] ?? true,
+        ],
+        'tab_switch_reset_answer' => [
+            'label' => 'Hapus jawaban soal aktif',
+            'description' => 'Jawaban pada nomor yang sedang dibuka langsung dihapus.',
+            'available' => $securityDefaults['tab_switch_reset_answer'] ?? true,
+        ],
+    ], fn ($option) => $option['available']);
+    $tabSwitchDetectionChecked = $hasOldInput
+        ? (bool) old('enable_tab_switch_detection')
+        : (isset($tryout) ? (bool) $tryout->enable_tab_switch_detection : ($securityDefaults['enable_tab_switch_detection'] ?? true));
+    $tabSwitchFreezeSeconds = old('tab_switch_freeze_seconds', $tryout->tab_switch_freeze_seconds ?? 15);
 @endphp
 <style>
     .tryout-toggle-input:checked + .tryout-toggle-track .tryout-toggle-knob {
@@ -97,7 +112,8 @@
         <form
             action="{{ isset($tryout) ? route('admin.tryout.update', array_merge(request()->query(), ['tryout' => $tryout->tryout_id])) : route('admin.tryout.store') }}"
             method="POST"
-            enctype="multipart/form-data">
+            enctype="multipart/form-data"
+            data-tour="tryout.form">
             @csrf
             @if(isset($tryout))
             @method('PUT')
@@ -109,7 +125,7 @@
                     <div class="md:col-span-2">
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Nama Tryout <span
                                 class="text-red-500">*</span></label>
-                        <input type="text" id="name" name="name"
+                        <input type="text" id="name" name="name" data-tour="tryout.name"
                             value="{{ isset($tryout) ? $tryout->name : old('name') }}" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                     </div>
@@ -271,7 +287,7 @@
                 </div>
 
                 <!-- Schedule -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" data-tour="tryout.schedule">
                     <div>
                         <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>
                         <input type="datetime-local" id="start_date" name="start_date"
@@ -426,8 +442,8 @@
                                 class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
                         </span>
                         <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            Tampilkan Passing Grade di User
-                            <x-ui.tooltip>Atur tampilan passing grade secara terpisah. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
+                            Tampilkan Passing Grade & Status Kelulusan di User
+                            <x-ui.tooltip>Jika dimatikan, passing grade serta status lulus/tidak lulus tidak ditampilkan ke peserta. Nilai passing grade 0 tetap valid dan tidak memengaruhi opsi ini.</x-ui.tooltip>
                         </span>
                     </label>
 
@@ -456,23 +472,35 @@
                             </label>
                         </div>
 
-                        <fieldset id="resultScoreDisplayOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
-                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Jenis nilai yang ditampilkan</legend>
+                        <input type="hidden" name="result_score_display" value="total_and_subtest">
+                        <fieldset id="resultScoreScaleOptions" class="mt-4 {{ $showResultScoresChecked ? '' : 'hidden' }}">
+                            <label class="mb-4 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+                                <span>
+                                    <span class="block text-sm font-medium text-gray-800">Tampilkan nilai maksimum</span>
+                                    <span class="block text-xs text-gray-500">Contoh: 240 / 300. Aktif secara default.</span>
+                                </span>
+                                <input type="checkbox" id="show_score_maximum" name="show_score_maximum" value="1"
+                                    @checked($showScoreMaximumChecked) class="sr-only peer tryout-toggle-input">
+                                <span class="tryout-toggle-track relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                    <span class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                                </span>
+                            </label>
+                            <legend class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Skala nilai yang ditampilkan</legend>
                             <div class="grid gap-2 sm:grid-cols-2">
                                 <label class="cursor-pointer">
-                                    <input type="radio" name="result_score_display" value="total_and_subtest"
-                                        @checked($resultScoreDisplay === 'total_and_subtest') class="peer sr-only">
+                                    <input type="radio" name="result_score_scale" value="raw"
+                                        @checked($resultScoreScale === 'raw') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Total + subtest</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Tampilkan nilai keseluruhan dan setiap subtest.</span>
+                                        <span class="block font-semibold">Skor asli</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">Menampilkan total poin sesuai bobot soal.</span>
                                     </span>
                                 </label>
                                 <label class="cursor-pointer">
-                                    <input type="radio" name="result_score_display" value="subtest_only"
-                                        @checked($resultScoreDisplay === 'subtest_only') class="peer sr-only">
+                                    <input type="radio" name="result_score_scale" value="scale_100"
+                                        @checked($resultScoreScale === 'scale_100') class="peer sr-only">
                                     <span class="block rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 transition-colors hover:border-primary/50 peer-checked:border-primary peer-checked:bg-primary/5">
-                                        <span class="block font-semibold">Subtest saja</span>
-                                        <span class="mt-0.5 block text-xs text-gray-500">Sembunyikan nilai total, tampilkan nilai tiap subtest.</span>
+                                        <span class="block font-semibold">Skala 0 - 100</span>
+                                        <span class="mt-0.5 block text-xs text-gray-500">IRT dikonversi dari 0–1000; tryout biasa dari jawaban benar dibanding total soal.</span>
                                     </span>
                                 </label>
                             </div>
@@ -1085,6 +1113,47 @@
                         @endforeach
                     </div>
                 </div>
+
+                @if($tabSwitchPunishmentOptions !== [])
+                    <section id="tabSwitchPunishmentSection" class="rounded-lg border border-primary/20 bg-primary/5 p-4 {{ $tabSwitchDetectionChecked ? '' : 'hidden' }}">
+                        <div class="mb-4 flex items-start gap-3">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <i class="ri-alarm-warning-line text-lg"></i>
+                            </span>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Punishment Pindah Tab</h3>
+                                <p class="mt-0.5 text-sm text-gray-600">Pilih konsekuensi yang dijalankan saat peserta terdeteksi pindah tab. Keduanya opsional.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            @foreach($tabSwitchPunishmentOptions as $field => $option)
+                                @php
+                                    $isChecked = $hasOldInput
+                                        ? (bool) old($field)
+                                        : (isset($tryout) ? (bool) $tryout->{$field} : false);
+                                @endphp
+                                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 transition hover:border-primary/40">
+                                    <input type="hidden" name="{{ $field }}" value="0">
+                                    <input type="checkbox" name="{{ $field }}" value="1" @checked($isChecked)
+                                        class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                                    <span>
+                                        <span class="block text-sm font-semibold text-gray-800">{{ $option['label'] }}</span>
+                                        <span class="mt-1 block text-xs leading-relaxed text-gray-500">{{ $option['description'] }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <div id="tabSwitchFreezeDurationField" class="mt-3 {{ old('tab_switch_freeze', $tryout->tab_switch_freeze ?? false) ? '' : 'hidden' }}">
+                            <label for="tab_switch_freeze_seconds" class="block text-sm font-semibold text-gray-800">Durasi freeze</label>
+                            <div class="relative mt-1 max-w-xs">
+                                <input id="tab_switch_freeze_seconds" name="tab_switch_freeze_seconds" type="number" min="1" max="300" value="{{ $tabSwitchFreezeSeconds }}"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-16 text-sm focus:border-primary focus:ring-primary">
+                                <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-gray-500">detik</span>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Default 15 detik. Peserta tidak dapat melanjutkan pengerjaan selama freeze berlangsung.</p>
+                        </div>
+                    </section>
+                @endif
             </div>
 
             <div class="flex items-center justify-end px-6 py-5 space-x-2 border-t border-gray-200">
@@ -1092,7 +1161,7 @@
                     class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
                     Batal
                 </a>
-                <button type="submit"
+                <button type="submit" id="tryout-submit"
                     class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5">
                     {{ isset($tryout) ? 'Perbarui Tryout' : 'Simpan Tryout' }}
                 </button>
@@ -1128,13 +1197,30 @@
       const subtestDisplaySelect = root.querySelector('#subtest_display_mode');
       const answerModeNotice = root.querySelector('#answerPersistenceModeNotice');
       const showResultScoresCheckbox = root.querySelector('#show_result_scores');
-      const resultScoreDisplayOptions = root.querySelector('#resultScoreDisplayOptions');
+      const resultScoreScaleOptions = root.querySelector('#resultScoreScaleOptions');
       const tryoutThumbnailField = root.querySelector('#tryoutThumbnailField');
       const thumbnailInput = root.querySelector('#thumbnail');
       const certificationCheckbox = root.querySelector('#is_certification');
       const certificateTemplateField = root.querySelector('#certificateTemplateField');
       const dynamicCategoryCards = root.querySelectorAll('[data-dynamic-category-card]');
+      const tabSwitchDetection = root.querySelector('input[name="enable_tab_switch_detection"][type="checkbox"]');
+      const tabSwitchPunishmentSection = root.querySelector('#tabSwitchPunishmentSection');
+      const tabSwitchFreezeCheckbox = root.querySelector('input[name="tab_switch_freeze"][type="checkbox"]');
+      const tabSwitchFreezeDurationField = root.querySelector('#tabSwitchFreezeDurationField');
       if (!typeSelect || typeSelect.__tryoutBound) return;
+
+      const syncTabSwitchPunishments = () => {
+        const enabled = Boolean(tabSwitchDetection?.checked);
+        tabSwitchPunishmentSection?.classList.toggle('hidden', !enabled);
+      };
+      syncTabSwitchPunishments();
+      tabSwitchDetection?.addEventListener('change', syncTabSwitchPunishments);
+
+      const syncTabSwitchFreezeDuration = () => {
+        tabSwitchFreezeDurationField?.classList.toggle('hidden', !tabSwitchFreezeCheckbox?.checked);
+      };
+      syncTabSwitchFreezeDuration();
+      tabSwitchFreezeCheckbox?.addEventListener('change', syncTabSwitchFreezeDuration);
 
       const formatDurationInput = (input) => {
         const value = input.value.trim();
@@ -1379,7 +1465,21 @@
     }
 
     function syncResultScoreDisplay() {
-      resultScoreDisplayOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
+      resultScoreScaleOptions?.classList.toggle('hidden', !showResultScoresCheckbox?.checked);
+    }
+
+    function syncPassingTypesWithScoreScale() {
+      const usesHundredScale = root.querySelector('input[name="result_score_scale"]:checked')?.value === 'scale_100';
+      root.querySelectorAll('select[name^="passing_type_"]').forEach((selectEl) => {
+        const value = usesHundredScale ? 'percentage' : 'score';
+        const changed = selectEl.value !== value;
+        selectEl.value = value;
+        if (changed) {
+          selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncPassingScoreLimit(selectEl);
+      });
     }
 
     function syncCertificateTemplateField() {
@@ -1400,6 +1500,7 @@
 
     // bind event
     typeSelect.addEventListener('change', window.__tryoutChange);
+    scoringMethodSelect?.addEventListener('change', syncResultScoreDisplay);
     root.addEventListener('change', (event) => {
       if (event.target && event.target.matches('select[name^="passing_type_"]')) {
         syncPassingScoreLimit(event.target);
@@ -1415,6 +1516,11 @@
 
       if (event.target && event.target.matches('#show_result_scores')) {
         syncResultScoreDisplay();
+      }
+
+      if (event.target && event.target.matches('input[name="result_score_scale"]')) {
+        syncResultScoreDisplay();
+        syncPassingTypesWithScoreScale();
       }
 
       if (event.target && event.target.matches('#is_certification')) {

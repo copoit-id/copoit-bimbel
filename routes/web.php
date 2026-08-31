@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\admin\AdminAssistantController;
+use App\Http\Controllers\admin\AdminTourController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
 use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
@@ -48,10 +49,12 @@ use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DemoRequestController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
+use App\Http\Controllers\OriginInstitutionLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Http\Controllers\superadmin\AiUsageController;
@@ -95,9 +98,12 @@ Route::get('/statistik-ptn/snbt/data-ptn', [GeneralPageController::class, 'proxy
 Route::get('/statistik-ptn/snbt/data-prodi', [GeneralPageController::class, 'proxyProdiListSnbt'])->name('statistics.snbt.proxy.prodi');
 Route::get('/participant-destinations/official/institutions', [ParticipantDestinationLookupController::class, 'institutions'])->name('participant-destinations.official.institutions');
 Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
+Route::get('/origin-institutions', OriginInstitutionLookupController::class)->name('origin-institutions.lookup');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 Route::get('/ai-gateway-payments/{externalId}/qris', [AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
+Route::get('/pengajuan-demo', [DemoRequestController::class, 'create'])->name('demo-requests.create');
+Route::post('/pengajuan-demo', [DemoRequestController::class, 'store'])->middleware('throttle:10,1')->name('demo-requests.store');
 
 Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
@@ -442,17 +448,25 @@ Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])-
 Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->middleware('throttle:120,1')->name('webhook.ipaymu');
 
 // Add route for checking payment status (for debugging)
-Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.check');
 
 // Add route for manual payment activation
-Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.activate');
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
+    Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
+    Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
     Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
+    Route::post('/admins/requests/{demoRequest}/approve', [SuperAdminController::class, 'approveRequest'])->name('admins.requests.approve');
+    Route::delete('/admins/requests/{demoRequest}', [SuperAdminController::class, 'rejectRequest'])->name('admins.requests.reject');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
@@ -504,7 +518,15 @@ Route::prefix('{portal}')
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
-        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
+        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])
+            ->middleware('throttle:20,10')
+            ->name('assistant.chat');
+        Route::get('/assistant/history', [AdminAssistantController::class, 'history'])
+            ->name('assistant.history');
+        Route::get('/tours/{tourKey}', [AdminTourController::class, 'show'])->name('tours.show');
+        Route::post('/tours/{tourKey}/start', [AdminTourController::class, 'start'])->name('tours.start');
+        Route::post('/tours/{tourKey}/steps/{stepId}', [AdminTourController::class, 'storeStep'])->name('tours.steps.store');
+        Route::post('/tours/{tourKey}/complete', [AdminTourController::class, 'complete'])->name('tours.complete');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
         Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
@@ -622,6 +644,7 @@ Route::prefix('{portal}')
         // Question Management Routes
         Route::prefix('soal')->name('question.')->middleware('tutor-content-owner')->group(function () {
             Route::get('/{tryout_detail_id}', [QuestionController::class, 'index'])->name('index');
+            Route::get('/{tryout_detail_id}/download', [QuestionController::class, 'download'])->name('download');
             Route::get('/{tryout_detail_id}/tambah', [QuestionController::class, 'create'])->name('create');
             Route::post('/{tryout_detail_id}/store', [QuestionController::class, 'store'])->name('store');
             Route::get('/{tryoutDetail}/ai-generator', [TryoutAiQuestionGeneratorController::class, 'form'])->name('ai-generator');
@@ -673,6 +696,7 @@ Route::prefix('{portal}')
         Route::resource('tryout', AdminTryoutController::class)->middleware('tutor-content-owner');
         Route::post('tryout/{tryout}/clone', [AdminTryoutController::class, 'clone'])->middleware('tutor-content-owner')->name('tryout.clone');
         Route::get('tryout/{tryout}/preview', [AdminTryoutController::class, 'preview'])->middleware('tutor-content-owner')->name('tryout.preview');
+        Route::get('tryout/{tryout}/download-soal', [AdminTryoutController::class, 'downloadQuestions'])->middleware('tutor-content-owner')->name('tryout.download-questions');
         Route::post('tryout/{tryout}/release-utbk', [AdminTryoutController::class, 'releaseUtbk'])->middleware('tutor-content-owner')->name('tryout.release-utbk');
         Route::post('tryout/{tryout}/reset-utbk', [AdminTryoutController::class, 'resetUtbk'])->middleware('tutor-content-owner')->name('tryout.reset-utbk');
 

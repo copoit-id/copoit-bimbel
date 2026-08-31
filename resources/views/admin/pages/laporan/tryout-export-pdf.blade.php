@@ -45,10 +45,10 @@
                     <td>{{ $participant['email'] }}</td>
                     @foreach($subtests as $subtest)
                         <td class="center">
-                            {{ rtrim(rtrim(number_format($participant['subtests'][$subtest['id']]['score'] ?? 0, 2, '.', ''), '0'), '.') }}
+                            {{ $participant['subtests'][$subtest['id']]['display'] ?? '0' }}
                         </td>
                     @endforeach
-                    <td class="center">{{ rtrim(rtrim(number_format($participant['total_score'], 2, '.', ''), '0'), '.') }}</td>
+                    <td class="center">{{ $participant['total_score_display'] }}</td>
                     <td class="center">
                         @if($participant['started_at'] && $participant['finished_at'])
                             @php($seconds = $participant['started_at']->diffInSeconds($participant['finished_at']))

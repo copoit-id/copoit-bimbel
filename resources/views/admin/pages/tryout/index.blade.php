@@ -5,10 +5,14 @@
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-2xl font-bold">Manajemen Tryout</h2>
+            <div class="flex items-center gap-2">
+                <h2 class="text-2xl font-bold">Manajemen Tryout</h2>
+                <x-admin.tour-button tour-key="admin.tryout.create" />
+            </div>
             <p class="text-gray-500">Kelola semua tryout dan ujian</p>
         </div>
         <a href="{{ route('admin.tryout.create') }}"
+            data-tour="tryout.create"
             class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 flex items-center gap-2">
             <i class="ri-add-line"></i>
             Tambah Tryout
@@ -70,6 +74,7 @@
                 $scoringLabel = $tryout->requiresIrtScoring()
                     ? 'IRT'
                     : ($tryout->is_toefl ? 'TOEFL ITP' : null);
+                $formattedTotalDuration = rtrim(rtrim(number_format((float) ($tryout->total_duration ?? 0), 2, '.', ''), '0'), '.');
             @endphp
             <div class="flex items-center justify-between mb-3">
                 <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
@@ -109,7 +114,7 @@
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Durasi:</p>
-                    <p class="font-light">{{ $tryout->total_duration ?? 0 }} Menit</p>
+                    <p class="font-light">{{ $formattedTotalDuration }} Menit</p>
                 </span>
                 <span class="flex items-center justify-between">
                     <p class="font-medium">Subtest:</p>
@@ -237,12 +242,15 @@
                     </div>
                     <div class="p-4 md:p-5 space-y-4">
                         @foreach($tryout->tryoutDetails as $detail)
+                        @php
+                            $formattedDuration = rtrim(rtrim(number_format((float) $detail->duration, 2, '.', ''), '0'), '.');
+                        @endphp
                         <a href="{{ route('admin.question.index', $detail->tryout_detail_id) }}"
                             class="flex items-center justify-between w-full p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                             <div>
                                 <h4 class="font-medium text-gray-900">{{ $detail->subtest_name }}</h4>
                                 <p class="text-xs text-gray-400">
-                                    {{ $detail->duration }} menit • Passing Score:
+                                    {{ $formattedDuration }} menit • Passing Score:
                                     @if(($detail->passing_type ?? 'score') === 'percentage')
                                         {{ number_format($detail->passing_score ?? 0, 1) }}%
                                     @else

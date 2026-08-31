@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 use App\Services\PurchaseAccessDuration;
 
 class MaterialManagementController extends Controller
@@ -43,7 +44,12 @@ class MaterialManagementController extends Controller
             ->with('activeChildren')
             ->ordered()
             ->get();
-        return view('admin.pages.material.create', compact('categories'));
+        return view('admin.pages.material.create', [
+            'categories' => $categories,
+            'materialCategoryTree' => $this->categoryTree($categories),
+            'selectedAccessDurationUnit' => old('access_duration_unit', 'forever'),
+            'selectedAccessDurationValue' => old('access_duration_value', 1),
+        ]);
     }
 
     public function driveTitle(Request $request)
@@ -164,12 +170,31 @@ class MaterialManagementController extends Controller
             : null;
         $selectedGoalCategoryId = $selectedCategory?->parent_id ?? $selectedCategory?->category_id;
 
-        return view('admin.pages.material.edit', compact(
-            'material',
-            'categories',
-            'selectedCategoryId',
-            'selectedGoalCategoryId'
-        ));
+        return view('admin.pages.material.edit', [
+            'material' => $material,
+            'categories' => $categories,
+            'materialCategoryTree' => $this->categoryTree($categories),
+            'selectedCategoryId' => $selectedCategoryId,
+            'selectedGoalCategoryId' => $selectedGoalCategoryId,
+            'selectedAccessDurationUnit' => old('access_duration_unit', $material->access_duration_unit ?? 'forever'),
+            'selectedAccessDurationValue' => old('access_duration_value', $material->access_duration_value ?? 1),
+        ]);
+    }
+
+    /** @return array<int, array{id: int, name: string, children: array<int, array{id: int, name: string}>}> */
+    private function categoryTree(Collection $categories): array
+    {
+        return $categories->map(static fn (MaterialCategory $category): array => [
+            'id' => (int) $category->category_id,
+            'name' => (string) $category->name,
+            'children' => $category->activeChildren
+                ->map(static fn (MaterialCategory $child): array => [
+                    'id' => (int) $child->category_id,
+                    'name' => (string) $child->name,
+                ])
+                ->values()
+                ->all(),
+        ])->values()->all();
     }
 
     /**

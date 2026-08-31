@@ -46,10 +46,24 @@ class DynamicTryoutCategorySubtestTest extends TestCase
             $table->string('passing_type');
             $table->timestamps();
         });
+
+        Schema::create('questions', function (Blueprint $table): void {
+            $table->id('question_id');
+            $table->unsignedBigInteger('tryout_detail_id');
+            $table->timestamps();
+        });
+
+        Schema::create('user_answers', function (Blueprint $table): void {
+            $table->id('user_answer_id');
+            $table->unsignedBigInteger('tryout_detail_id');
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('user_answers');
+        Schema::dropIfExists('questions');
         Schema::dropIfExists('tryout_details');
         Schema::dropIfExists('tryouts');
         Schema::dropIfExists('material_categories');
@@ -181,5 +195,53 @@ class DynamicTryoutCategorySubtestTest extends TestCase
             'structure_written_expression',
         ], $details->pluck('type_subtest')->all());
         $this->assertSame([50, 40], $details->pluck('duration')->all());
+    }
+
+    public function test_changing_tryout_type_preserves_questions_and_answers_in_the_new_subtest_structure(): void
+    {
+        $tryout = Tryout::create([
+            'name' => 'Tryout Lama',
+            'type_tryout' => 'general',
+        ]);
+        $oldDetail = TryoutDetail::create([
+            'tryout_id' => $tryout->tryout_id,
+            'type_subtest' => 'general',
+            'duration' => 60,
+            'passing_score' => 60,
+            'passing_type' => 'score',
+        ]);
+
+        \DB::table('questions')->insert([
+            'tryout_detail_id' => $oldDetail->tryout_detail_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        \DB::table('user_answers')->insert([
+            'tryout_detail_id' => $oldDetail->tryout_detail_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $tryout->update(['type_tryout' => 'skd_full']);
+
+        $method = new \ReflectionMethod(TryoutController::class, 'rebuildTryoutDetailsPreservingContent');
+        $method->invoke(app(TryoutController::class), $tryout, Request::create('/', 'POST', [
+            'duration_twk' => 35,
+            'passing_score_twk' => 65,
+            'passing_type_twk' => 'score',
+            'duration_tiu' => 90,
+            'passing_score_tiu' => 80,
+            'passing_type_tiu' => 'score',
+            'duration_tkp' => 45,
+            'passing_score_tkp' => 166,
+            'passing_type_tkp' => 'score',
+        ]));
+
+        $newDetail = TryoutDetail::query()->where('type_subtest', 'twk')->sole();
+
+        $this->assertSame('twk', $newDetail->type_subtest);
+        $this->assertSame(['tiu', 'tkp', 'twk'], TryoutDetail::query()->orderBy('type_subtest')->pluck('type_subtest')->all());
+        $this->assertSame($newDetail->tryout_detail_id, \DB::table('questions')->value('tryout_detail_id'));
+        $this->assertSame($newDetail->tryout_detail_id, \DB::table('user_answers')->value('tryout_detail_id'));
     }
 }

@@ -72,6 +72,7 @@ class GeneralSettingController extends Controller
                 'public_visibility' => ['nullable', 'array'],
                 'public_visibility.*' => ['nullable', 'boolean'],
                 'admin_assistant_enabled' => ['nullable', 'boolean'],
+                'admin_tours_enabled' => ['nullable', 'boolean'],
                 'live_session_enabled' => ['nullable', 'boolean'],
                 'enable_certificate_management' => ['nullable', 'boolean'],
                 'recurring_bill_menu_enabled' => ['nullable', 'boolean'],
@@ -161,6 +162,7 @@ class GeneralSettingController extends Controller
             if ($profile && $activeSettingsTab === 'general') {
                 $profile->update([
                     'admin_assistant_enabled' => $request->boolean('admin_assistant_enabled'),
+                    'admin_tours_enabled' => $request->boolean('admin_tours_enabled'),
                     'live_session_enabled' => $request->boolean('live_session_enabled'),
                     'enable_certificate_management' => $request->boolean('enable_certificate_management'),
                     'recurring_bill_menu_enabled' => $request->boolean('recurring_bill_menu_enabled'),

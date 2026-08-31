@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\user\DashboardController as UserDashboardController;
 use App\Models\Article;
 use App\Models\GeneralPage;
 use App\Models\Package;
@@ -13,12 +14,12 @@ use Illuminate\Support\Facades\Schema;
 
 class GeneralPageController extends Controller
 {
-    public function landing()
+    public function landing(UserDashboardController $dashboardController)
     {
         $page = GeneralPage::findActiveByKey('landing');
 
         if (! $page) {
-            return redirect()->route('login');
+            return $dashboardController->index();
         }
 
         $content = self::mergeLandingContentWithDefaults($page->content ?: []);

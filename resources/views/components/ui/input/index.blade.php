@@ -70,7 +70,7 @@ $iconSizeClasses = [
         <label for="{{ $name }}" class="block mb-2 text-sm font-medium {{ $hasError ? 'text-red-600' : 'text-gray-900' }}">
             {{ $label }}
             @if($required)
-                <span class="text-red-500">*</span>
+                <x-form.required-indicator />
             @endif
         </label>
     @endif

@@ -1,17 +1,17 @@
 import './bootstrap';
 
 /**
- * Admin select enhancer.
+ * Application select enhancer.
  *
  * The native select remains in the form so existing validation, JavaScript,
  * Alpine bindings, and server-side request values keep working. The visible
  * control is only a styled representation of that native field.
  *
- * Add `data-native-select` to a select only when a future field needs to opt
- * out of this standard admin dropdown.
+ * Add `data-native-select` to a select only when a field needs to opt out of
+ * this standard dropdown.
  */
-const initializeAdminSelects = () => {
-    if (!document.body.hasAttribute('data-admin-selects')) {
+const initializeAppSelects = () => {
+    if (!document.body.matches('[data-app-selects], [data-admin-selects]')) {
         return;
     }
 
@@ -98,7 +98,7 @@ const initializeAdminSelects = () => {
     const enhance = (select) => {
         if (
             select.dataset.adminSelectInitialized === 'true'
-            || select.matches('[data-native-select], [multiple]')
+            || select.matches('[data-native-select], [multiple], .app-date-picker__year-select')
             || select.closest('[data-admin-select-menu]')
         ) {
             return;
@@ -1044,10 +1044,10 @@ const initializeDateInputs = () => {
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAdminSelects, { once: true });
+    document.addEventListener('DOMContentLoaded', initializeAppSelects, { once: true });
     document.addEventListener('DOMContentLoaded', initializeDateInputs, { once: true });
 } else {
-    initializeAdminSelects();
+    initializeAppSelects();
     initializeDateInputs();
 }
 

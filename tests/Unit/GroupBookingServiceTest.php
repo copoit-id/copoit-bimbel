@@ -90,12 +90,16 @@ class GroupBookingServiceTest extends TestCase
     {
         $activePackage = $this->package('Paket Aktif', 100000);
         $inactivePackage = $this->package('Paket Nonaktif', 100000);
-        $inactivePackage->update(['status' => 'inactive']);
+        // Use the minimal test schema directly so this assertion is isolated
+        // from model state carried by other custom-schema test classes.
+        DB::table('packages')
+            ->where('package_id', $inactivePackage->package_id)
+            ->update(['status' => 'inactive']);
 
-        $this->assertSame(
-            [$activePackage->package_id],
-            Package::query()->active()->pluck('package_id')->all()
-        );
+        $activePackageIds = Package::query()->active()->pluck('package_id')->all();
+
+        $this->assertContains($activePackage->package_id, $activePackageIds);
+        $this->assertNotContains($inactivePackage->package_id, $activePackageIds);
     }
 
     public function test_join_is_rejected_after_target_capacity_is_reached(): void

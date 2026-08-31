@@ -84,10 +84,12 @@
                 </div>
                 <div class="text-right">
                     @if($attempt->status === 'completed')
-                    <span
-                        class="text-xs px-2 py-1 rounded-full {{ $attempt->is_passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600' }}">
-                        {{ $attempt->is_passed ? 'Lulus' : 'Tidak Lulus' }}
-                    </span>
+                        @if($attempt->tryout?->shouldShowPassingGrade())
+                            <span
+                                class="text-xs px-2 py-1 rounded-full {{ $attempt->is_passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600' }}">
+                                {{ $attempt->is_passed ? 'Lulus' : 'Tidak Lulus' }}
+                            </span>
+                        @endif
                     @else
                     <span class="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-600">
                         Belum Selesai

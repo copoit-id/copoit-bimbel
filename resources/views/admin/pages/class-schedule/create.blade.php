@@ -3,10 +3,6 @@
 @section('title', 'Buat Kelas & Jadwal')
 
 @section('content')
-@php
-    $selectedPackageIds = collect(old('package_ids', $preselectedPackageId ? [$preselectedPackageId] : []))
-        ->map(fn ($id) => (int) $id);
-@endphp
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Buat Kelas & Jadwal</h1>
@@ -51,7 +47,7 @@
                     @forelse($packages as $package)
                         <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary/30 hover:bg-primary/5">
                             <input type="checkbox" name="package_ids[]" value="{{ $package->package_id }}"
-                                @checked($selectedPackageIds->contains((int) $package->package_id))
+                                @checked(in_array((int) $package->package_id, $selectedPackageIds, true))
                                 class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
                             <span class="text-sm text-gray-700">{{ $package->name }}</span>
                         </label>
@@ -160,8 +156,8 @@
                 <div>
                     <label class="mb-2 block text-sm font-semibold text-gray-700">Metode Absensi</label>
                     <select name="attendance_mode" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="button" @selected(old('attendance_mode') === 'button')>Tombol saja</option>
-                        <option value="photo" @selected(old('attendance_mode') === 'photo')>Wajib foto</option>
+                        <option value="button" @selected(old('attendance_mode', 'button') === 'button')>Tombol saja</option>
+                        <option value="photo" @selected(old('attendance_mode', 'button') === 'photo')>Wajib foto</option>
                     </select>
                 </div>
 

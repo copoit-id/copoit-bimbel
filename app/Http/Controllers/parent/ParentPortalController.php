@@ -10,6 +10,7 @@ use App\Models\StudentProgressReport;
 use App\Models\User;
 use App\Models\UserAnswer;
 use App\Models\UserPackageAcces;
+use App\Support\Pagination;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -76,7 +77,7 @@ class ParentPortalController extends Controller
                 ->with(['session.schedule:id,title', 'session.studyGroup:id,name', 'session.tentor:id,name'])
                 ->latest('check_in_at')
                 ->latest()
-                ->paginate(15, ['*'], 'attendance_page')
+                ->paginate(Pagination::perPage(15), ['*'], 'attendance_page')
                 ->withQueryString()
             : collect();
 
@@ -97,14 +98,14 @@ class ParentPortalController extends Controller
                 ->with('package:package_id,name')
                 ->withCount(['bookingRequests as completed_booking_count' => fn (Builder $query) => $query->consumesQuota()])
                 ->latest()
-                ->paginate(12, ['*'], 'package_page')
+                ->paginate(Pagination::perPage(12), ['*'], 'package_page')
                 ->withQueryString()
             : collect();
         $payments = $child
             ? $child->payments()
                 ->with('package:package_id,name')
                 ->latest()
-                ->paginate(10, ['*'], 'payment_page')
+                ->paginate(Pagination::perPage(10), ['*'], 'payment_page')
                 ->withQueryString()
             : collect();
 
@@ -118,9 +119,13 @@ class ParentPortalController extends Controller
             ? UserAnswer::query()
                 ->where('user_id', $child->id)
                 ->where('status', 'completed')
-                ->with(['tryout:tryout_id,name', 'tryoutDetail:tryout_detail_id,type_subtest'])
+                ->with([
+                    'tryout:tryout_id,name',
+                    'tryoutDetail:tryout_detail_id,type_subtest,material_category_id',
+                    'tryoutDetail.materialCategory:category_id,name',
+                ])
                 ->latest('finished_at')
-                ->paginate(15)
+                ->paginate(Pagination::perPage(15))
                 ->withQueryString()
             : collect();
         $assessmentSummary = $child
@@ -141,7 +146,7 @@ class ParentPortalController extends Controller
             ? $this->feedbackQuery($child)
                 ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
                 ->latest()
-                ->paginate(10, ['*'], 'feedback_page')
+                ->paginate(Pagination::perPage(10), ['*'], 'feedback_page')
                 ->withQueryString()
             : collect();
         $progress = $child
@@ -149,7 +154,7 @@ class ParentPortalController extends Controller
                 ->where('user_id', $child->id)
                 ->with(['tentor:id,name,expertise', 'package:package_id,name', 'studyGroup:id,name'])
                 ->latest('period_end')
-                ->paginate(10, ['*'], 'progress_page')
+                ->paginate(Pagination::perPage(10), ['*'], 'progress_page')
                 ->withQueryString()
             : collect();
 

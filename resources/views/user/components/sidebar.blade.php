@@ -13,28 +13,6 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
-    $planModules = app(\App\Services\PlanModuleService::class);
-    $canShowDashboard = $planModules->allows('dashboard');
-    $canShowPackage = $planModules->allows('package');
-    $canShowSchedule = $planModules->allows('schedule')
-        && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
-    $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
-        && $planModules->allows('booking')
-        && \Illuminate\Support\Facades\Route::has('user.booking.index');
-    $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
-        && $planModules->allows('booking')
-        && \Illuminate\Support\Facades\Route::has('user.development.index');
-    $canShowEvent = $planModules->allows('event');
-    $canShowMaterial = $planModules->allows('material');
-    $canShowTryout = $planModules->allows('tryout');
-    $canShowFaq = $planModules->allows('faq');
-    $canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
-        && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
-    $canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
-    $canShowCertificate = $planModules->allows('certificate');
-    $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
-        && $planModules->allows('affiliate')
-        && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
     if ($sidebarPrimary) {
         $emptyCtaClasses = 'block w-full py-2 px-3 text-xs text-center text-primary rounded-lg hover:opacity-90 transition-colors duration-200';
         $emptyCtaStyle = "background-color: {$secondaryColor}; border: none;";
