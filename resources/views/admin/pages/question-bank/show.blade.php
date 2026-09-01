@@ -65,6 +65,13 @@
             </div>
             @unless ($tryoutDetail)
             <div class="flex flex-wrap gap-2">
+                @if(auth()->user()?->hasPermission('feedback', 'view'))
+                <a href="{{ route('admin.feedback.index') }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                    <i class="ri-message-3-line"></i>
+                    Feedback Tryout
+                </a>
+                @endif
                 @if($clientBranding['ai_question_generator_enabled'] ?? false)
                 <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
                     class="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50">
