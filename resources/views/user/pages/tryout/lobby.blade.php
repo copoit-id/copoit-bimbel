@@ -37,16 +37,7 @@
                                 {{ $index + 1 }}
                             </div>
                             <div class="text-left">
-                                <div class="font-semibold">{{ strtoupper($detail->type_subtest) }}</div>
-                                <div class="text-sm text-gray-600">
-                                    @if ($detail->type_subtest === 'twk')
-                                    Tes Wawasan Kebangsaan
-                                    @elseif($detail->type_subtest === 'tiu')
-                                    Tes Intelegensi Umum
-                                    @elseif($detail->type_subtest === 'tkp')
-                                    Tes Karakteristik Pribadi
-                                    @endif
-                                </div>
+                                <div class="font-semibold">{{ $detail->display_name }}</div>
                             </div>
                         </div>
                         <div class="text-right">

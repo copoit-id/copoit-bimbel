@@ -96,7 +96,7 @@ class ChatController extends Controller
         return $this->showConversation(
             $request,
             $conversation,
-            'admin.layout.admin',
+            'tutor.layout',
             'Chat dengan '.$conversation->student()->value('name').($scheduleTitle ? ' · '.$scheduleTitle : ''),
             route('tutor.chat.index'),
             'Daftar Chat',

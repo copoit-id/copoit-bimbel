@@ -550,7 +550,7 @@ class PackageController extends Controller
             $package = Package::where('package_id', $package_id)->firstOrFail();
 
             // Get all tryouts with their package relationship status
-            $tryouts = Tryout::with(['tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
+            $tryouts = Tryout::with(['tryoutDetails.materialCategory', 'tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC', [Tryout::class, $package_id])
@@ -755,8 +755,8 @@ class PackageController extends Controller
                 $package = Package::where('package_id', $package_id)->firstOrFail();
             }
 
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.package.tryout.soal', compact('package', 'tryout', 'questions'));
@@ -776,8 +776,8 @@ class PackageController extends Controller
                 $package = Package::where('package_id', $package_id)->firstOrFail();
             }
 
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
             return view('admin.pages.package.tryout.create-soal', compact('package', 'tryout'));
         } catch (\Exception $e) {
@@ -790,8 +790,8 @@ class PackageController extends Controller
     {
         try {
             $package = Package::where('package_id', $package_id)->firstOrFail();
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $question = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->where('question_id', $question_id)->first();
 
             return view('admin.pages.package.tryout.create-soal', compact('package', 'tryout', 'question'));

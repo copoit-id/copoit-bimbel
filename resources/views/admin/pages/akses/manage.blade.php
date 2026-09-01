@@ -73,6 +73,7 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ $user->name }}</p>
                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500"><i class="ri-school-line mr-1"></i>{{ $user->origin_institution ?: 'Sekolah belum diisi' }}</p>
                             <p class="text-xs text-gray-400 mt-0.5">
                                 Akses: {{ $access->created_at->format('d M Y') }}
                                 @if($type === 'package' && $access->end_date)
@@ -121,25 +122,29 @@
             
             <div id="access_panel_mandiri">
             <!-- Search -->
-            <form method="GET" action="{{ route('admin.akses.manage') }}" class="flex gap-2">
+            <form method="GET" action="{{ route('admin.akses.manage') }}" class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
                 <input type="hidden" name="type" value="{{ $type }}">
                 <input type="hidden" name="item_id" value="{{ $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id }}">
                 <input type="hidden" name="mode" value="mandiri">
-                <div class="relative flex-1">
+                <div class="relative">
                     <input type="text" name="search" value="{{ $search }}" 
-                           placeholder="Cari user..."
+                           placeholder="Cari nama atau email peserta..."
                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+                    <i class="ri-search-line pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400"></i>
                 </div>
-                <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
-                    Cari
-                </button>
-                @if($search)
-                <a href="{{ route('admin.akses.manage', ['type' => $type, 'item_id' => $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id]) }}"
-                   class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-                    Reset
-                </a>
-                @endif
+                <div class="relative">
+                    <input type="text" name="school" value="{{ $school }}"
+                           placeholder="Cari nama sekolah..."
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <i class="ri-school-line pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400"></i>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">Cari</button>
+                    @if($search || $school)
+                    <a href="{{ route('admin.akses.manage', ['type' => $type, 'item_id' => $item->package_id ?? $item->material_id ?? $item->tryout_id ?? $item->id]) }}"
+                       class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Reset</a>
+                    @endif
+                </div>
             </form>
             </div>
         </div>
@@ -155,6 +160,7 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ $user->name }}</p>
                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500"><i class="ri-school-line mr-1"></i>{{ $user->origin_institution ?: 'Sekolah belum diisi' }}</p>
                         </div>
                     </div>
                     
@@ -243,6 +249,7 @@
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'school' => $user->origin_institution,
                 ];
             })->values(),
         ];
@@ -339,6 +346,7 @@ document.getElementById('study_group_select')?.addEventListener('change', functi
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-medium text-gray-900">${escapeHtml(user.name)}</span>
                     <span class="block truncate text-xs text-gray-500">${escapeHtml(user.email || '-')}</span>
+                    <span class="block truncate text-xs text-gray-500">${escapeHtml(user.school || 'Sekolah belum diisi')}</span>
                 </span>
             </label>
         `).join('')}

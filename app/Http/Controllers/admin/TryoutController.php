@@ -14,7 +14,10 @@ use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
+use App\Services\TryoutQuestionDownloadService;
+use App\Services\MultipleAnswerScoringService;
 use App\Services\UtbkResultReleaseService;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -74,7 +77,7 @@ class TryoutController extends Controller
             $filterStatus = null;
         }
 
-        $tryouts = Tryout::with(['tryoutDetails.questions'])
+        $tryouts = Tryout::with(['tryoutDetails.materialCategory', 'tryoutDetails.questions'])
             ->withCount([
                 'userAnswers as utbk_pending_count' => function ($query) {
                     $query->where('status', 'pending_release');
@@ -101,7 +104,7 @@ class TryoutController extends Controller
 
         $tryouts->getCollection()->each(function ($tryout) {
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
         });
 
@@ -159,6 +162,7 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
+        $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
         $certificateTemplates = CertificateTemplate::query()
             ->where('client_profile_id', $this->clientProfileId())
             ->where('is_active', true)
@@ -166,7 +170,7 @@ class TryoutController extends Controller
             ->get();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
@@ -208,6 +212,9 @@ class TryoutController extends Controller
                 'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'tab_switch_freeze' => $securitySettings['tab_switch_freeze'],
+                'tab_switch_freeze_seconds' => $securitySettings['tab_switch_freeze_seconds'],
+                'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
@@ -225,7 +232,9 @@ class TryoutController extends Controller
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_passing_grade' => $request->has('show_passing_grade'),
                 'show_result_scores' => $request->has('show_result_scores'),
+                'show_score_maximum' => $request->has('show_score_maximum'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
+                'result_score_scale' => $request->input('result_score_scale', 'raw'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
                 'results_released_at' => null,
                 ...$this->accessDurationData($request),
@@ -250,6 +259,7 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
+            $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
             $certificateTemplates = CertificateTemplate::query()
                 ->where('client_profile_id', $this->clientProfileId())
                 ->where(function ($query) use ($tryout): void {
@@ -260,7 +270,7 @@ class TryoutController extends Controller
                 ->get();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -331,6 +341,9 @@ class TryoutController extends Controller
                 'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'tab_switch_freeze' => $securitySettings['tab_switch_freeze'],
+                'tab_switch_freeze_seconds' => $securitySettings['tab_switch_freeze_seconds'],
+                'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 'is_certification' => $request->has('is_certification'),
@@ -348,17 +361,18 @@ class TryoutController extends Controller
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_passing_grade' => $request->has('show_passing_grade'),
                 'show_result_scores' => $request->has('show_result_scores'),
+                'show_score_maximum' => $request->has('show_score_maximum'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
+                'result_score_scale' => $request->input('result_score_scale', 'raw'),
                 'results_release_at' => $isIrtEnabled ? $request->input('end_date') : null,
                 'results_released_at' => $isIrtEnabled ? $tryout->results_released_at : null,
                 ...$this->accessDurationData($request),
             ]);
 
-            // If type changed, rebuild subtests based on new type; else update existing ones
+            // Saat tipe berubah, detail lama tidak boleh langsung dihapus karena relasi
+            // database akan ikut menghapus soal dan jawaban peserta secara cascade.
             if ($originalType !== $request->type_tryout) {
-                // Remove all existing details to avoid stale subtests
-                $tryout->tryoutDetails()->delete();
-                $this->createTryoutDetails($tryout, $request);
+                $this->rebuildTryoutDetailsPreservingContent($tryout, $request);
             } else {
                 $this->updateTryoutDetails($tryout, $request);
             }
@@ -488,6 +502,7 @@ class TryoutController extends Controller
                 'tryoutDetails' => function ($query) {
                     $query->orderBy('tryout_detail_id');
                 },
+                'tryoutDetails.materialCategory',
                 'tryoutDetails.questions' => function ($query) {
                     $query->with('questionOptions')
                         ->orderBy('question_id');
@@ -496,7 +511,7 @@ class TryoutController extends Controller
 
             // Tambahkan properti 'subtest_name' ke setiap detail
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
 
             return view('admin.pages.tryout.preview', compact('tryout'));
@@ -508,7 +523,22 @@ class TryoutController extends Controller
         }
     }
 
-    private function createTryoutDetails(Tryout $tryout, Request $request): void
+    public function downloadQuestions(Request $request, Tryout $tryout, TryoutQuestionDownloadService $questionDownloadService): HttpResponse
+    {
+        $type = $request->validate([
+            'type' => ['nullable', 'in:soal,pembahasan'],
+        ])['type'] ?? 'soal';
+        $questions = Question::query()
+            ->with(['questionOptions', 'tryoutDetail'])
+            ->whereHas('tryoutDetail', fn ($query) => $query->where('tryout_id', $tryout->tryout_id))
+            ->orderBy('tryout_detail_id')
+            ->orderBy('question_id')
+            ->get();
+
+        return $questionDownloadService->download($tryout, $questions, $type);
+    }
+
+    private function createTryoutDetails(Tryout $tryout, Request $request, bool $pruneStale = true, bool $reuseExisting = true): void
     {
         $dynamicSubtestCategories = $this->dynamicSubtestCategoriesFor($tryout->type_tryout);
 
@@ -522,7 +552,7 @@ class TryoutController extends Controller
 
         switch ($tryout->type_tryout) {
             case 'utbk_full':
-                $this->syncUtbkFullSubtests($tryout, $request);
+                $this->syncUtbkFullSubtests($tryout, $request, $pruneStale, $reuseExisting);
                 break;
             case 'skd_full':
                 $this->createSubtest($tryout->tryout_id, 'twk', $request->duration_twk ?? 35, $request->passing_score_twk ?? 65, $request->input('passing_type_twk', 'score'));
@@ -612,7 +642,7 @@ class TryoutController extends Controller
                 break;
             default:
                 if ($this->getUtbkSlugForType($tryout->type_tryout)) {
-                    $this->createUtbkSingleSubtest($tryout, $request);
+                    $this->createUtbkSingleSubtest($tryout, $request, false, $pruneStale);
                     break;
                 }
 
@@ -627,6 +657,16 @@ class TryoutController extends Controller
         }
     }
 
+    /** @param array<string, array<string, mixed>> $options */
+    private function dynamicTryoutSubtests(array $options): array
+    {
+        return collect($options)
+            ->mapWithKeys(static fn (array $option, string $type): array => ! empty($option['subtests'])
+                ? [$type => $option['subtests']]
+                : [])
+            ->all();
+    }
+
     private function createSubtest($tryoutId, $type, $duration, $passingScore, $passingType)
     {
         TryoutDetail::create([
@@ -637,6 +677,50 @@ class TryoutController extends Controller
             'passing_score' => $passingScore,
             'passing_type' => $passingType,
         ]);
+    }
+
+    /**
+     * Buat struktur subtest baru tanpa menghilangkan konten tryout yang telah ada.
+     *
+     * Semua soal dan jawaban lama dipindahkan ke subtest pertama dari tipe terbaru.
+     * Penempatan ini deterministik agar tidak ada soal yang hilang; admin dapat
+     * mengatur ulang distribusi soal ke subtest lain setelahnya bila diperlukan.
+     */
+    private function rebuildTryoutDetailsPreservingContent(Tryout $tryout, Request $request): void
+    {
+        DB::transaction(function () use ($tryout, $request): void {
+            $previousDetailIds = $tryout->tryoutDetails()
+                ->pluck('tryout_detail_id');
+
+            if ($previousDetailIds->isEmpty()) {
+                $this->createTryoutDetails($tryout, $request);
+
+                return;
+            }
+
+            // Jangan gunakan detail lama sebagai target. Ini memastikan tipe subtest
+            // pada soal selalu mengikuti konfigurasi tryout yang terbaru.
+            $this->createTryoutDetails($tryout, $request, false, false);
+
+            $targetDetail = $tryout->tryoutDetails()
+                ->whereNotIn('tryout_detail_id', $previousDetailIds)
+                ->orderBy('tryout_detail_id')
+                ->firstOrFail();
+
+            Question::withoutGlobalScopes()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->update(['tryout_detail_id' => $targetDetail->tryout_detail_id]);
+
+            UserAnswer::query()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->update(['tryout_detail_id' => $targetDetail->tryout_detail_id]);
+
+            TryoutDetail::withoutGlobalScopes()
+                ->whereIn('tryout_detail_id', $previousDetailIds)
+                ->delete();
+        });
+
+        $tryout->unsetRelation('tryoutDetails');
     }
 
     /**
@@ -822,7 +906,7 @@ class TryoutController extends Controller
         return $parentCategory?->children ?? collect();
     }
 
-    private function syncUtbkFullSubtests(Tryout $tryout, Request $request): void
+    private function syncUtbkFullSubtests(Tryout $tryout, Request $request, bool $pruneStale = true, bool $reuseExisting = true): void
     {
         $allowedTypes = array_keys(self::UTBK_SUBTESTS);
 
@@ -835,13 +919,19 @@ class TryoutController extends Controller
             $passing = $request->input($passingField, $config['default_passing']);
             $passingType = $request->input($passingTypeField, 'score');
 
-            $this->updateOrCreateSubtest($tryout, $type, $duration, $passing, $passingType);
+            if ($reuseExisting) {
+                $this->updateOrCreateSubtest($tryout, $type, $duration, $passing, $passingType);
+            } else {
+                $this->createSubtest($tryout->tryout_id, $type, $duration, $passing, $passingType);
+            }
         }
 
-        $tryout->tryoutDetails()->whereNotIn('type_subtest', $allowedTypes)->delete();
+        if ($pruneStale) {
+            $tryout->tryoutDetails()->whereNotIn('type_subtest', $allowedTypes)->delete();
+        }
     }
 
-    private function createUtbkSingleSubtest(Tryout $tryout, Request $request, bool $isUpdate = false): void
+    private function createUtbkSingleSubtest(Tryout $tryout, Request $request, bool $isUpdate = false, bool $pruneStale = true): void
     {
         $slug = $this->getUtbkSlugForType($tryout->type_tryout);
 
@@ -864,7 +954,9 @@ class TryoutController extends Controller
             $this->createSubtest($tryout->tryout_id, $slug, $duration, $passing, $passingType);
         }
 
-        $tryout->tryoutDetails()->where('type_subtest', '!=', $slug)->delete();
+        if ($pruneStale) {
+            $tryout->tryoutDetails()->where('type_subtest', '!=', $slug)->delete();
+        }
     }
 
     private function subtestLabel(?string $type): string
@@ -1004,9 +1096,14 @@ class TryoutController extends Controller
             'show_leaderboard' => 'boolean',
             'show_passing_grade' => 'boolean',
             'show_result_scores' => 'boolean',
+            'show_score_maximum' => 'boolean',
             'result_score_display' => ['nullable', Rule::in(['total_and_subtest', 'subtest_only'])],
+            'result_score_scale' => ['nullable', Rule::in(['raw', 'scale_100'])],
             'enable_anti_copy' => 'boolean',
             'enable_tab_switch_detection' => 'boolean',
+            'tab_switch_freeze' => 'boolean',
+            'tab_switch_freeze_seconds' => 'nullable|integer|min:1|max:300',
+            'tab_switch_reset_answer' => 'boolean',
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
             'is_for_sale' => 'boolean',
@@ -1464,7 +1561,7 @@ class TryoutController extends Controller
             ->orderBy('user_answer_id')
             ->chunkById(200, function ($answers) {
                 foreach ($answers as $answer) {
-                    $answer->loadMissing(['tryoutDetail', 'userAnswerDetails.question', 'userAnswerDetails.questionOption']);
+                    $answer->loadMissing(['tryoutDetail', 'userAnswerDetails.question.questionOptions', 'userAnswerDetails.questionOption']);
                     $detail = $answer->tryoutDetail;
                     if (! $detail) {
                         continue;
@@ -1487,7 +1584,7 @@ class TryoutController extends Controller
         $totalScore = 0.0;
 
         $details = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($details as $detail) {
@@ -1502,7 +1599,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
 
                 case 'matching':
@@ -1711,8 +1808,7 @@ class TryoutController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
 
                 case 'matching':

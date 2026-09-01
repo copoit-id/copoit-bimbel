@@ -10,11 +10,17 @@
         </x-slot>
     </x-breadcrumb>
 
-    <a href="{{ route('admin.tryout.index') }}"
-        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
-        <i class="ri-arrow-left-line"></i>
-        Kembali
-    </a>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+        <x-tryout.question-download-menu
+            :questions-url="route('admin.tryout.download-questions', ['tryout' => $tryout, 'type' => 'soal'])"
+            :explanations-url="route('admin.tryout.download-questions', ['tryout' => $tryout, 'type' => 'pembahasan'])"
+            label="Unduh Laporan" />
+        <a href="{{ route('admin.tryout.index') }}"
+            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+            <i class="ri-arrow-left-line"></i>
+            Kembali
+        </a>
+    </div>
 </div>
 
 <x-page-desc title="Preview Tryout - {{ $tryout->name }}">
@@ -61,7 +67,7 @@
         @foreach($tryout->tryoutDetails as $index => $detail)
         <a href="#subtest-{{ $detail->tryout_detail_id }}"
             class="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-            {{ strtoupper($detail->type_subtest) }} ({{ $detail->questions->count() }} soal)
+            {{ $detail->display_name }} ({{ $detail->questions->count() }} soal)
         </a>
         @endforeach
     </div>

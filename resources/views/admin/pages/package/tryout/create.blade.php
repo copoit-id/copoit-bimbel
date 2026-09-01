@@ -350,6 +350,18 @@
                             'default' => $securityDefaults['enable_tab_switch_detection'] ?? true,
                             'available' => $securityDefaults['enable_tab_switch_detection'] ?? true,
                         ],
+                        'tab_switch_freeze' => [
+                            'label' => 'Punishment: Freeze',
+                            'description' => 'Kunci sementara halaman ujian sampai peserta menekan tombol Saya Mengerti setelah pindah tab terdeteksi.',
+                            'default' => $securityDefaults['tab_switch_freeze'] ?? false,
+                            'available' => $securityDefaults['tab_switch_freeze'] ?? false,
+                        ],
+                        'tab_switch_reset_answer' => [
+                            'label' => 'Punishment: Hapus Jawaban Aktif',
+                            'description' => 'Hapus jawaban pada soal yang sedang aktif ketika pindah tab terdeteksi.',
+                            'default' => $securityDefaults['tab_switch_reset_answer'] ?? false,
+                            'available' => $securityDefaults['tab_switch_reset_answer'] ?? false,
+                        ],
                         'enable_webcam_check' => [
                             'label' => 'Webcam Check',
                             'description' => 'Wajibkan kamera aktif dan simpan snapshot kecil setiap 10 menit.',
@@ -368,7 +380,8 @@
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                     @foreach($securityOptions as $field => $option)
                         @php
-                            $isChecked = session()->hasOldInput() ? (bool) old($field) : $option['default'];
+                            $defaultValue = isset($tryout) ? (bool) $tryout->{$field} : $option['default'];
+                            $isChecked = session()->hasOldInput() ? (bool) old($field) : $defaultValue;
                         @endphp
                         <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
                             <input type="hidden" name="{{ $field }}" value="0">

@@ -26,12 +26,12 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
                     <th class="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icon</th>
                     <th class="w-28 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="w-72 px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                    <th class="sticky right-0 z-20 w-72 border-l border-gray-200 bg-gray-50 px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.25)]">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse($categories as $index => $category)
-                <tr class="hover:bg-gray-50">
+                <tr class="group hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $index + 1 }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">{{ $category->name }}</div>
@@ -52,7 +52,7 @@
                         <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Nonaktif</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td class="sticky right-0 z-10 border-l border-gray-100 bg-white px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.15)] group-hover:bg-gray-50">
                         <div class="flex items-center justify-end gap-3">
                         <button onclick="openSubcategoryModal({{ $category->category_id }}, @js($category->name))"
                             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-primary/30 text-primary hover:bg-primary hover:text-white transition text-xs font-semibold"
@@ -74,7 +74,7 @@
                     </td>
                 </tr>
                 @foreach($category->children as $child)
-                <tr class="hover:bg-gray-50 bg-gray-50/60">
+                <tr class="group bg-gray-50/60 hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $index + 1 }}.{{ $loop->iteration }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center gap-2 pl-7">
@@ -102,7 +102,7 @@
                         <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Nonaktif</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td class="sticky right-0 z-10 border-l border-gray-100 bg-gray-50/60 px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.15)] group-hover:bg-gray-50">
                         <div class="flex items-center justify-end gap-3">
                         <button onclick="openEditModal({{ $child->category_id }}, @js($child->name), @js($child->description), @js($child->icon), {{ $child->order_number }}, {{ $child->is_active ? 'true' : 'false' }}, {{ $child->parent_id ?? 'null' }})" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900">
                             <i class="ri-edit-line text-lg"></i>

@@ -2,6 +2,7 @@
 @section('title', 'Statistik Tryout')
 @section('content')
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
+    @php($showPassingGrade = $tryout->shouldShowPassingGrade())
     <x-page-desc title="Statistik - {{ $tryout->name }}" description="Analisis detail hasil tryout Anda"
         name_link="Kembali ke Tryout" url_link="{{ route('user.package.tryout', $package->package_id) }}">
     </x-page-desc>
@@ -16,6 +17,7 @@
                     </div>
                     <div class="text-sm text-gray-600">Total Skor</div>
                 </div>
+                @if($showPassingGrade)
                 <div class="flex justify-center">
                     <span
                         class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium {{ $overallStats['is_passed'] ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-700' }}">
@@ -23,10 +25,11 @@
                         {{ $overallStats['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
                     </span>
                 </div>
+                @endif
                 @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
                 <div class="mt-2">
                     <span class="inline-flex px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        SKD Full - {{ $tryoutDetails->count() }} Subtest
+                        {{ $tryoutDetails->map(fn ($detail) => $detail->display_name)->filter()->implode(' + ') }}
                     </span>
                 </div>
                 @endif
@@ -244,7 +247,7 @@
                 </div>
                 @endif
 
-                @if($overallStats['is_passed'])
+                @if($showPassingGrade && $overallStats['is_passed'])
                 <div class="flex items-start gap-2">
                     <i class="ri-star-line text-primary mt-0.5"></i>
                     <span>Pertahankan performa yang baik dan terus berlatih secara konsisten</span>

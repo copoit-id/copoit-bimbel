@@ -15,6 +15,7 @@ use App\Models\MaterialProgressLog;
 use App\Models\TesKoranResult;
 use App\Models\TesKoran;
 use App\Models\Tryout;
+use App\Models\TryoutDetail;
 use App\Models\AiDiscussionUsageLog;
 use App\Models\AiGatewayTransaction;
 use App\Models\UserAnswer;
@@ -34,10 +35,14 @@ use App\Services\AffiliateService;
 use App\Services\Payments\IpaymuGateway;
 use App\Services\Payments\InteractiveQrisGateway;
 use App\Services\PurchaseAccessDuration;
+use App\Services\TryoutQuestionDownloadService;
+use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutScoreDisplayService;
+use App\Services\TryoutRankingService;
+use App\Support\Pagination;
+use Illuminate\Pagination\LengthAwarePaginator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Symfony\Component\Process\Process;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 
 class PackageController extends Controller
 {
@@ -1983,7 +1988,7 @@ class PackageController extends Controller
 
     public function riwayatTryout($id_package, $id_tryout)
     {
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
         $package = null;
         $packageRouteId = $id_package;
 
@@ -2032,7 +2037,7 @@ class PackageController extends Controller
         $attempts = \App\Models\UserAnswer::where('user_id', Auth::id())
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
-            ->with(['tryout', 'tryoutDetail'])
+            ->with(['tryout', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2041,17 +2046,19 @@ class PackageController extends Controller
 
         // Prepare attempt data dengan perhitungan yang benar
         $attemptHistory = [];
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
         foreach ($groupedAttempts as $token => $userAnswers) {
-            $firstAnswer = $userAnswers->first();
+            $userAnswers->loadMissing(['userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory']);
+            $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
+                ->select('tryout_detail_id', \DB::raw('count(*) as total'))
+                ->groupBy('tryout_detail_id')
+                ->pluck('total', 'tryout_detail_id');
+            $firstAnswer = $userAnswers
+                ->sortBy(fn ($answer) => $answer->started_at ?? $answer->created_at)
+                ->first();
             $lastAnswer = $userAnswers->sortByDesc('finished_at')->first();
 
             if ($tryout->requiresIrtScoring()) {
-                $userAnswers->loadMissing(['userAnswerDetails', 'tryoutDetail']);
-                $questionCounts = \App\Models\Question::whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
-                    ->select('tryout_detail_id', \DB::raw('count(*) as total'))
-                    ->groupBy('tryout_detail_id')
-                    ->pluck('total', 'tryout_detail_id');
-
                 $totalCorrect = 0;
                 $totalWrong = 0;
                 $totalUnanswered = 0;
@@ -2090,9 +2097,10 @@ class PackageController extends Controller
 
                         $totalScore += $subtestScore;
                         $totalMaxScore += $maxSubtestScore;
-                        $totalCorrect += $ua->correct_answers ?? 0;
-                        $totalWrong += $ua->wrong_answers ?? 0;
-                        $totalUnanswered += $ua->unanswered ?? 0;
+                        $details = $ua->userAnswerDetails;
+                        $totalCorrect += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)))->count();
+                        $totalWrong += $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail))->count();
+                        $totalUnanswered += max(0, (int) ($questionCounts[$ua->tryout_detail_id] ?? 0) - $details->count());
                     }
 
                     $finalPercentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
@@ -2108,9 +2116,10 @@ class PackageController extends Controller
                     $finalPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
                     $totalScore = $rawScore;
                     $isPassed = $this->isAttemptPassed($userAnswers, 1);
-                    $totalCorrect = $singleAnswer->correct_answers ?? 0;
-                    $totalWrong = $singleAnswer->wrong_answers ?? 0;
-                    $totalUnanswered = $singleAnswer->unanswered ?? 0;
+                    $details = $singleAnswer->userAnswerDetails;
+                    $totalCorrect = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)))->count();
+                    $totalWrong = $details->filter(fn ($detail) => empty(data_get($detail->answer_json, 'pending_review')) && ! $detail->is_correct && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail))->count();
+                    $totalUnanswered = max(0, (int) ($questionCounts[$singleAnswer->tryout_detail_id] ?? 0) - $details->count());
                 }
 
             // Calculate duration
@@ -2118,12 +2127,22 @@ class PackageController extends Controller
             $endTime = Carbon::parse($lastAnswer->finished_at);
             $duration = $endTime->diff($startTime);
 
+            $displayScore = $scoreDisplayService->present(
+                $tryout,
+                $totalScore,
+                $totalCorrect,
+                $totalCorrect + $totalWrong + $totalUnanswered,
+                $tryout->requiresIrtScoring() ? 1000 : ($totalMaxScore ?? null),
+                $userAnswers->count()
+            );
+
             $attemptHistory[] = [
                 'id' => $token,
                 'created_at' => $firstAnswer->created_at,
                 'started_at' => $firstAnswer->started_at,
                 'finished_at' => $lastAnswer->finished_at,
                 'score' => round($totalScore, 0),
+                'display_score' => $displayScore,
                 'is_passed' => $isPassed,
                 'duration' => $duration->format('%H:%I:%S'),
                 'correct_answers' => $totalCorrect,
@@ -2133,8 +2152,21 @@ class PackageController extends Controller
             ];
         }
 
-        // Sort by newest first
-        $attemptHistory = collect($attemptHistory)->sortByDesc('created_at')->values();
+        // Nomor percobaan mengikuti waktu pengerjaan, dari yang paling awal.
+        // Status "Terbaru" tetap diberikan pada percobaan terakhir agar tidak
+        // tertukar dengan urutan nomor percobaannya.
+        $attemptHistory = collect($attemptHistory)
+            ->sortBy(fn (array $attempt) => $attempt['started_at'] ?? $attempt['created_at'])
+            ->values();
+
+        $lastAttemptIndex = $attemptHistory->count() - 1;
+        $attemptHistory = $attemptHistory
+            ->map(function (array $attempt, int $index) use ($lastAttemptIndex): array {
+                $attempt['attempt_number'] = $index + 1;
+                $attempt['is_latest'] = $index === $lastAttemptIndex;
+
+                return $attempt;
+            });
 
         return view('user.pages.package.tryout-riwayat', compact('package', 'tryout', 'attemptHistory', 'packageRouteId'));
     }
@@ -2145,7 +2177,7 @@ class PackageController extends Controller
         $totalScore = 0;
 
         $userAnswerDetails = \App\Models\UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-            ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
             ->get();
 
         foreach ($userAnswerDetails as $detail) {
@@ -2160,7 +2192,7 @@ class PackageController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
                 case 'multiple_true_false':
                     $totalScore += $this->resolveMultipleTrueFalseAwardedScore($question, $detail);
@@ -2218,6 +2250,21 @@ class PackageController extends Controller
         }
 
         return $totalScore;
+    }
+
+    private function isPartiallyCorrectMultipleAnswerDetail($detail): bool
+    {
+        $question = $detail->question;
+
+        if (! $question || ($question->question_type ?? '') !== 'multiple_answer') {
+            return false;
+        }
+
+        $scoringService = app(MultipleAnswerScoringService::class);
+
+        return $scoringService->isPartiallyCorrect(
+            $scoringService->evaluateDetail($question, $detail)
+        );
     }
 
     private function resolveMultipleAnswerAwardedScore($question, $detail): float
@@ -2404,8 +2451,7 @@ class PackageController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
                 case 'multiple_true_false':
                     $mtfMeta = is_array($question->metadata['multiple_true_false'] ?? null) ? $question->metadata['multiple_true_false'] : [];
@@ -3336,9 +3382,9 @@ class PackageController extends Controller
         }
     }
 
-    public function rankingTryout($id_package, $id_tryout)
+    public function rankingTryout($id_package, $id_tryout, TryoutRankingService $tryoutRankingService)
     {
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
         if (! $tryout->show_leaderboard) {
             return redirect()->route('user.package.my', ['tab' => 'tryouts'])
                 ->with('error', 'Leaderboard tryout ini tidak tersedia.');
@@ -3388,75 +3434,102 @@ class PackageController extends Controller
         $currentUser->loadMissing([
             'participantDestinationCategory.parent',
             'participantDestinationCategory.activeChildren',
+            'secondParticipantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.activeChildren',
         ]);
         $activeRankingTab = request('tab', 'all') === 'profile' ? 'profile' : 'all';
-        $profileCategory = $currentUser->participantDestinationCategory;
-        $profileOfficialInstitution = trim((string) ($currentUser->participant_destination_institution_name ?? ''));
-        $profileOfficialProgram = trim((string) ($currentUser->participant_destination_program_name ?? ''));
-        $hasOfficialDestination = $currentUser->participant_destination_source === 'snpmb'
-            && $profileOfficialInstitution !== '';
-        $profileNeedsCompletion = !$hasOfficialDestination
-            && (
-                !$profileCategory
-                || (!$profileCategory->parent_id && $profileCategory->activeChildren()->exists())
-            );
+        $requestedProfileChoice = (string) request('profile_choice', '');
+        $selectedProfileChoice = in_array($requestedProfileChoice, ['1', '2'], true)
+            ? (int) $requestedProfileChoice
+            : 1;
+
+        $buildProfileChoice = function ($category, string $source, string $institution, string $program, ?string $label): array {
+            $hasOfficialDestination = $source === 'snpmb' && $institution !== '';
+            $needsCompletion = !$hasOfficialDestination
+                && (
+                    !$category
+                    || (!$category->parent_id && $category->activeChildren->isNotEmpty())
+                );
+
+            return [
+                'label' => $label,
+                'destination_ids' => $category
+                    ? ($category->parent_id
+                        ? [$category->id]
+                        : $category->activeChildren->pluck('id')->prepend($category->id)->unique()->values()->all())
+                    : [],
+                'destination_snapshot' => $hasOfficialDestination
+                    ? [
+                        'source' => 'snpmb',
+                        'institution_name' => $institution,
+                        'program_name' => $program,
+                    ]
+                    : null,
+                'needs_completion' => $needsCompletion,
+            ];
+        };
+
+        $profileChoices = [
+            1 => $buildProfileChoice(
+                $currentUser->participantDestinationCategory,
+                (string) ($currentUser->participant_destination_source ?? ''),
+                trim((string) ($currentUser->participant_destination_institution_name ?? '')),
+                trim((string) ($currentUser->participant_destination_program_name ?? '')),
+                $currentUser->participant_destination_display_name,
+            ),
+            2 => $buildProfileChoice(
+                $currentUser->secondParticipantDestinationCategory,
+                (string) ($currentUser->second_participant_destination_source ?? ''),
+                trim((string) ($currentUser->second_participant_destination_institution_name ?? '')),
+                trim((string) ($currentUser->second_participant_destination_program_name ?? '')),
+                $currentUser->second_participant_destination_display_name,
+            ),
+        ];
+        if ($requestedProfileChoice === '' && $profileChoices[1]['needs_completion'] && ! $profileChoices[2]['needs_completion']) {
+            $selectedProfileChoice = 2;
+        }
+        $profileNeedsCompletion = $profileChoices[$selectedProfileChoice]['needs_completion'];
 
         if ($activeRankingTab === 'profile' && $profileNeedsCompletion) {
             return redirect()->route('user.profile.index')
-                ->with('error', 'Lengkapi instansi/prodi tujuan di profil terlebih dahulu untuk melihat ranking berdasarkan profil.');
+                ->with('error', "Lengkapi instansi/prodi tujuan Pilihan {$selectedProfileChoice} di profil terlebih dahulu untuk melihat ranking berdasarkan profil.");
         }
+        $profileDestinationLabel = $profileChoices[$selectedProfileChoice]['label'];
 
-        $profileDestinationIds = [];
-        $profileDestinationLabel = null;
-        $profileDestinationSnapshot = null;
-        if ($profileCategory) {
-            $profileDestinationLabel = $profileCategory->display_name;
-            $profileDestinationIds = $profileCategory->parent_id
-                ? [$profileCategory->id]
-                : $profileCategory->activeChildren
-                    ->pluck('id')
-                    ->prepend($profileCategory->id)
-                    ->unique()
-                    ->values()
-                    ->all();
-        } elseif ($hasOfficialDestination) {
-            $profileDestinationLabel = $currentUser->participant_destination_display_name;
-            $profileDestinationSnapshot = [
-                'source' => 'snpmb',
-                'institution_name' => $profileOfficialInstitution,
-                'program_name' => $profileOfficialProgram,
-            ];
-        }
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $sortRankings = fn ($rankings) => $tryoutRankingService->sort($rankings);
+        $selectFirstAttempt = fn ($attempts) => $tryoutRankingService->firstAttempt($attempts);
 
-        $buildRankings = function (array $destinationIds = [], ?array $destinationSnapshot = null) use ($id_tryout, $tryout) {
-            return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
+        $buildRankings = function () use ($id_tryout, $tryout, $scoreDisplayService, $sortRankings, $selectFirstAttempt) {
+            $subtestCount = max(1, $tryout->tryoutDetails->count());
+
+            $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
-                ->when(!empty($destinationIds), function ($query) use ($destinationIds) {
-                    $query->whereHas('user', function ($userQuery) use ($destinationIds) {
-                        $userQuery->whereIn('participant_destination_category_id', $destinationIds);
-                    });
-                })
-                ->when(!empty($destinationSnapshot), function ($query) use ($destinationSnapshot) {
-                    $query->whereHas('user', function ($userQuery) use ($destinationSnapshot) {
-                        $userQuery
-                            ->where('participant_destination_source', $destinationSnapshot['source'])
-                            ->where('participant_destination_institution_name', $destinationSnapshot['institution_name']);
-
-                        if (!empty($destinationSnapshot['program_name'])) {
-                            $userQuery->where('participant_destination_program_name', $destinationSnapshot['program_name']);
-                        }
-                    });
-                })
-                ->with(['user.participantDestinationCategory.parent', 'tryoutDetail'])
+                ->select([
+                    'user_id',
+                    'tryout_detail_id',
+                    'attempt_token',
+                    'started_at',
+                    'finished_at',
+                    'score',
+                    'utbk_total_score',
+                    'correct_answers',
+                    'wrong_answers',
+                    'unanswered',
+                ])
+                ->with([
+                    'user:id,name,email,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
+                    'tryoutDetail' => fn ($query) => $query->withCount('questions'),
+                ])
                 ->get()
                 ->groupBy('user_id')
-                ->map(function ($userAnswers) use ($tryout) {
+                ->map(function ($userAnswers) use ($tryout, $scoreDisplayService, $subtestCount, $selectFirstAttempt) {
                 $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
 
                 if ($usesUtbkIrt) {
                     $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                    $bestAttempt = $attemptGroups->map(function ($attempt) {
+                    $rankingAttempt = $selectFirstAttempt($attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService, $subtestCount) {
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
                         $attempt->loadMissing('tryoutDetail');
@@ -3469,35 +3542,74 @@ class PackageController extends Controller
                             $subtestScores[$userAnswer->tryout_detail_id] = (float) ($userAnswer->score ?? 0);
                         }
 
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
+                        $displayScore = $scoreDisplayService->present($tryout, $score, $correctAnswers, $totalQuestions, 1000, $attempt->count());
+                        $displaySubtestScores = collect($subtestScores)
+                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore, 0, 0, 1000))
+                            ->all();
+
                         return [
                             'user' => $representative->user,
                             'raw_score' => $score,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => 1000,
+                            'display_score' => $displayScore,
+                            'display_subtest_scores' => $displaySubtestScores,
                             'percentage' => $score / 10,
                             'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
                             'correct_answers' => $attempt->sum('correct_answers'),
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allPassed,
                             'subtest_scores' => $subtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
-                    })->filter()->sortByDesc('raw_score')->values()->first();
+                    })->filter());
 
-                    return $bestAttempt;
+                    return $rankingAttempt;
                 }
 
                 // Gabungkan skor dari semua subtest dengan group_by attempt_token
                 $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout) {
+                $rankingAttempt = $selectFirstAttempt($attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService, $subtestCount) {
                     if ($tryout->is_toefl == 1) {
                         // For TOEFL, use the actual TOEFL total score
                         $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
 
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
+
+                        $subtestScores = $attempt
+                            ->mapWithKeys(fn (UserAnswer $answer) => [
+                                $answer->tryout_detail_id => (float) ($answer->score ?? 0),
+                            ])
+                            ->all();
+                        $displaySubtestScores = collect($subtestScores)
+                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
+                            ->all();
+
+                        $displayScore = $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677, $attempt->count());
+
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => 677, // TOEFL max score
+                            'display_score' => $displayScore,
                             'percentage' => $toeflScore,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3505,7 +3617,10 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $this->isToeflPassed((int) $toeflScore),
-                            'subtest_scores' => []
+                            'subtest_scores' => $subtestScores,
+                            'display_subtest_scores' => $displaySubtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
                     } else {
                         // Regular scoring
@@ -3513,6 +3628,7 @@ class PackageController extends Controller
                         $totalMaxScore = 0;
                         $allSubtestsPassed = true;
                         $subtestScores = [];
+                        $displaySubtestScores = [];
 
                         foreach ($attempt as $userAnswer) {
                             $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
@@ -3524,6 +3640,13 @@ class PackageController extends Controller
                             $totalScore += $subtestScore;
                             $totalMaxScore += $maxSubtestScore;
                             $subtestScores[$userAnswer->tryout_detail_id] = $subtestScore;
+                            $displaySubtestScores[$userAnswer->tryout_detail_id] = $scoreDisplayService->present(
+                                $tryout,
+                                $subtestScore,
+                                (int) ($userAnswer->correct_answers ?? 0),
+                                (int) ($userAnswer->tryoutDetail?->questions_count ?? 0),
+                                $maxSubtestScore
+                            );
 
                             $detail = $userAnswer->tryoutDetail;
                             if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
@@ -3533,10 +3656,29 @@ class PackageController extends Controller
 
                         $percentage = $totalMaxScore > 0 ? ($totalScore / $totalMaxScore) * 100 : 0;
 
+                        $correctAnswers = (int) $attempt->sum('correct_answers');
+                        $totalQuestions = (int) $attempt->sum(
+                            fn (UserAnswer $answer) => $answer->tryoutDetail?->questions_count ?? 0
+                        );
+                        if ($totalQuestions < 1) {
+                            $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
+                        }
+
+                        $displayScore = $scoreDisplayService->present(
+                            $tryout,
+                            $totalScore,
+                            $correctAnswers,
+                            $totalQuestions,
+                            $totalMaxScore,
+                            $attempt->count()
+                        );
+
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $totalScore,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => $totalMaxScore,
+                            'display_score' => $displayScore,
                             'percentage' => $percentage,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3544,34 +3686,124 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allSubtestsPassed,
-                            'subtest_scores' => $subtestScores
+                            'subtest_scores' => $subtestScores,
+                            'display_subtest_scores' => $displaySubtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
                     }
-                })->filter()->sortByDesc('raw_score')->values()->first();
+                })->filter());
 
-                return $bestAttempt;
-            })
-                ->filter() // Remove null values
-                ->sortByDesc('raw_score')
-                ->values();
+                return $rankingAttempt;
+            })->filter();
+
+            return $sortRankings($rankings);
         };
 
         $allRankings = $buildRankings();
-        $profileRankings = !$profileNeedsCompletion
-            ? $buildRankings($profileDestinationIds, $profileDestinationSnapshot)
-            : collect();
-        $rankings = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+        $matchesProfileChoice = function (array $ranking, array $profileChoice): bool {
+            $user = $ranking['user'];
+            $destinationIds = $profileChoice['destination_ids'];
+
+            if ($destinationIds !== []) {
+                return in_array((int) $user->participant_destination_category_id, $destinationIds, true)
+                    || in_array((int) $user->second_participant_destination_category_id, $destinationIds, true);
+            }
+
+            $destination = $profileChoice['destination_snapshot'];
+            if ($destination === null) {
+                return false;
+            }
+
+            $matchesSnapshot = function (string $prefix) use ($user, $destination): bool {
+                $source = (string) $user->{$prefix.'_source'};
+                $institution = trim((string) $user->{$prefix.'_institution_name'});
+                $program = trim((string) $user->{$prefix.'_program_name'});
+
+                return $source === $destination['source']
+                    && $institution === $destination['institution_name']
+                    && ($destination['program_name'] === '' || $program === $destination['program_name']);
+            };
+
+            return $matchesSnapshot('participant_destination')
+                || $matchesSnapshot('second_participant_destination');
+        };
+        $profileRankingsByChoice = collect($profileChoices)->mapWithKeys(function (array $profileChoice, int $choice) use ($allRankings, $matchesProfileChoice) {
+            return [$choice => $profileChoice['needs_completion']
+                ? collect()
+                : $allRankings->filter(fn (array $ranking) => $matchesProfileChoice($ranking, $profileChoice))->values()];
+        });
+        $profileRankings = $profileRankingsByChoice->get($selectedProfileChoice, collect());
+        $rankingSummary = $activeRankingTab === 'profile' ? $profileRankings : $allRankings;
+        $myRankingIndex = $rankingSummary->search(fn (array $ranking): bool => (int) ($ranking['user']->id ?? 0) === (int) Auth::id());
+        $myRanking = $myRankingIndex === false
+            ? null
+            : [
+                'rank' => $myRankingIndex + 1,
+                'total' => $rankingSummary->count(),
+                'score' => $rankingSummary->get($myRankingIndex),
+            ];
+        $finalScoreSummary = $scoreDisplayService->summarizeFinalScores($rankingSummary);
+        $showScoreMaximum = $scoreDisplayService->shouldShowMaximum($tryout);
+        $rankingStatistics = [
+            'total_participants' => $rankingSummary->count(),
+            'show_score_maximum' => $showScoreMaximum,
+            'average_score' => $finalScoreSummary['average'],
+            'average_score_display' => $finalScoreSummary['average_formatted'],
+            'highest_score' => $finalScoreSummary['highest'],
+            'highest_score_display' => $finalScoreSummary['highest_formatted'],
+            'highest_maximum_display' => ! $showScoreMaximum
+                ? null
+                : ($rankingSummary->first()['display_score']['formatted_maximum'] ?? null),
+            'pass_rate' => $rankingSummary->isNotEmpty()
+                ? ($rankingSummary->where('is_passed', true)->count() / $rankingSummary->count()) * 100
+                : 0,
+            'my_score' => $myRanking['score'] ?? null,
+        ];
+        $podiumRankings = $rankingSummary
+            ->take(3)
+            ->values()
+            ->map(function (array $ranking, int $index) use ($showScoreMaximum): array {
+                return [
+                    'rank' => $index + 1,
+                    'name' => $ranking['user']->name,
+                    'score' => $ranking['display_score']['formatted'],
+                    'maximum' => $showScoreMaximum
+                        ? $ranking['display_score']['formatted_maximum']
+                        : null,
+                ];
+            })
+            ->keyBy('rank');
+        $perPage = Pagination::perPage(20);
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $rankings = new LengthAwarePaginator(
+            $rankingSummary->forPage($currentPage, $perPage)->values(),
+            $rankingSummary->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
 
         return view('user.pages.package.tryout-rank', compact(
             'package',
             'tryout',
             'rankings',
+            'rankingSummary',
             'allRankings',
             'profileRankings',
+            'profileRankingsByChoice',
             'activeRankingTab',
+            'selectedProfileChoice',
+            'profileChoices',
             'profileDestinationLabel',
             'profileNeedsCompletion',
-            'packageRouteId'
+            'packageRouteId',
+            'myRanking',
+            'rankingStatistics',
+            'podiumRankings'
         ));
     }
 
@@ -3615,7 +3847,7 @@ class PackageController extends Controller
             ->where('tryout_id', $id_tryout)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
-            ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
+            ->with(['tryout.tryoutDetails.materialCategory', 'userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -3629,6 +3861,14 @@ class PackageController extends Controller
         $latestUserAnswers = $userAnswers->where('attempt_token', $latestAttemptToken);
 
         $tryoutDetails = $tryout->tryoutDetails;
+        $tryout->loadMissing('materialCategory');
+        $subtestGroupLabel = $tryoutDetails->count() > 1
+            ? sprintf(
+                '%s (%d Subtest)',
+                $tryout->materialCategory?->name ?: Str::headline((string) $tryout->type_tryout),
+                $tryoutDetails->count()
+            )
+            : null;
 
         $answeredDetailsByQuestionId = collect();
         foreach ($latestUserAnswers as $userAnswer) {
@@ -3639,7 +3879,7 @@ class PackageController extends Controller
 
             foreach ($answerDetails as $detail) {
                 $detail->subtest_type = $userAnswer->tryoutDetail->type_subtest;
-                $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail->type_subtest);
+                $detail->subtest_name = $this->getSubtestName($userAnswer->tryoutDetail);
             }
 
             foreach ($answerDetails as $detail) {
@@ -3648,7 +3888,7 @@ class PackageController extends Controller
         }
 
         $userAnswersByTryoutDetailId = $latestUserAnswers->keyBy('tryout_detail_id');
-        $questions = \App\Models\Question::with('questionOptions')
+        $questions = \App\Models\Question::with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->whereIn('tryout_detail_id', $latestUserAnswers->pluck('tryout_detail_id'))
             ->orderBy('tryout_detail_id')
             ->orderBy('question_id')
@@ -3673,8 +3913,9 @@ class PackageController extends Controller
             }
 
             $detail->setRelation('question', $question);
-            $detail->subtest_type = $userAnswer?->tryoutDetail?->type_subtest ?? $question->tryoutDetail?->type_subtest;
-            $detail->subtest_name = $this->getSubtestName($detail->subtest_type);
+            $subtestDetail = $userAnswer?->tryoutDetail ?? $question->tryoutDetail;
+            $detail->subtest_type = $subtestDetail?->type_subtest;
+            $detail->subtest_name = $this->getSubtestName($subtestDetail ?? $detail->subtest_type);
             $detail->is_unanswered = !$detail->exists || (
                 !$detail->question_option_id
                 && blank($detail->answer_text)
@@ -3743,7 +3984,7 @@ class PackageController extends Controller
                         continue;
                     }
 
-                    if ($detail->is_correct) {
+                    if ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)) {
                         $correctAnswers++;
                     } else {
                         $wrongAnswers++;
@@ -3782,6 +4023,15 @@ class PackageController extends Controller
             $isPassed = $this->isAttemptPassed($latestUserAnswers, $tryoutDetails->count());
         }
 
+        $scoreDisplay = app(TryoutScoreDisplayService::class)->present(
+            $tryout,
+            $totalScore,
+            $correctAnswers,
+            $totalQuestions,
+            $maxScore,
+            $latestUserAnswers->count()
+        );
+
         $overallStats = [
             'total_questions' => $totalQuestions,
             'correct_answers' => $correctAnswers,
@@ -3790,6 +4040,8 @@ class PackageController extends Controller
             'pending_review' => $pendingReviewCount,
             'total_score' => $totalScore,
             'max_score' => $maxScore,
+            'display_score' => $scoreDisplay['formatted'],
+            'display_maximum' => $scoreDisplay['formatted_maximum'],
             'percentage' => $percentage,
             'is_passed' => $isPassed
         ];
@@ -3797,7 +4049,7 @@ class PackageController extends Controller
         $subtestSummaries = [];
         if ($tryoutDetails->count() > 1) {
             if ($tryout->requiresIrtScoring()) {
-                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) use ($tryout, $questionCounts) {
                     $detail = $userAnswer->tryoutDetail;
                     $type = $detail->type_subtest;
                     $score = (float) ($userAnswer->score ?? 0);
@@ -3805,23 +4057,31 @@ class PackageController extends Controller
                     $percentage = $score / 10;
                     $passingScore = $detail->passing_score ?? null;
                     $passingType = $detail->passing_type ?? 'score';
+                    $correctCount = $userAnswer->userAnswerDetails->where('is_correct', true)->count();
+                    $totalSubtestQuestions = (int) ($questionCounts[$userAnswer->tryout_detail_id] ?? 0);
+                    $displayScore = app(TryoutScoreDisplayService::class)->present(
+                        $tryout, $score, $correctCount, $totalSubtestQuestions, $max
+                    );
 
                     return [
                         'type' => $type,
-                        'name' => $this->getSubtestName($type),
+                        'name' => $this->getSubtestName($detail),
+                        'abbreviation' => $detail->display_abbreviation,
                         'score' => $score,
                         'max_score' => $max,
+                        'display_score' => $displayScore['formatted'],
+                        'display_maximum' => $displayScore['formatted_maximum'],
                         'percentage' => $percentage,
                         'passing_score' => $passingScore,
                         'passing_type' => $passingType,
                         'passing_percentage' => $passingType === 'percentage' ? $passingScore : null,
                         'is_passed' => $this->isUtbkSubtestPassed($detail, $score),
-                        'correct_answers' => $userAnswer->userAnswerDetails->where('is_correct', true)->count(),
-                        'wrong_answers' => max(0, $userAnswer->userAnswerDetails->count() - $userAnswer->userAnswerDetails->where('is_correct', true)->count()),
+                        'correct_answers' => $correctCount,
+                        'wrong_answers' => max(0, $userAnswer->userAnswerDetails->count() - $correctCount),
                     ];
                 })->values();
             } else {
-                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) {
+                $subtestSummaries = $latestUserAnswers->map(function ($userAnswer) use ($tryout, $questionCounts) {
                     $type = $userAnswer->tryoutDetail->type_subtest;
                     $score = $this->calculateTotalScore($userAnswer, $type);
                     $max = $this->getMaxPossibleScoreForDetail($userAnswer->tryout_detail_id, $type);
@@ -3834,18 +4094,28 @@ class PackageController extends Controller
                         : ($max > 0 ? ($passingScore / $max) * 100 : null);
                     $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                        return empty($meta['pending_review']) && $detail->is_correct;
+                        return empty($meta['pending_review'])
+                            && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail));
                     })->count();
                     $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                         $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                        return empty($meta['pending_review']) && !$detail->is_correct;
+                        return empty($meta['pending_review'])
+                            && !$detail->is_correct
+                            && !$this->isPartiallyCorrectMultipleAnswerDetail($detail);
                     })->count();
+                    $totalSubtestQuestions = (int) ($questionCounts[$userAnswer->tryout_detail_id] ?? 0);
+                    $displayScore = app(TryoutScoreDisplayService::class)->present(
+                        $tryout, $score, $correctCount, $totalSubtestQuestions, $max
+                    );
 
                     return [
                         'type' => $type,
-                        'name' => $this->getSubtestName($type),
+                        'name' => $this->getSubtestName($detail),
+                        'abbreviation' => $detail->display_abbreviation,
                         'score' => $score,
                         'max_score' => $max,
+                        'display_score' => $displayScore['formatted'],
+                        'display_maximum' => $displayScore['formatted_maximum'],
                         'percentage' => $percentage,
                         'passing_score' => $passingScore,
                         'passing_type' => $passingType,
@@ -3891,6 +4161,7 @@ class PackageController extends Controller
             'packageRouteId',
             'tryout',
             'tryoutDetails',
+            'subtestGroupLabel',
             'latestUserAnswers',
             'token',
             'allAnswerDetails',
@@ -3905,7 +4176,7 @@ class PackageController extends Controller
         ));
     }
 
-    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type)
+    public function downloadPembahasanTryout($id_package, $id_tryout, $token, string $type, TryoutQuestionDownloadService $questionDownloadService)
     {
         abort_unless(in_array($type, ['soal', 'pembahasan'], true), 404);
 
@@ -3946,19 +4217,7 @@ class PackageController extends Controller
             ->orderBy('question_id')
             ->get();
 
-        $options = new Options;
-        $options->set('isRemoteEnabled', false);
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml(view('user.pages.package.tryout-download', compact('tryout', 'questions', 'type'))->render());
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
-
-        $filename = Str::slug($tryout->name).'-'.$type.'.pdf';
-
-        return response($dompdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ]);
+        return $questionDownloadService->download($tryout, $questions, $type);
     }
 
     public function chatPembahasanAi(Request $request, $id_package, $id_tryout, $token, AiDiscussionService $aiDiscussionService)
@@ -3977,7 +4236,7 @@ class PackageController extends Controller
 
         $isFreeTryout = $id_package === 'free';
         $package = $isFreeTryout ? null : Package::findOrFail($id_package);
-        $tryout = \App\Models\Tryout::with('tryoutDetails')->findOrFail($id_tryout);
+        $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
 
         if (!$tryout->show_discussion) {
             return response()->json([
@@ -4012,7 +4271,7 @@ class PackageController extends Controller
             ->where('tryout_id', $tryout->tryout_id)
             ->where('status', 'completed')
             ->where('attempt_token', $token)
-            ->with('tryoutDetail')
+            ->with('tryoutDetail.materialCategory')
             ->latest()
             ->get();
 
@@ -4022,7 +4281,7 @@ class PackageController extends Controller
             ], 404);
         }
 
-        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail'])
+        $question = \App\Models\Question::with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->where('question_id', $validated['question_id'])
             ->whereIn('tryout_detail_id', $userAnswers->pluck('tryout_detail_id'))
             ->firstOrFail();
@@ -4054,7 +4313,7 @@ class PackageController extends Controller
         try {
             $result = $aiDiscussionService->chat($validated['message'], [
                 'tryout_name' => $tryout->name,
-                'subtest_name' => $this->getSubtestName($question->tryoutDetail?->type_subtest),
+                'subtest_name' => $this->getSubtestName($question->tryoutDetail),
                 'question' => $question,
                 'answer_detail' => $answerDetail,
                 'conversation_history' => $conversationHistory,
@@ -4208,8 +4467,13 @@ class PackageController extends Controller
         return trim((string) $explanation) ?: $plainText;
     }
 
-    private function getSubtestName($type)
+    private function getSubtestName(TryoutDetail|string|null $subtest): string
     {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_name;
+        }
+
+        $type = $subtest;
         switch ($type) {
             case 'twk':
                 return 'Tes Wawasan Kebangsaan';
@@ -4540,15 +4804,18 @@ class PackageController extends Controller
         $sortedMaterials = $package->materialsThroughDetail->sortBy(function ($material) {
             return $material->order_number ?? $material->material_id;
         });
-        
+        $materialProgressById = UserMaterialAccess::query()
+            ->where('user_id', $user->id)
+            ->whereIn('material_id', $sortedMaterials->pluck('material_id'))
+            ->get()
+            ->keyBy('material_id');
+
         foreach ($sortedMaterials as $material) {
             if (! $liveSessionAvailable && $material->type === 'live_session') {
                 continue;
             }
 
-            $progress = UserMaterialAccess::where('user_id', $user->id)
-                ->where('material_id', $material->material_id)
-                ->first();
+            $progress = $materialProgressById->get($material->material_id);
             $isCompleted = $progress && $progress->is_completed;
             $isInProgress = $progress && $progress->is_in_progress;
             $itemProgress = $progress ? (int) ($progress->progress_percentage ?? 0) : 0;
@@ -4617,12 +4884,15 @@ class PackageController extends Controller
 
             $orderCounter++;
         }
-        
+
         // Process tryouts (append at the end)
+        $tryoutAttemptsById = UserAnswer::query()
+            ->where('user_id', $user->id)
+            ->whereIn('tryout_id', $package->tryouts->pluck('tryout_id'))
+            ->get(['tryout_id', 'status'])
+            ->groupBy('tryout_id');
         foreach ($package->tryouts as $tryout) {
-            $attempts = UserAnswer::where('user_id', $user->id)
-                ->where('tryout_id', $tryout->tryout_id)
-                ->get();
+            $attempts = $tryoutAttemptsById->get($tryout->tryout_id, collect());
             $isCompleted = $attempts->where('status', 'completed')->isNotEmpty();
             $isInProgress = $attempts->where('status', 'in_progress')->isNotEmpty();
             
@@ -4648,12 +4918,14 @@ class PackageController extends Controller
         }
 
         if ($tesKoranEnabled) {
+            $completedTesKoranById = TesKoranResult::query()
+                ->where('user_id', $user->id)
+                ->whereIn('tes_koran_id', $package->tesKorans->pluck('id'))
+                ->where('status', 'completed')
+                ->get(['tes_koran_id'])
+                ->keyBy('tes_koran_id');
             foreach ($package->tesKorans as $tesKoran) {
-                $attempt = TesKoranResult::where('user_id', $user->id)
-                    ->where('tes_koran_id', $tesKoran->id)
-                    ->where('status', 'completed')
-                    ->first();
-                $isCompleted = $attempt !== null;
+                $isCompleted = $completedTesKoranById->has($tesKoran->id);
 
                 if ($isCompleted) {
                     $completedCount++;
@@ -4755,6 +5027,38 @@ class PackageController extends Controller
         };
 
         $tryouts = $tryoutsQuery->get();
+        $tryoutIds = $tryouts->pluck('tryout_id')->map(static fn ($id): int => (int) $id);
+        $questionCountsByTryout = $tryoutIds->isNotEmpty()
+            ? TryoutDetail::query()
+                ->whereIn('tryout_id', $tryoutIds)
+                ->withCount('questions')
+                ->get()
+                ->groupBy('tryout_id')
+                ->map(static fn ($details): int => (int) $details->sum('questions_count'))
+            : collect();
+        $directTryoutAccessIds = $user
+            ? UserTryoutAccess::query()
+                ->where('user_id', $user->id)
+                ->active()
+                ->whereIn('tryout_id', $tryoutIds)
+                ->pluck('tryout_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
+        $purchasedTryoutIds = $user
+            ? IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', Tryout::class)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->whereIn('purchasable_id', $tryoutIds)
+                ->where(function ($query): void {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
+                ->pluck('purchasable_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
         $pendingIndividualTryoutIds = $user
             ? \App\Models\IndividualPurchase::query()
                 ->where('user_id', $user->id)
@@ -4769,18 +5073,40 @@ class PackageController extends Controller
         foreach ($tryouts as $tryout) {
             $tryoutPackageIds = $tryout->packages->pluck('package_id')->toArray();
             $tryout->has_package_access = $user && !empty(array_intersect($tryoutPackageIds, $accessiblePackageIds));
-            $tryout->has_access = $user && ($tryout->has_package_access || $tryout->canUserAccess($user->id));
+            $tryoutId = (int) $tryout->tryout_id;
+            $tryout->has_access = $user && ($tryout->has_package_access
+                || in_array($tryoutId, $directTryoutAccessIds, true)
+                || in_array($tryoutId, $purchasedTryoutIds, true));
             $tryout->is_pending_individual = $user && in_array((int) $tryout->tryout_id, $pendingIndividualTryoutIds, true);
             $tryout->route_package_id = $tryout->has_package_access
                 ? collect($tryoutPackageIds)->first(fn ($packageId) => in_array($packageId, $accessiblePackageIds))
                 : 'free';
             $tryout->access_via_package = $tryout->packages->first();
+            $tryout->total_questions = $questionCountsByTryout->get($tryoutId, 0);
+            $tryout->total_duration = (int) $tryout->tryoutDetails->sum('duration');
         }
+
+        $completedTryoutCount = $user
+            ? $tryouts->filter(fn (Tryout $tryout): bool => $tryout->userAnswers
+                ->whereIn('status', ['completed', 'pending_release'])
+                ->pluck('attempt_token')
+                ->filter()
+                ->unique()
+                ->isNotEmpty())->count()
+            : 0;
         
         $aiGatewayPlans = Auth::check() ? $this->availableAiGatewayPlans() : [];
         $combinedAiPayment = $user ? $this->activeCombinedAiPayment($request) : null;
 
-        return view('user.pages.tryout.new-list', compact('tryouts', 'accessiblePackageIds', 'search', 'sort', 'aiGatewayPlans', 'combinedAiPayment'));
+        return view('user.pages.tryout.new-list', compact(
+            'tryouts',
+            'accessiblePackageIds',
+            'search',
+            'sort',
+            'aiGatewayPlans',
+            'combinedAiPayment',
+            'completedTryoutCount',
+        ));
     }
 
     /**

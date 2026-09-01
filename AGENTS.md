@@ -1,95 +1,77 @@
 # AGENTS.md - BIMBELHUB
 
-## Primary Reference
+Dokumen ini adalah panduan utama untuk setiap agent/developer yang bekerja di repository ini.
 
-**SELALU BACA DAN PATUHI:** `docs/CODING_RULES.md`
+## Wajib sebelum mengubah kode
 
-Dokumen ini berisi aturan wajib untuk:
-- File system naming (case-sensitive!)
-- Laravel best practices (Controller, Model, Route, View)
-- Query optimization (hindari N+1)
-- Migration safety (production safe)
-- Performance checklist
+1. Baca file ini sampai selesai.
+2. Baca [docs/CODING_RULES.md](docs/CODING_RULES.md).
+3. Baca dokumen detail yang relevan di `docs/coding/`.
+4. Periksa `git status` dan pertahankan perubahan user yang tidak terkait.
+5. Setelah perubahan, jalankan validasi yang sesuai dan laporkan hasilnya.
 
-## Project Overview
+## Gambaran proyek
 
-- **Framework:** Laravel 11
-- **PHP:** 8.2+
-- **Database:** MySQL
-- **Frontend:** Blade + Tailwind CSS + Alpine.js
-- **Server:** Linux (Ubuntu) - **CASE SENSITIVE!**
+- Framework: Laravel 11
+- PHP: 8.2+
+- Database: MySQL
+- Frontend: Blade, Tailwind CSS, Alpine.js
+- Server production: Linux Ubuntu, filesystem case-sensitive
+- Arsitektur: controller tipis, service untuk business logic, Eloquent untuk akses data
 
-## Critical Rules
+## Prinsip wajib
 
-### 1. File System (CASE SENSITIVE)
-```
-❌ resources/views/components/ui/Button/
-✅ resources/views/components/ui/button/
+- Utamakan keamanan, correctness, maintainability, performa, dan skalabilitas.
+- Jangan membuat perubahan besar di luar permintaan user.
+- Jangan menghapus atau mereset data/kode secara destruktif tanpa persetujuan jelas.
+- Gunakan route model binding, Form Request/validasi terpusat, dependency injection, dan return type.
+- Hindari N+1, query dalam loop, `SELECT *` yang tidak perlu, dan pengambilan data tanpa batas.
+- Semua migration harus aman dijalankan di production dan memiliki `down()` yang masuk akal.
+- Jangan menaruh business logic kompleks di Blade atau controller.
+- Sebelum membuat service baru, cari dan gunakan service existing yang sudah menangani domain tersebut.
+- Buat service baru hanya jika tanggung jawabnya benar-benar berbeda; jelaskan alasan jika tidak bisa reuse.
+- FE harus sederhana: tampilkan data dari BE dan kelola interaksi UI saja.
+- Untuk data besar, jangan mengambil seluruh dataset sebagai collection Eloquent; gunakan aggregate, cursor/chunk, queue, atau bulk operation.
+- Query, kalkulasi, status transition, permission, filtering, dan branching bisnis wajib berada di BE/service.
+- Jangan mendeklarasikan array/closure/lookup kompleks di Blade atau JavaScript untuk menggantikan logic BE.
+- BE harus mengirim view data yang sudah siap dipakai FE (view model/DTO/array terstruktur).
+- Asumsikan production case-sensitive walaupun local macOS tidak selalu memperlihatkannya.
 
-❌ <x-ui.Button>
-✅ <x-ui.button>
-```
+## Alur kerja perubahan
 
-### 2. No N+1 Query
-```php
-// ❌ N+1
-Package::all()->map(fn($p) => $p->category->name);
+1. Pahami requirement dan area dampak.
+2. Cari implementasi yang sudah ada dengan `rg`/`rg --files`, terutama service, scope, policy, query, dan component.
+3. Baca aturan detail sesuai area pekerjaan.
+4. Buat perubahan sekecil mungkin dengan pola yang sudah dipakai proyek.
+5. Pastikan tidak menduplikasi service/business logic dan periksa authorization, validasi, query, business logic di BE, serta state FE.
+6. Jalankan test/lint/cache build yang relevan.
+7. Tinjau `git diff`, `git diff --check`, lalu jelaskan file dan validasi yang dilakukan.
 
-// ✅ Eager load
-Package::with('category')->get();
-```
+## Peta dokumentasi detail
 
-### 3. Migration Safety
-```php
-if (!Schema::hasColumn('table', 'column')) {
-    $table->string('column');
-}
-```
+- [Coding rules index](docs/CODING_RULES.md)
+- [Architecture and naming](docs/coding/01-architecture-and-naming.md)
+- [Laravel backend](docs/coding/02-laravel-backend.md)
+- [Database and performance](docs/coding/03-database-performance.md)
+- [Blade and frontend](docs/coding/04-frontend-blade.md)
+- [Security, testing, and deployment](docs/coding/05-security-testing-deployment.md)
 
-## Quick Commands
+## Perintah umum
 
 ```bash
-# Development
 php artisan serve
 npm run dev
-
-# Production deploy
-git pull
-composer install --no-dev --optimize-autoloader
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
+php artisan test
 php artisan view:cache
-php artisan optimize
-
-# Clear cache (debugging)
-php artisan cache:clear
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
+npm run build
 ```
 
-## Common Issues
+Production deploy: `composer install --no-dev --optimize-autoloader`, migrate with `--force`, then cache config/routes/views and run `php artisan optimize`.
 
-### 1. Component not found (Linux only)
-**Cause:** Folder name case mismatch  
-**Fix:** Rename folder to lowercase
-```bash
-cd resources/views/components/ui
-mv Button button
-mv Card card
-```
+## Catatan penting
 
-### 2. Migration failed
-**Cause:** Duplicate column or missing column  
-**Fix:** Check `docs/CODING_RULES.md` section 4
-
-### 3. Slow query
-**Cause:** N+1 or missing eager load  
-**Fix:** Add `->with()` atau cek Laravel Debugbar
-
-## Environment
-
-- **Local:** macOS (case-insensitive)
-- **Production:** Linux (case-sensitive)
-- **Always assume case-sensitive!**
+- Komponen Blade harus lowercase/kebab-case: `<x-ui.button>`.
+- Jangan memakai `$guarded = []`.
+- List besar wajib pagination/chunk/lazy collection.
+- Jangan menambahkan eager load global di model tanpa alasan kuat.
+- Cache hanya untuk data yang tepat dan harus diinvalidasi saat sumber berubah.

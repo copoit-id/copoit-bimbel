@@ -1,12 +1,13 @@
 @extends('user.layout.new-user')
 @section('title', 'Pembahasan Tryout')
 @section('content')
-<div class="package-bimbel flex flex-col gap-4">
+<div class="package-bimbel flex flex-col gap-4 pb-28">
     @php
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
         $showPassingGrade = $tryout->shouldShowPassingGrade();
+        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         $aiDiscussionEnabled = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
@@ -15,7 +16,6 @@
         $aiLearningToolEndpointUrl = route('user.package.tryout.pembahasan.ai-tools', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiLearningHistoryEndpointUrl = route('user.package.tryout.pembahasan.ai-tools.history', [$packageRouteId, $tryout->tryout_id, $token]);
         $aiSpeechEndpointUrl = route('user.package.tryout.pembahasan.ai-speech', [$packageRouteId, $tryout->tryout_id, $token]);
-        $downloadQuestionsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'soal']);
         $downloadExplanationsUrl = route('user.package.tryout.pembahasan.download', [$packageRouteId, $tryout->tryout_id, $token, 'pembahasan']);
         $aiGatewaySubscriptionsCollection = collect($aiGatewaySubscriptions ?? ($aiGatewaySubscription ? [$aiGatewaySubscription] : []));
         $activeAiGatewaySubscriptions = $aiGatewaySubscriptionsCollection->filter(fn ($subscription) => data_get($subscription, 'status') === 'active');
@@ -151,20 +151,19 @@
         <div class="flex order-2 md:order-1 flex-col items-center gap-4 w-full">
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
-                @if($aiDiscussionEnabled)
-                    <a href="{{ route('user.ai-learning.notes') }}" class="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/10"><i class="ri-pushpin-2-line mr-1"></i>Catatan Dipin</a>
-                @endif
             </div>
-            <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
-            <span
-                class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
-                <i class="ri-checkbox-circle-fill text-lg"></i>
-                <span>{{ $overallStats['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}</span>
-            </span>
+            <p class="text-5xl font-medium">{{ $overallStats['display_score'] ?? $formatScore($overallStats['total_score']) }}</p>
+            @if($showPassingGrade)
+                <span
+                    class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
+                    <i class="ri-checkbox-circle-fill text-lg"></i>
+                    <span>{{ $overallStats['is_passed'] ? 'Lulus' : 'Tidak Lulus' }}</span>
+                </span>
+            @endif
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <div class="mt-2">
                 <span class="inline-flex px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-                    SKD Full - {{ $tryoutDetails->count() }} Subtest
+                    {{ $subtestGroupLabel }}
                 </span>
             </div>
             @endif
@@ -216,25 +215,28 @@
         </div>
     </div>
 
-    <!-- SKD Full Subtest Summary (if multiple subtests) -->
+    <!-- Subtest Summary (if multiple subtests) -->
     @if(!empty($subtestSummaries))
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
         <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Per Subtest</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @foreach($subtestSummaries as $summary)
             <div
-                class="p-4 border rounded-lg {{ $summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50' }}">
+                class="p-4 border rounded-lg {{ $showPassingGrade ? ($summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50') : 'border-gray-200 bg-white' }}">
                 <div class="text-center mb-3">
-                    <h4 class="font-semibold text-gray-800">{{ strtoupper($summary['type']) }}
+                    <h4 class="font-semibold text-gray-800">{{ $summary['abbreviation'] ?? \App\Models\TryoutDetail::abbreviationFromName($summary['name'] ?? '') }}
                     </h4>
                     <p class="text-sm text-gray-600">{{ $summary['name'] }}</p>
                 </div>
                 <div class="text-center">
-                    <div class="text-2xl font-bold {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $formatScore($summary['score']) }}/{{ $formatScore($summary['max_score']) }}
+                    <div class="text-2xl font-bold {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-800' }}">
+                        {{ $summary['display_score'] ?? $formatScore($summary['score']) }}@if($showScoreMaximum)/{{ $summary['display_maximum'] ?? $formatScore($summary['max_score']) }}@endif
                     </div>
-                    <div class="text-sm {{ $summary['is_passed'] ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format($summary['percentage'], 1) }}% - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                    <div class="text-sm {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-600' }}">
+                        {{ number_format($summary['percentage'], 1) }}%
+                        @if($showPassingGrade)
+                            - {{ $summary['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
+                        @endif
                     </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-600 text-center">
@@ -302,14 +304,12 @@
         </div>
         <div class="mt-5 border-t border-gray-200 pt-4">
             <p class="text-sm font-semibold text-gray-700">Unduh Materi</p>
-            <p class="mt-1 text-xs text-gray-500">Simpan soal atau pembahasannya untuk dipelajari kembali.</p>
-            <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                <x-ui.button :href="$downloadQuestionsUrl" variant="outline" size="sm" icon="ri-download-2-line" :full-width="true" class="sm:w-auto">
-                    Unduh Soal
-                </x-ui.button>
-                <x-ui.button :href="$downloadExplanationsUrl" size="sm" icon="ri-file-download-line" :full-width="true" class="sm:w-auto">
-                    Unduh Pembahasan
-                </x-ui.button>
+            <p class="mt-1 text-xs text-gray-500">Simpan soal beserta pembahasannya untuk dipelajari kembali.</p>
+            <div class="mt-3">
+                <a href="{{ $downloadExplanationsUrl }}" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto">
+                    <i class="ri-download-2-line"></i>
+                    Unduh Soal & Pembahasan
+                </a>
             </div>
         </div>
     </div>
@@ -345,6 +345,15 @@
         $selectedOptionIds = collect($answerMeta['selected_option_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
             ->all();
+        $multipleAnswerResult = null;
+        $isPartiallyCorrect = false;
+        if (($question->question_type ?? '') === 'multiple_answer' && ! $isUnanswered) {
+            $multipleAnswerResult = app(\App\Services\MultipleAnswerScoringService::class)
+                ->evaluateDetail($question, $detail);
+            $isCorrect = $multipleAnswerResult['is_correct'];
+            $isPartiallyCorrect = app(\App\Services\MultipleAnswerScoringService::class)
+                ->isPartiallyCorrect($multipleAnswerResult);
+        }
         $matchingPairs = isset($questionMeta['matching_pairs']) && is_array($questionMeta['matching_pairs'])
             ? $questionMeta['matching_pairs']
             : [];
@@ -362,6 +371,18 @@
         $mtfScoreCorrect = (float) ($mtfMeta['score_correct'] ?? ($question->default_weight ?? 1));
         $mtfScoreWrong = (float) ($mtfMeta['score_wrong'] ?? 0);
         $mtfPerStatementScore = count($mtfStatements) > 0 ? ($mtfScoreCorrect / count($mtfStatements)) : $mtfScoreCorrect;
+        $scoringModeInfo = null;
+        if (($question->question_type ?? '') === 'multiple_answer') {
+            $scoringModeInfo = [
+                'type' => 'Multiple Answer',
+                'mode' => $multipleAnswerScoringMode === 'partial' ? 'Partial' : 'Full Score',
+            ];
+        } elseif (($question->question_type ?? '') === 'multiple_true_false') {
+            $scoringModeInfo = [
+                'type' => 'Multiple True/False',
+                'mode' => $mtfScoringMode === 'partial' ? 'Partial' : 'Full Score',
+            ];
+        }
         @endphp
 
         {{-- Subtest Header --}}
@@ -371,7 +392,7 @@
             <div class="flex items-center gap-3 mb-4">
                 <div
                     class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    {{ strtoupper($detail->subtest_type) }}
+                    <i class="ri-book-open-line"></i>
                 </div>
                 <h3 class="text-xl font-bold text-primary">{{ $detail->subtest_name }}</h3>
             </div>
@@ -384,6 +405,8 @@
                 $cardBorderClass = 'border-amber-400 bg-amber-50/30';
             } elseif ($isUnanswered) {
                 $cardBorderClass = 'border-red bg-red-light/30';
+            } elseif ($isPartiallyCorrect) {
+                $cardBorderClass = 'border-amber-400 bg-amber-50/30';
             } elseif ($isCorrect) {
                 $cardBorderClass = 'border-green bg-green-light/30';
             } else {
@@ -394,11 +417,17 @@
              data-question-number="{{ $index + 1 }}"
              data-question-id="{{ $question->question_id }}" 
              data-pending="{{ $isPendingReview ? 'true' : 'false' }}">
-            <div class="flex items-center justify-start gap-4">
+            <div class="flex flex-wrap items-center justify-start gap-4">
                 <p class="font-semibold">Soal {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                    {{ strtoupper($detail->subtest_type) }}
+                    {{ $detail->subtest_name }}
                 </span>
+                @if($scoringModeInfo)
+                <span class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">
+                    <i class="ri-calculator-line"></i>
+                    {{ $scoringModeInfo['type'] }} · {{ $scoringModeInfo['mode'] }}
+                </span>
+                @endif
                 @php
                     $evalMode = $answerMeta['evaluation_mode'] ?? 'manual';
                     if ($isPendingReview && $evalMode === 'auto') {
@@ -413,6 +442,10 @@
                         $statusBadgeClass = 'bg-red text-white';
                         $statusText = 'Tidak Dijawab';
                         $statusIcon = 'ri-close-circle-fill';
+                    } elseif ($isPartiallyCorrect) {
+                        $statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                        $statusText = 'Sebagian Benar';
+                        $statusIcon = 'ri-checkbox-circle-line';
                     } elseif ($isCorrect) {
                         $statusBadgeClass = 'bg-green text-white';
                         $statusText = 'Benar';
@@ -431,31 +464,8 @@
                 // Calculate score earned for this question
                 $scoreEarned = 0;
                 if (($question->question_type ?? '') === 'multiple_answer') {
-                    $scoreWrong = (float) ($multipleAnswerMeta['score_wrong'] ?? 0);
-                    $correctOptionIds = $question->questionOptions
-                        ->where('is_correct', true)
-                        ->pluck('question_option_id')
-                        ->map(fn ($id) => (int) $id)
-                        ->values()
-                        ->all();
-                    $normalizedSelected = collect($selectedOptionIds)->map(fn ($id) => (int) $id)->unique()->values()->all();
-
-                    sort($correctOptionIds);
-                    sort($normalizedSelected);
-
-                    $matchedCorrect = count(array_intersect($normalizedSelected, $correctOptionIds));
-                    $totalCorrect = max(1, count($correctOptionIds));
-                    $isExactCorrect = ($normalizedSelected === $correctOptionIds);
-
-                    if ($multipleAnswerScoringMode === 'partial') {
-                        $scoreEarned = $matchedCorrect > 0
-                            ? ($matchedCorrect / $totalCorrect) * $multipleAnswerTotalScore
-                            : $scoreWrong;
-                    } else {
-                        $scoreEarned = $isExactCorrect ? $multipleAnswerTotalScore : $scoreWrong;
-                    }
-
-                    $scoreEarned = max(0, $scoreEarned);
+                    $scoreEarned = $multipleAnswerResult['score_obtained']
+                        ?? app(\App\Services\MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                 } elseif (($question->question_type ?? '') === 'multiple_true_false') {
                     $summary = is_array($answerMeta['summary'] ?? null) ? $answerMeta['summary'] : [];
                     $correctCount = (int) ($summary['correct'] ?? 0);
@@ -512,10 +522,10 @@
                     </span>
                 @else
                     {{-- Sudah dikoreksi - tampilkan nilai --}}
-                    <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700' }} px-3 py-1 rounded-lg text-sm">
-                        <i class="{{ $isCorrect ? 'ri-check-line' : 'ri-close-line' }}"></i>
-                        {{ $isCorrect ? 'Benar' : 'Salah' }}
-                        @if($scoreEarned > 0)
+                    <span class="essay-score-badge flex items-center gap-1 border {{ $isCorrect ? 'border-green-200 bg-green-50 text-green-700' : ($isPartiallyCorrect ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-red-200 bg-red-50 text-red-700') }} px-3 py-1 rounded-lg text-sm">
+                        <i class="{{ $isCorrect ? 'ri-check-line' : ($isPartiallyCorrect ? 'ri-checkbox-circle-line' : 'ri-close-line') }}"></i>
+                        {{ $isCorrect ? 'Benar' : ($isPartiallyCorrect ? 'Sebagian Benar' : 'Salah') }}
+                        @if(($question->question_type ?? '') === 'multiple_answer' || $scoreEarned > 0)
                             ({{ $scoreEarned }} poin)
                         @endif
                     </span>
@@ -873,21 +883,22 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Total Skor:</span>
-                        <span class="font-semibold">{{ number_format($overallStats['total_score'], 0) }}/{{
-                            number_format($overallStats['max_score'], 0) }}</span>
+                        <span class="font-semibold">{{ $overallStats['display_score'] ?? number_format($overallStats['total_score'], 0) }}@if($showScoreMaximum)/{{ $overallStats['display_maximum'] ?? number_format($overallStats['max_score'], 0) }}@endif</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Persentase:</span>
-                        <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
+                        <span class="font-semibold {{ $showPassingGrade ? ($overallStats['is_passed'] ? 'text-green' : 'text-red') : 'text-gray-800' }}">
                             {{ number_format($overallStats['percentage'], 1) }}%
                         </span>
                     </div>
+                    @if($showPassingGrade)
                     <div class="flex justify-between">
                         <span class="text-gray-600">Status:</span>
                         <span class="font-semibold {{ $overallStats['is_passed'] ? 'text-green' : 'text-red' }}">
                             {{ $overallStats['is_passed'] ? 'LULUS' : 'TIDAK LULUS' }}
                         </span>
                     </div>
+                    @endif
                 </div>
             </div>
 
@@ -931,45 +942,43 @@
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <!-- Floating Action Buttons -->
+    <div class="fixed inset-x-3 bottom-3 z-40 flex justify-center sm:inset-x-6 sm:bottom-5">
+    <div class="flex max-w-4xl flex-wrap justify-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl backdrop-blur sm:gap-3 sm:p-3">
         @if($package)
-            <a href="{{ route('user.package.tryout', $package->package_id) }}"
-                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
-            </a>
+            <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
+                Kembali ke Tryout
+            </x-ui.history-back>
         @else
-            <a href="{{ route('user.event.index') }}"
-                class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-center">
-                <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-            </a>
+            <x-ui.history-back :fallback="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
+                Kembali ke Hasil
+            </x-ui.history-back>
         @endif
 
         @if($package)
-        <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
-            class="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors text-center">
-            <i class="ri-history-line mr-2"></i>Lihat Riwayat
-        </a>
+        <x-ui.button :href="route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id])" variant="outline" size="md" icon="ri-history-line">
+            Lihat Riwayat
+        </x-ui.button>
         @endif
 
-        @if($package && $tryout->show_leaderboard)
-        <a href="{{ route('user.package.tryout.ranking', [$package->package_id, $tryout->tryout_id]) }}"
-            class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-center">
-            <i class="ri-trophy-line mr-2"></i>Lihat Ranking
-        </a>
+        @if($tryout->show_leaderboard)
+        <x-ui.button :href="route('user.package.tryout.ranking', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-trophy-line">
+            Lihat Ranking
+        </x-ui.button>
         @endif
 
         @if(($clientBranding['certificate_management_enabled'] ?? true) && $tryout->is_certification)
-        <a href="{{ route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token]) }}"
-            class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-center">
-            <i class="ri-award-line mr-2"></i>Unduh Sertifikat
-        </a>
+        <x-ui.button :href="route('user.certificate.preview', [$packageRouteId, $tryout->tryout_id, 'token' => $token])" variant="outline" size="md" icon="ri-award-line">
+            Unduh Sertifikat
+        </x-ui.button>
         @endif
 
-        <a href="{{ route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id]) }}"
-            class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-center">
-            <i class="ri-refresh-line mr-2"></i>Coba Lagi
-        </a>
+        <x-ui.button :href="route('user.tryout.lobby', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-refresh-line">
+            Coba Lagi
+        </x-ui.button>
+    </div>
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)

@@ -75,20 +75,6 @@
 
                 <div class="flex-1 space-y-3 bg-slate-50/40 p-2.5">
                     @foreach($daySessions as $session)
-                        @php
-                            $attendance = $session->attendances->first();
-                            $setting = $session->schedule->attendanceSetting;
-                            $openAt = $session->start_at->copy()->subMinutes($setting?->open_minutes_before ?? 15);
-                            $closeAt = ($session->end_at ?? $session->start_at)->copy()->addMinutes($setting?->close_minutes_after ?? 30);
-                            $canAttend = $canUseAttendance && now()->between($openAt, $closeAt) && !$attendance;
-                            $tentorName = $session->tentor?->name ?? $session->schedule?->tentor?->name ?? $session->class?->tentor?->name ?? $session->class?->mentor;
-                            $canChatTutor = $canUseTutorChat
-                                && $session->schedule?->schedule_type === 'recurring'
-                                && $session->schedule?->is_active
-                                && $session->schedule?->tentor?->is_active
-                                && $session->schedule?->tentor?->user_id;
-                        @endphp
-
                         <article class="rounded-xl border border-gray-200 bg-white p-3">
                             <div class="flex items-start justify-between gap-2">
                                 <p class="text-xs font-semibold text-primary">{{ $session->start_at->format('d M') }}</p>
@@ -98,28 +84,28 @@
                             @if($session->end_at)
                                 <p class="mt-1 text-[11px] text-gray-500">s.d. {{ $session->end_at->format('H:i') }} WIB</p>
                             @endif
-                            @if($tentorName)
-                                <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-user-star-line"></i>{{ $tentorName }}</p>
+                            @if($session->tentor_name)
+                                <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-user-star-line"></i>{{ $session->tentor_name }}</p>
                             @endif
                             @if($session->location)
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>
                             @endif
 
-                            @if($canUseAttendance || ($canUseClass && $session->meeting_url) || $canChatTutor)
+                            @if($canUseAttendance || ($canUseClass && $session->meeting_url) || $session->can_chat_tutor)
                                 <div class="mt-3 border-t border-gray-100 pt-2.5">
                                     @if($canUseAttendance)
-                                    @if($attendance)
+                                    @if($session->user_attendance)
                                         <p class="flex items-center gap-1 text-[11px] font-medium text-emerald-700"><i class="ri-checkbox-circle-fill"></i>Sudah absen</p>
-                                    @elseif($canAttend)
+                                    @elseif($session->can_user_attend)
                                         <form method="POST" action="{{ route('user.class-schedule.attend', $session) }}" enctype="multipart/form-data" class="space-y-2">
                                             @csrf
-                                            @if(($setting?->mode ?? 'button') === 'photo')
+                                            @if($session->attendance_mode === \App\Models\AttendanceSetting::MODE_PHOTO)
                                                 <input type="file" name="photo" accept="image/*" required class="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-[10px]">
                                             @endif
                                             <button class="w-full rounded-lg bg-primary px-2 py-1.5 text-xs font-semibold text-white">Absen</button>
                                         </form>
                                     @else
-                                        <p class="text-[11px] text-gray-500">Absen {{ $openAt->format('H:i') }}–{{ $closeAt->format('H:i') }}</p>
+                                        <p class="text-[11px] text-gray-500">Absen {{ $session->attendance_open_at->format('H:i') }}–{{ $session->attendance_close_at->format('H:i') }}</p>
                                     @endif
                                     @endif
 
@@ -127,7 +113,7 @@
                                         <a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><i class="ri-video-chat-line"></i>Buka meeting</a>
                                     @endif
 
-                                    @if($canChatTutor)
+                                    @if($session->can_chat_tutor)
                                         <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-tutor-chat'))" class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:underline"><i class="ri-chat-3-line"></i>Chat Tutor</button>
                                     @endif
                                 </div>

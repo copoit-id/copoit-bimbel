@@ -38,8 +38,8 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Rata-rata Skor</p>
-                    <p class="text-2xl font-bold text-dark">{{ $statistics['average_score'] }}</p>
+                    <p class="text-sm text-gray-600">Rata-rata Nilai</p>
+                    <p class="text-2xl font-bold text-dark">{{ $statistics['average_score_display'] }}</p>
                 </div>
                 <i class="ri-bar-chart-line text-3xl text-dark"></i>
             </div>
@@ -47,8 +47,8 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Skor Tertinggi</p>
-                    <p class="text-2xl font-bold text-dark">{{ $statistics['highest_score'] }}</p>
+                    <p class="text-sm text-gray-600">Nilai Tertinggi</p>
+                    <p class="text-2xl font-bold text-dark">{{ $statistics['highest_score_display'] }}</p>
                 </div>
                 <i class="ri-trophy-line text-3xl text-dark"></i>
             </div>
@@ -63,6 +63,36 @@
             </div>
         </div>
     </div>
+
+    @if($podiumRankings->isNotEmpty())
+        <section class="leaderboard-podium mb-6" x-data="{ isPodiumVisible: true }" :class="{ 'leaderboard-podium--collapsed': !isPodiumVisible }">
+            <button type="button" class="leaderboard-podium__toggle" @click="isPodiumVisible = !isPodiumVisible" :aria-expanded="isPodiumVisible.toString()">
+                <span x-text="isPodiumVisible ? 'Sembunyikan' : 'Tampilkan'"></span>
+                <i :class="isPodiumVisible ? 'ri-eye-off-line' : 'ri-eye-line'" aria-hidden="true"></i>
+            </button>
+            <div class="leaderboard-podium__content" :aria-hidden="(!isPodiumVisible).toString()">
+                <div class="leaderboard-podium__heading">
+                    <span class="leaderboard-podium__trophy"><i class="ri-trophy-fill"></i></span>
+                    <div><h2>Podium Peringkat</h2><p>Tiga nilai final tertinggi</p></div>
+                </div>
+                <div class="leaderboard-podium__stage">
+                @foreach([2, 1, 3] as $podiumRank)
+                    @php $podium = $podiumRankings->get($podiumRank); @endphp
+                    @if($podium)
+                        <article class="leaderboard-podium__entry leaderboard-podium__entry--{{ $podiumRank }}">
+                            <span class="leaderboard-podium__medal"><i class="ri-medal-fill"></i></span>
+                            <p class="leaderboard-podium__name" title="{{ $podium['name'] }}">{{ $podium['name'] }}</p>
+                            <p class="leaderboard-podium__score">{{ $podium['score'] }}@if($podium['maximum'])<span>/ {{ $podium['maximum'] }}</span>@endif</p>
+                            <div class="leaderboard-podium__block" aria-label="Peringkat {{ $podium['rank'] }}">
+                                <span>{{ $podium['rank'] }}</span>
+                            </div>
+                        </article>
+                    @endif
+                @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
         <div class="flex flex-col gap-4 mb-4">
@@ -186,12 +216,12 @@
                             $rank = ($rankings->currentPage() - 1) * $rankings->perPage() + $index + 1;
                             $rawScoreValue = (float) ($ranking->raw_score ?? 0);
                             $maxScoreValue = (float) ($ranking->max_score ?? 0);
-                            $rawScore = abs($rawScoreValue - round($rawScoreValue)) < 0.01
+                            $rawScore = $ranking->display_score['formatted'] ?? (abs($rawScoreValue - round($rawScoreValue)) < 0.01
                                 ? number_format($rawScoreValue, 0)
-                                : number_format($rawScoreValue, 2);
-                            $maxScore = abs($maxScoreValue - round($maxScoreValue)) < 0.01
+                                : number_format($rawScoreValue, 2));
+                            $maxScore = $ranking->display_score['formatted_maximum'] ?? (abs($maxScoreValue - round($maxScoreValue)) < 0.01
                                 ? number_format($maxScoreValue, 0)
-                                : number_format($maxScoreValue, 2);
+                                : number_format($maxScoreValue, 2));
                             $bgClass = '';
                             if ($rank == 1)
                                 $bgClass = 'bg-yellow-50/50';
@@ -247,20 +277,20 @@
                                 @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
                                     @php
                                         $subscoreValue = (float) ($ranking->subtest_scores[$subtest->tryout_detail_id] ?? 0);
-                                        $subscore = abs($subscoreValue - round($subscoreValue)) < 0.01
+                                        $subscore = $ranking->display_subtest_scores[$subtest->tryout_detail_id]['formatted'] ?? (abs($subscoreValue - round($subscoreValue)) < 0.01
                                             ? number_format($subscoreValue, 0)
-                                            : number_format($subscoreValue, 2);
+                                            : number_format($subscoreValue, 2));
                                     @endphp
                                     <td class="px-6 py-4 text-center">
-                                        <span class="text-md font-semibold text-gray-800">{{ $subscore }}</span>
+                                        <span class="text-sm font-semibold text-gray-800">{{ $subscore }}</span>
                                     </td>
                                 @endforeach
                             @endif
                             <td class="px-6 py-4 text-center">
                                 <div class="flex justify-center items-center">
-                                    <span class="text-md font-semibold text-gray-800">{{ $rawScore }}</span>
+                                    <span class="text-sm font-semibold text-gray-800">{{ $rawScore }}</span>
                                     @if($maxScore > 0)
-                                        <span class="text-md text-gray-500 ml-1">/ {{ $maxScore }}</span>
+                                        <span class="ml-1 text-sm text-gray-500">/ {{ $maxScore }}</span>
                                     @endif
                                 </div>
                             </td>
@@ -339,6 +369,39 @@
         @endif
     </div>
 
+@endsection
+
+@section('styles')
+<style>
+    .leaderboard-podium { position:relative; isolation:isolate; overflow:hidden; border-radius:1rem; padding:1.1rem clamp(1.5rem,7vw,8rem) 0; color:#fff; background:radial-gradient(circle at 8% -15%,rgba(255,255,255,.25),transparent 32%),radial-gradient(circle at 100% 100%,rgba(77,190,231,.22),transparent 42%),linear-gradient(135deg,color-mix(in srgb,var(--color-primary,#1c3259) 84%,#fff),color-mix(in srgb,var(--color-primary,#1c3259) 94%,#3d96c2)); transition:padding-bottom .3s ease; }
+    .leaderboard-podium::before { position:absolute; inset:0; z-index:-1; content:""; opacity:.5; background:linear-gradient(125deg,transparent 0 48%,rgba(255,255,255,.08) 48% 49%,transparent 49% 100%),linear-gradient(125deg,transparent 0 61%,rgba(255,255,255,.08) 61% 62%,transparent 62% 100%); }
+    .leaderboard-podium__heading { position:absolute; top:1.1rem; left:1.25rem; z-index:2; display:flex; align-items:center; gap:.65rem; margin:0; }
+    .leaderboard-podium__heading h2 { font-size:.875rem; font-weight:700; line-height:1.1; }
+    .leaderboard-podium__heading p { margin-top:.15rem; font-size:.6875rem; color:rgba(255,255,255,.76); }
+    .leaderboard-podium__trophy { display:flex; height:2rem; width:2rem; align-items:center; justify-content:center; border-radius:.6rem; background:rgba(255,255,255,.14); color:#ffe08a; }
+    .leaderboard-podium__toggle { position:absolute; top:1.1rem; right:1.25rem; z-index:2; display:inline-flex; align-items:center; gap:.4rem; border:0; border-radius:.5rem; padding:.45rem .6rem; color:#fff; background:rgba(255,255,255,.14); font-size:.6875rem; font-weight:700; line-height:1; transition:background-color .2s ease; }
+    .leaderboard-podium__toggle:hover { background:rgba(255,255,255,.22); }
+    .leaderboard-podium__toggle:focus-visible { outline:2px solid rgba(255,255,255,.8); outline-offset:2px; }
+    .leaderboard-podium--collapsed { min-height:4.25rem; padding-bottom:1.1rem; }
+    .leaderboard-podium__content { display:grid; grid-template-rows:1fr; opacity:1; transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1),opacity .2s ease; }
+    .leaderboard-podium__content > div { min-height:0; overflow:hidden; }
+    .leaderboard-podium--collapsed .leaderboard-podium__content { grid-template-rows:0fr; opacity:0; pointer-events:none; }
+    .leaderboard-podium__stage { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:.6rem; padding-top:2.35rem; }
+    .leaderboard-podium__entry { min-width:0; text-align:center; }
+    .leaderboard-podium__entry:only-child { grid-column:2; }
+    .leaderboard-podium__medal { display:flex; width:2.45rem; height:2.45rem; margin:0 auto .35rem; align-items:center; justify-content:center; border-radius:999px; background:rgba(255,255,255,.15); font-size:1.3rem; }
+    .leaderboard-podium__entry--1 .leaderboard-podium__medal { color:#ffda62; transform:scale(1.14); }
+    .leaderboard-podium__entry--2 .leaderboard-podium__medal { color:#e7edf4; }
+    .leaderboard-podium__entry--3 .leaderboard-podium__medal { color:#f3b17d; }
+    .leaderboard-podium__name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1rem; font-weight:700; letter-spacing:-.015em; }
+    .leaderboard-podium__score { display:inline-block; margin:.38rem 0 .9rem; border-radius:.55rem; padding:.32rem .68rem; background:rgba(255,255,255,.78); color:#26374f; font-size:.8125rem; font-weight:700; }
+    .leaderboard-podium__score span { color:rgba(38,55,79,.68); font-weight:500; }
+    .leaderboard-podium__block { display:flex; height:6.5rem; align-items:center; justify-content:center; border-radius:.65rem .65rem 0 0; background:linear-gradient(135deg,#dce3e9,#91a1b0); }
+    .leaderboard-podium__block span { font-size:2.5rem; font-weight:800; line-height:1; }
+    .leaderboard-podium__entry--1 .leaderboard-podium__block { height:8.5rem; background:linear-gradient(135deg,#f4d67c,#bd881e); }
+    .leaderboard-podium__entry--3 .leaderboard-podium__block { height:4.6rem; background:linear-gradient(135deg,#dfae89,#9b613d); }
+    @media (max-width:420px) { .leaderboard-podium { padding:1.1rem 1rem 0; } .leaderboard-podium__heading { left:1rem; } .leaderboard-podium__toggle { right:1rem; } .leaderboard-podium__stage { gap:.3rem; padding-top:2.35rem; } .leaderboard-podium__name { font-size:.8125rem; } .leaderboard-podium__score { padding:.28rem .5rem; font-size:.75rem; } .leaderboard-podium__block span { font-size:2.05rem; } }
+</style>
 @endsection
 
 @section('scripts')

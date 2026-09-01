@@ -10,6 +10,9 @@ use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
+use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutRankingService;
+use App\Services\TryoutScoreDisplayService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -26,6 +29,12 @@ class LeaderboardController extends Controller
 {
     /** @var array<string, float> */
     private array $maxPossibleScoreCache = [];
+
+    public function __construct(
+        private readonly TryoutRankingService $tryoutRankingService,
+        private readonly TryoutScoreDisplayService $scoreDisplayService,
+    ) {
+    }
 
     public function index()
     {
@@ -100,16 +109,16 @@ class LeaderboardController extends Controller
         }
 
         // Get leaderboard data - real participants
-        $rankingRows = $this->buildLeaderboardRows(
-            $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get()
-        );
+        $rankingRows = $this->sortLeaderboardRows($this->buildLeaderboardRows(
+            $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get(),
+            $tryout
+        ));
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
         $totalParticipants = $rankingRows->count();
 
-        $averageScore = $rankingRows->avg('raw_score');
-        $highestScore = $rankingRows->max('raw_score');
+        $finalScoreSummary = $this->scoreDisplayService->summarizeFinalScores($rankingRows);
 
         $passedCount = $rankingRows->where('is_passed', true)->count();
 
@@ -117,12 +126,33 @@ class LeaderboardController extends Controller
 
         $statistics = [
             'total_participants' => $totalParticipants,
-            'average_score' => round($averageScore ?? 0, 1),
-            'highest_score' => $highestScore ?? 0,
+            'average_score' => $finalScoreSummary['average'],
+            'highest_score' => $finalScoreSummary['highest'],
             'pass_rate' => round($passRate, 1),
             'total_questions' => (int) $tryout->tryoutDetails->sum('questions_count'),
             'duration' => (int) $tryout->tryoutDetails->sum('duration')
         ];
+
+        $scoreDisplayService = $this->scoreDisplayService;
+        $statistics['average_score_display'] = $finalScoreSummary['average_formatted'];
+        $statistics['highest_score_display'] = $finalScoreSummary['highest_formatted'];
+        $podiumRankings = $rankingRows
+            ->take(3)
+            ->values()
+            ->map(function ($ranking, int $index) use ($scoreDisplayService, $tryout): array {
+                $displayScore = $ranking->display_score
+                    ?? $scoreDisplayService->present($tryout, $ranking->raw_score, 0, 0, $ranking->max_score);
+
+                return [
+                    'rank' => $index + 1,
+                    'name' => $ranking->user->name ?? 'Peserta',
+                    'score' => $displayScore['formatted'],
+                    'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
+                        ? $displayScore['formatted_maximum']
+                        : null,
+                ];
+            })
+            ->keyBy('rank');
 
         return view('admin.pages.leaderboard.show', compact(
             'package',
@@ -130,6 +160,7 @@ class LeaderboardController extends Controller
             'tryoutDetail',
             'rankings',
             'statistics',
+            'podiumRankings',
             'destinationCategories',
             'destinationFilter'
         ));
@@ -143,7 +174,7 @@ class LeaderboardController extends Controller
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
         $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get(), $tryout)
         );
 
         $spreadsheet = new Spreadsheet();
@@ -191,13 +222,17 @@ class LeaderboardController extends Controller
             ];
 
             foreach ($subtests as $subtest) {
-                $values[] = $this->formatScore($ranking->subtest_scores[$subtest['id']] ?? 0);
+                $values[] = $ranking->display_subtest_scores[$subtest['id']]['formatted']
+                    ?? $this->formatScore($ranking->subtest_scores[$subtest['id']] ?? 0);
             }
+
+            $displayScore = $ranking->display_score['formatted'] ?? $score;
+            $displayMaximum = $ranking->display_score['formatted_maximum'] ?? $maxScore;
 
             $sheet->fromArray([
                 ...$values,
-                $score,
-                $maxScore,
+                $displayScore,
+                $displayMaximum,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
                 $finishedAt ? $finishedAt->format('H:i') : '-',
                 $duration,
@@ -241,7 +276,7 @@ class LeaderboardController extends Controller
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
         $rankings = $this->sortLeaderboardRows(
-            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get())
+            $this->buildLeaderboardRows($this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get(), $tryout)
         );
 
         $html = view('admin.pages.leaderboard.export-pdf', [
@@ -309,7 +344,8 @@ class LeaderboardController extends Controller
 
     private function buildLeaderboardPaginator($tryoutId, int $perPage = 15)
     {
-        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryoutId)->get());
+        $tryout = Tryout::findOrFail($tryoutId);
+        $rankings = $this->buildLeaderboardRows($this->getLeaderboardRankings($tryoutId)->get(), $tryout);
         return $this->paginateLeaderboardRows($rankings, \App\Support\Pagination::perPage($perPage));
     }
 
@@ -389,29 +425,36 @@ class LeaderboardController extends Controller
 
     private function sortLeaderboardRows(Collection $rankings): Collection
     {
-        return $rankings
-            ->sortBy([
-                ['raw_score', 'desc'],
-                ['finished_at', 'asc'],
-            ])
-            ->values();
+        return $this->tryoutRankingService->sort($rankings->map(function (object $ranking): array {
+            return [
+                'ranking_score' => $ranking->display_score['value'] ?? $ranking->raw_score ?? 0,
+                'raw_score' => $ranking->raw_score ?? 0,
+                'finished_at' => $ranking->finished_at,
+                'user' => $ranking->user,
+                'ranking' => $ranking,
+            ];
+        }))->map(fn (array $row): object => $row['ranking']);
     }
 
-    private function buildLeaderboardRows(Collection $allAnswers): Collection
+    private function buildLeaderboardRows(Collection $allAnswers, Tryout $tryout): Collection
     {
-        return $allAnswers->groupBy('user_id')->map(function ($userAnswers) {
+        $scoreDisplayService = $this->scoreDisplayService;
+
+        return $allAnswers->groupBy('user_id')->map(function ($userAnswers) use ($tryout, $scoreDisplayService) {
             $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-            $bestAttempt = $attemptGroups->map(function ($attempt) {
+            $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
                 $totalScore = 0.0;
                 $totalMaxScore = 0.0;
+                $totalCorrect = 0;
+                $totalQuestions = 0;
                 $allSubtestsPassed = true;
                 $subtestScores = [];
 
                 foreach ($attempt as $ranking) {
                     $ranking->loadMissing([
                         'tryoutDetail',
-                        'userAnswerDetails.question',
+                        'userAnswerDetails.question.questionOptions',
                         'userAnswerDetails.questionOption',
                         'userAnswerDetails.question.questionOptions',
                     ]);
@@ -428,13 +471,23 @@ class LeaderboardController extends Controller
                     $totalScore += $rawScore;
                     $totalMaxScore += $maxScore;
                     $subtestScores[$ranking->tryout_detail_id] = $rawScore;
+                    $totalCorrect += $ranking->userAnswerDetails->where('is_correct', true)->count();
+                    $totalQuestions += (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count());
                 }
 
                 $representative = $attempt->first();
+                if ($tryout->requiresIrtScoring()) {
+                    $totalScore = (float) ($representative->utbk_total_score ?? 0);
+                    $totalMaxScore = 1000.0;
+                }
+
                 $representative->raw_score = $totalScore;
                 $representative->max_score = $totalMaxScore;
                 $representative->is_passed = $allSubtestsPassed;
                 $representative->subtest_scores = $subtestScores;
+                $representative->display_score = $scoreDisplayService->present(
+                    $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore, $attempt->count()
+                );
                 $representative->started_at = $attempt->min('started_at');
                 $representative->finished_at = $attempt->max('finished_at');
 
@@ -452,7 +505,7 @@ class LeaderboardController extends Controller
         $details = $userAnswer->relationLoaded('userAnswerDetails')
             ? $userAnswer->userAnswerDetails
             : UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
-                ->with(['questionOption', 'question'])
+            ->with(['questionOption', 'question.questionOptions'])
                 ->get();
 
         foreach ($details as $detail) {
@@ -467,7 +520,7 @@ class LeaderboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $totalScore += $this->resolveMultipleAnswerAwardedScore($question, $detail);
+                    $totalScore += app(MultipleAnswerScoringService::class)->scoreForDetail($question, $detail);
                     break;
 
                 case 'matching':
@@ -679,8 +732,7 @@ class LeaderboardController extends Controller
 
             switch ($questionType) {
                 case 'multiple_answer':
-                    $weight = (float) ($question->default_weight ?? 1);
-                    $total += $weight > 0 ? $weight : 1;
+                    $total += app(MultipleAnswerScoringService::class)->config($question)['score_correct'];
                     break;
 
                 case 'matching':

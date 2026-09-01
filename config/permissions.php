@@ -12,6 +12,10 @@ return [
             'label' => 'Dashboard',
             'routes' => ['admin.dashboard'],
         ],
+        'interactive_tour' => [
+            'label' => 'Tutor Navigasi',
+            'routes' => ['admin.tours.'],
+        ],
         'profile' => [
             'label' => 'Profil Admin',
             'routes' => ['admin.profile.'],

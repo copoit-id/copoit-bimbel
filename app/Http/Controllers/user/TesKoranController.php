@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\user;
 
 use App\Http\Controllers\Controller;
+use App\Models\IndividualPurchase;
 use App\Models\TesKoran;
 use App\Models\TesKoranResult;
+use App\Models\UserPackageAcces;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,10 +39,45 @@ class TesKoranController extends Controller
 
         $tesKorans = $tesKoransQuery->paginate(\App\Support\Pagination::perPage(12))->withQueryString();
 
+        $activePackageIds = $user
+            ? UserPackageAcces::query()
+                ->where('user_id', $user->id)
+                ->active()
+                ->pluck('package_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
+        $purchasedTesKoranIds = $user
+            ? IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', TesKoran::class)
+                ->where('status', IndividualPurchase::STATUS_APPROVED)
+                ->where(function ($query): void {
+                    $query->whereNull('access_expires_at')
+                        ->orWhere('access_expires_at', '>', now());
+                })
+                ->pluck('purchasable_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
+        $pendingTesKoranIds = $user
+            ? IndividualPurchase::query()
+                ->where('user_id', $user->id)
+                ->where('purchasable_type', TesKoran::class)
+                ->where('status', IndividualPurchase::STATUS_PENDING)
+                ->pluck('purchasable_id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all()
+            : [];
+
         foreach ($tesKorans as $tesKoran) {
-            $tesKoran->has_access = $user ? $tesKoran->canUserAccess($user->id) : false;
-            $tesKoran->access_via_package = $tesKoran->accessiblePackageForUser($user?->id);
-            $tesKoran->has_pending_purchase = $user ? $tesKoran->hasPendingPurchase($user->id) : false;
+            $package = $tesKoran->packages->first(
+                static fn ($package): bool => in_array((int) $package->package_id, $activePackageIds, true),
+            );
+            $tesKoran->has_access = $package !== null
+                || in_array((int) $tesKoran->id, $purchasedTesKoranIds, true);
+            $tesKoran->access_via_package = $package ?: $tesKoran->packages->first();
+            $tesKoran->has_pending_purchase = in_array((int) $tesKoran->id, $pendingTesKoranIds, true);
         }
 
         return view('user.pages.tes-koran.index', compact('tesKorans', 'search', 'sort'));

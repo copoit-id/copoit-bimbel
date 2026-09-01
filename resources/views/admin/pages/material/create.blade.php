@@ -3,22 +3,6 @@
 @section('title', 'Tambah Materi')
 
 @section('content')
-@php
-    $materialCategoryTree = $categories->map(function ($category) {
-        return [
-            'id' => $category->category_id,
-            'name' => $category->name,
-            'children' => $category->activeChildren->map(function ($child) {
-                return [
-                    'id' => $child->category_id,
-                    'name' => $child->name,
-                ];
-            })->values(),
-        ];
-    })->values();
-    $selectedAccessDurationUnit = old('access_duration_unit', 'forever');
-    $selectedAccessDurationValue = old('access_duration_value', 1);
-@endphp
 <div class="container mx-auto px-4">
     <div class="mb-6">
         <a href="{{ route('admin.material.index') }}" class="text-gray-600 hover:text-gray-800 flex items-center gap-1 mb-2">

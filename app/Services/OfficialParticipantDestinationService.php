@@ -3,12 +3,22 @@
 namespace App\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class OfficialParticipantDestinationService
 {
     public function institutions(string $source): Collection
+    {
+        return Cache::remember(
+            "official-participant-destinations:institutions:{$source}",
+            now()->addHours(12),
+            fn (): Collection => $this->fetchInstitutions($source)
+        );
+    }
+
+    private function fetchInstitutions(string $source): Collection
     {
         $institutions = collect();
 
@@ -58,6 +68,22 @@ class OfficialParticipantDestinationService
     }
 
     public function programs(string $source, string $defaultPtn, ?string $snbtPtn = null, ?string $snbpPtn = null): Collection
+    {
+        $cacheKey = 'official-participant-destinations:programs:' . sha1(implode('|', [
+            $source,
+            $defaultPtn,
+            $snbtPtn ?? '',
+            $snbpPtn ?? '',
+        ]));
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addHours(6),
+            fn (): Collection => $this->fetchPrograms($source, $defaultPtn, $snbtPtn, $snbpPtn)
+        );
+    }
+
+    private function fetchPrograms(string $source, string $defaultPtn, ?string $snbtPtn = null, ?string $snbpPtn = null): Collection
     {
         $programs = collect();
 

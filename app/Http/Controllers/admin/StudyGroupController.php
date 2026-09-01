@@ -185,6 +185,6 @@ class StudyGroupController extends Controller
         return User::query()
             ->where('role', 'user')
             ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'email', 'origin_institution']);
     }
 }

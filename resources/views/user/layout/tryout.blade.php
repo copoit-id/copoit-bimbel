@@ -35,11 +35,11 @@
     <x-website-translation-head />
 </head>
 
-<body>
+<body data-app-selects>
     @include('components.login-as-header')
     @include('user.components.navbar')
 
-    <div class="px-3 md:px-[150px] mt-14">
+    <div class="responsive-shell px-3 md:px-[150px] mt-14">
         @yield('content')
     </div>
     @include('user.components.footer')

@@ -27,8 +27,8 @@ $unpaidInvoices = collect($unpaidInvoices ?? []);
 $upcomingClassSessions = collect($upcomingClassSessions ?? []);
 $packageProgress = $packageProgress ?? [];
 $destinationKeketatan = $destinationKeketatan ?? [
-    'snbp' => 'Pilih Target',
-    'snbt' => 'Pilih Target',
+    'snbp' => [['label' => null, 'value' => 'Pilih Target']],
+    'snbt' => [['label' => null, 'value' => 'Pilih Target']],
 ];
 $totalAnswered = $totalAnswered ?? 0;
 $totalCorrect = $totalCorrect ?? 0;
@@ -78,9 +78,9 @@ $primaryRgb = "$r, $g, $b";
                 </div>
 
                 <!-- Inner Cards Row -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
                     <!-- Target PTN Card -->
-                    <div class="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between relative overflow-hidden group min-h-[160px] shadow-[0_8px_30px_rgb(0,0,0,0.035)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
+                    <div class="relative flex h-full min-h-[160px] flex-col justify-between overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
                         <!-- Decorative university watermark -->
                         <div class="absolute right-2 bottom-2 pointer-events-none" style="color: {{ $primaryColor }}; opacity: 0.06;">
                             <i class="ri-bank-line text-8xl"></i>
@@ -94,26 +94,21 @@ $primaryRgb = "$r, $g, $b";
                                 <span class="font-bold text-gray-600">Target PTN</span>
                             </div>
                             
-                            @php
-                                $targetUniversity = null;
-                                $targetMajor = null;
-                                if (!$isGuest) {
-                                    if ($user->participantDestinationCategory) {
-                                        $targetUniversity = $user->participantDestinationCategory->parent->name ?? $user->participantDestinationCategory->name;
-                                        $targetMajor = $user->participantDestinationCategory->parent ? $user->participantDestinationCategory->name : null;
-                                    } else {
-                                        $targetUniversity = $user->participant_destination_institution_name;
-                                        $targetMajor = $user->participant_destination_program_name;
-                                    }
-                                }
-                            @endphp
+                            @php $targetChoices = $targetChoices ?? collect(); @endphp
 
-                            <h3 class="font-extrabold text-gray-950 text-base leading-snug truncate">
-                                {{ $targetUniversity ?: 'Belum Memilih PTN' }}
-                            </h3>
-                            <p class="text-xs text-gray-500 font-semibold mt-0.5 truncate">
-                                {{ $targetMajor ?: 'Pilih jurusan impianmu' }}
-                            </p>
+                            @if($targetChoices->isNotEmpty())
+                                <div class="space-y-2">
+                                    @foreach($targetChoices as $choice)
+                                        <div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-start gap-2">
+                                            <span class="pt-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $choice['label'] }}</span>
+                                            <p class="break-words text-sm font-extrabold leading-snug text-gray-950">{{ $choice['name'] }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <h3 class="font-extrabold text-gray-950 text-base leading-snug">Belum Memilih Target</h3>
+                                <p class="text-xs text-gray-500 font-semibold mt-0.5">Pilih tujuan belajar impianmu</p>
+                            @endif
                         </div>
 
                         <div class="relative z-10 pt-4 mt-auto">
@@ -122,7 +117,7 @@ $primaryRgb = "$r, $g, $b";
                                     Masuk / Daftar
                                 </a>
                             @elseif($canShowProfile)
-                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
+                                <a href="{{ route('user.profile.index') }}" class="relative z-20 inline-flex cursor-pointer pointer-events-auto items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
                                     Ubah Target
                                 </a>
                             @endif
@@ -130,37 +125,49 @@ $primaryRgb = "$r, $g, $b";
                     </div>
 
                     <!-- Peluang Stack -->
-                    <div class="flex flex-col gap-3">
+                    <div class="flex h-full flex-col gap-3">
                         <!-- SNBP Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                        <div class="flex flex-1 items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all hover:bg-slate-50/50">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                                     <i class="ri-line-chart-line text-lg"></i>
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBP</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg">
-                                {{ $destinationKeketatan['snbp'] ?? 'Pilih Target' }}
-                            </span>
+                            @php $snbpOpportunities = $destinationKeketatan['snbp'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
+                            <div class="shrink-0 space-y-1 text-right">
+                                @foreach($snbpOpportunities as $opportunity)
+                                    <p class="whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-right text-[10px] font-bold text-emerald-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
 
                         <!-- SNBT Card -->
-                        <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between transition-all hover:bg-slate-50/50 shadow-[0_8px_30px_rgb(0,0,0,0.035)]">
+                        <div class="flex flex-1 items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.035)] transition-all hover:bg-slate-50/50">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                                     <i class="ri-pulse-line text-lg"></i>
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBT</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
-                                {{ $destinationKeketatan['snbt'] ?? 'Pilih Target' }}
-                            </span>
+                            @php $snbtOpportunities = $destinationKeketatan['snbt'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
+                            <div class="shrink-0 space-y-1 text-right">
+                                @foreach($snbtOpportunities as $opportunity)
+                                    <p class="whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-right text-[10px] font-bold text-amber-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-amber-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -209,11 +216,40 @@ $primaryRgb = "$r, $g, $b";
 
 @if(!$isGuest)
 <!-- Akses Cepat -->
-<?php $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar'; ?>
+@php
+    $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
+    $quickAccessCount = ($canShowMaterial ? 1 : 0)
+        + ($canShowTryout ? 1 : 0)
+        + ($canShowSchedule ? 1 : 0)
+        + ($canShowMaterial && $liveSessionAvailable ? 1 : 0)
+        + ($canShowPackage ? 2 : 0);
+    $usesQuickAccessCarousel = $quickAccessCount > 6;
+@endphp
 @if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+<section x-data class="mb-6">
+    <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-bold text-gray-800">Akses Cepat</h2>
+        @if($usesQuickAccessCarousel)
+        <div class="flex items-center gap-2">
+            <button type="button" @click="$refs.quickAccess.scrollBy({ left: -($refs.quickAccess.clientWidth * 0.85), behavior: 'smooth' })"
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800"
+                aria-label="Lihat akses sebelumnya">
+                <i class="ri-arrow-left-s-line text-lg"></i>
+            </button>
+            <button type="button" @click="$refs.quickAccess.scrollBy({ left: $refs.quickAccess.clientWidth * 0.85, behavior: 'smooth' })"
+                class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800"
+                aria-label="Lihat akses berikutnya">
+                <i class="ri-arrow-right-s-line text-lg"></i>
+            </button>
+        </div>
+        @endif
+    </div>
+    <div @if($usesQuickAccessCarousel) x-ref="quickAccess" @endif
+        class="{{ $usesQuickAccessCarousel
+            ? 'flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'grid w-full grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6' }}">
     @if($canShowMaterial)
-    <a href="{{ route('user.material.videos') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.videos') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-video-line text-xl"></i>
         </div>
@@ -222,7 +258,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowTryout)
-    <a href="{{ route('user.package.tryout.list') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.tryout.list') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-file-list-3-line text-xl"></i>
         </div>
@@ -231,7 +267,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowSchedule)
-    <a href="{{ route('user.class-schedule.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.class-schedule.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-calendar-check-line text-xl"></i>
         </div>
@@ -240,7 +276,7 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowMaterial && $liveSessionAvailable)
-    <a href="{{ route('user.material.live-sessions') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.material.live-sessions') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-live-line text-xl"></i>
         </div>
@@ -249,14 +285,14 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canShowPackage)
-    <a href="{{ route('user.package.my') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.my') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-road-map-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Paket Saya</h3>
     </a>
     
-    <a href="{{ route('user.package.index') }}" class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-lg transition-all group">
+    <a href="{{ route('user.package.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
         <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-store-3-line text-xl"></i>
         </div>
@@ -264,6 +300,7 @@ $primaryRgb = "$r, $g, $b";
     </a>
     @endif
 </div>
+</section>
 @endif
 
 <?php if ($hasUnpaid): ?>
@@ -535,9 +572,11 @@ $primaryRgb = "$r, $g, $b";
             </div>
             <div class="text-right">
                 <span class="text-lg font-bold" style="color: {{ $primaryColor }}">{{ $attempt->score ?? 0 }}</span>
-                <span class="text-xs {{ ($attempt->is_passed ?? false) ? 'text-green-500' : 'text-red-500' }} block">
-                    {{ ($attempt->is_passed ?? false) ? 'Lulus' : 'Belum Lulus' }}
-                </span>
+                @if($attempt->tryout?->shouldShowPassingGrade())
+                    <span class="text-xs {{ ($attempt->is_passed ?? false) ? 'text-green-500' : 'text-red-500' }} block">
+                        {{ ($attempt->is_passed ?? false) ? 'Lulus' : 'Belum Lulus' }}
+                    </span>
+                @endif
             </div>
         </div>
         <?php endforeach; ?>

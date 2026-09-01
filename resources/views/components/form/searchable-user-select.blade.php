@@ -40,7 +40,7 @@
     @click.outside="open = false"
     class="relative"
 >
-    <label class="mb-1 block text-sm font-medium text-gray-700" for="{{ $name }}_search">{{ $label }}</label>
+    <label class="mb-1 block text-sm font-medium text-gray-700" for="{{ $name }}_search">{{ $label }}@if($required)<x-form.required-indicator />@endif</label>
     <input type="hidden" name="{{ $name }}" :value="selectedId">
 
     <button

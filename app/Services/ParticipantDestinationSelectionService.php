@@ -12,23 +12,39 @@ class ParticipantDestinationSelectionService
 {
     public function validate(Request $request, bool $required): array
     {
+        return $this->validateSelection($request, $required, 'participant_destination');
+    }
+
+    public function validateSecond(Request $request, bool $required = false): array
+    {
+        return $this->validateSelection($request, $required, 'second_participant_destination');
+    }
+
+    private function validateSelection(Request $request, bool $required, string $fieldPrefix): array
+    {
+        $categoryIdField = $fieldPrefix.'_category_id';
+        $sourceField = $fieldPrefix.'_source';
+        $externalIdField = $fieldPrefix.'_external_id';
+        $institutionNameField = $fieldPrefix.'_institution_name';
+        $programNameField = $fieldPrefix.'_program_name';
+
         $validator = Validator::make($request->all(), [
-            'participant_destination_category_id' => ['nullable', 'integer', 'exists:participant_destination_categories,id'],
-            'participant_destination_source' => ['nullable', Rule::in(['db', 'snpmb'])],
-            'participant_destination_external_id' => ['nullable', 'string', 'max:100'],
-            'participant_destination_institution_name' => ['nullable', 'string', 'max:255'],
-            'participant_destination_program_name' => ['nullable', 'string', 'max:255'],
+            $categoryIdField => ['nullable', 'integer', 'exists:participant_destination_categories,id'],
+            $sourceField => ['nullable', Rule::in(['db', 'snpmb'])],
+            $externalIdField => ['nullable', 'string', 'max:100'],
+            $institutionNameField => ['nullable', 'string', 'max:255'],
+            $programNameField => ['nullable', 'string', 'max:255'],
         ]);
 
-        $validator->after(function ($validator) use ($request, $required) {
-            $hasDbSelection = $request->filled('participant_destination_category_id');
-            $hasOfficialSelection = $request->input('participant_destination_source') === 'snpmb'
-                && $request->filled('participant_destination_external_id')
-                && $request->filled('participant_destination_institution_name');
+        $validator->after(function ($validator) use ($request, $required, $categoryIdField, $sourceField, $externalIdField, $institutionNameField) {
+            $hasDbSelection = $request->filled($categoryIdField);
+            $hasOfficialSelection = $request->input($sourceField) === 'snpmb'
+                && $request->filled($externalIdField)
+                && $request->filled($institutionNameField);
 
             if ($required && ! $hasDbSelection && ! $hasOfficialSelection) {
                 $validator->errors()->add(
-                    'participant_destination_category_id',
+                    $categoryIdField,
                     'Pilih instansi/prodi tujuan dari data manual atau data resmi.'
                 );
             }
@@ -38,32 +54,32 @@ class ParticipantDestinationSelectionService
             throw new ValidationException($validator);
         }
 
-        if ($request->filled('participant_destination_category_id')) {
+        if ($request->filled($categoryIdField)) {
             return [
-                'participant_destination_category_id' => $request->integer('participant_destination_category_id'),
-                'participant_destination_source' => 'db',
-                'participant_destination_external_id' => null,
-                'participant_destination_institution_name' => null,
-                'participant_destination_program_name' => null,
+                $categoryIdField => $request->integer($categoryIdField),
+                $sourceField => 'db',
+                $externalIdField => null,
+                $institutionNameField => null,
+                $programNameField => null,
             ];
         }
 
-        if ($request->input('participant_destination_source') === 'snpmb') {
+        if ($request->input($sourceField) === 'snpmb') {
             return [
-                'participant_destination_category_id' => null,
-                'participant_destination_source' => 'snpmb',
-                'participant_destination_external_id' => trim((string) $request->input('participant_destination_external_id')),
-                'participant_destination_institution_name' => trim((string) $request->input('participant_destination_institution_name')),
-                'participant_destination_program_name' => trim((string) $request->input('participant_destination_program_name')),
+                $categoryIdField => null,
+                $sourceField => 'snpmb',
+                $externalIdField => trim((string) $request->input($externalIdField)),
+                $institutionNameField => trim((string) $request->input($institutionNameField)),
+                $programNameField => trim((string) $request->input($programNameField)),
             ];
         }
 
         return [
-            'participant_destination_category_id' => null,
-            'participant_destination_source' => null,
-            'participant_destination_external_id' => null,
-            'participant_destination_institution_name' => null,
-            'participant_destination_program_name' => null,
+            $categoryIdField => null,
+            $sourceField => null,
+            $externalIdField => null,
+            $institutionNameField => null,
+            $programNameField => null,
         ];
     }
 
