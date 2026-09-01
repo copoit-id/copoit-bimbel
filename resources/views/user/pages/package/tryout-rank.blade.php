@@ -92,8 +92,8 @@
                 <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-600">Rata-rata Nilai</p>
-                            <p class="text-2xl font-bold text-dark">{{ number_format($rankingStatistics['average_score'], 1) }}</p>
+                            <p class="text-sm text-gray-600">Rata-rata {{ $rankingStatistics['score_label'] }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $rankingStatistics['average_score_display'] }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>

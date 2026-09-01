@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Tryout;
+use Illuminate\Support\Collection;
 
 class TryoutScoreDisplayService
 {
@@ -72,6 +73,39 @@ class TryoutScoreDisplayService
     public function shouldShowMaximum(Tryout $tryout): bool
     {
         return $tryout->shouldShowScoreMaximum();
+    }
+
+    /**
+     * Summarize the final score already prepared for leaderboard display.
+     *
+     * The final display score is the source of truth here: it is the total
+     * across subtests and has already applied the tryout's configured scale.
+     *
+     * @param Collection<int, array<string, mixed>|object> $rankings
+     * @return array{average: float, average_formatted: string, highest: float, highest_formatted: string}
+     */
+    public function summarizeFinalScores(Collection $rankings): array
+    {
+        $scores = $rankings
+            ->map(function (array|object $ranking): float {
+                $displayScore = data_get($ranking, 'display_score.value');
+
+                if ($displayScore !== null) {
+                    return (float) $displayScore;
+                }
+
+                return (float) data_get($ranking, 'raw_score', 0);
+            });
+
+        $average = (float) ($scores->avg() ?? 0);
+        $highest = (float) ($scores->max() ?? 0);
+
+        return [
+            'average' => $average,
+            'average_formatted' => $this->formatNumber($average),
+            'highest' => $highest,
+            'highest_formatted' => $this->formatNumber($highest),
+        ];
     }
 
     private function formatNumber(float $value): string

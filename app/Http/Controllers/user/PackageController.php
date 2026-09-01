@@ -3743,23 +3743,19 @@ class PackageController extends Controller
                 'total' => $rankingSummary->count(),
                 'score' => $rankingSummary->get($myRankingIndex),
             ];
-        $usesIrtScoreScale = $scoreDisplayService->usesHundredScale($tryout);
+        $finalScoreSummary = $scoreDisplayService->summarizeFinalScores($rankingSummary);
         $showScoreMaximum = $scoreDisplayService->shouldShowMaximum($tryout);
         $rankingStatistics = [
             'total_participants' => $rankingSummary->count(),
             'show_score_maximum' => $showScoreMaximum,
-            'average_score' => (float) $rankingSummary->avg('average_score'),
-            'highest_score' => $usesIrtScoreScale
-                ? (float) $rankingSummary->max(fn (array $ranking) => $ranking['display_score']['value'] ?? 0)
-                : (float) $rankingSummary->max('raw_score'),
-            'highest_score_display' => $usesIrtScoreScale
-                ? ($rankingSummary->sortByDesc(fn (array $ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
-                : number_format((float) $rankingSummary->max('raw_score'), 0),
+            'average_score' => $finalScoreSummary['average'],
+            'average_score_display' => $finalScoreSummary['average_formatted'],
+            'score_label' => $scoreDisplayService->present($tryout, 0)['label'],
+            'highest_score' => $finalScoreSummary['highest'],
+            'highest_score_display' => $finalScoreSummary['highest_formatted'],
             'highest_maximum_display' => ! $showScoreMaximum
                 ? null
-                : ($usesIrtScoreScale
-                ? ($rankingSummary->first()['display_score']['formatted_maximum'] ?? null)
-                : (($maximum = $rankingSummary->max('max_score')) === null ? null : number_format((float) $maximum, 0))),
+                : ($rankingSummary->first()['display_score']['formatted_maximum'] ?? null),
             'pass_rate' => $rankingSummary->isNotEmpty()
                 ? ($rankingSummary->where('is_passed', true)->count() / $rankingSummary->count()) * 100
                 : 0,

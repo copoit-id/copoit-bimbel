@@ -78,4 +78,17 @@ class TryoutScoreDisplayServiceTest extends TestCase
         ])));
     }
 
+    public function test_it_summarizes_total_final_scores_on_the_configured_scale(): void
+    {
+        $summary = app(TryoutScoreDisplayService::class)->summarizeFinalScores(collect([
+            ['raw_score' => 15, 'display_score' => ['value' => 150]],
+            ['raw_score' => 21, 'display_score' => ['value' => 210]],
+        ]));
+
+        $this->assertSame(180.0, $summary['average']);
+        $this->assertSame('180', $summary['average_formatted']);
+        $this->assertSame(210.0, $summary['highest']);
+        $this->assertSame('210', $summary['highest_formatted']);
+    }
+
 }
