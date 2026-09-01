@@ -39,6 +39,12 @@ class GeneralPageController extends Controller
             ->map(fn (int $packageId) => $landingPackagesById->get($packageId))
             ->filter()
             ->values();
+        $landingArticles = Article::query()
+            ->with('author:id,name')
+            ->published()
+            ->latest('published_at')
+            ->limit(4)
+            ->get();
 
         return view($this->resolveTemplateView('landing', $page, 'general.landing'), [
             'title' => $content['title'] ?? 'Landing Page',
@@ -47,6 +53,7 @@ class GeneralPageController extends Controller
             'settings' => $page?->settings ?? [],
             'seo' => $page?->seo ?? [],
             'landingPackages' => $landingPackages,
+            'landingArticles' => $landingArticles,
         ]);
     }
 

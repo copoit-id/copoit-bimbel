@@ -19,6 +19,7 @@
     $documentTitle = $pageTitle !== ''
         ? $pageTitle . ' - ' . $clientBranding['name']
         : $clientBranding['name'];
+    $isLandingPage = request()->routeIs('landing', 'general.landing', 'general.index');
 @endphp
 
 <head>
@@ -34,18 +35,18 @@
 </head>
 
 <body class="min-h-screen bg-slate-50 text-slate-900" data-app-selects>
-    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header class="{{ $isLandingPage ? 'landing-header absolute inset-x-0 top-0 z-40 text-white' : 'sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur' }}">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
             <a href="{{ $homeRoute }}" class="flex min-w-0 items-center gap-3">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
-                    class="h-10 w-10 rounded-lg object-contain">
+                    class="h-10 w-10 rounded-lg object-contain {{ $isLandingPage ? 'bg-white p-1' : '' }}">
                 <div class="min-w-0">
-                    <p class="truncate text-sm font-bold text-slate-950 sm:text-base">{{ $clientBranding['name'] }}</p>
-                    <p class="hidden text-xs text-slate-500 sm:block">Informasi dan artikel</p>
+                    <p class="truncate text-sm font-bold {{ $isLandingPage ? 'text-white' : 'text-slate-950' }} sm:text-base">{{ $clientBranding['name'] }}</p>
+                    <p class="hidden text-xs {{ $isLandingPage ? 'text-white/75' : 'text-slate-500' }} sm:block">Informasi dan artikel</p>
                 </div>
             </a>
 
-            <nav class="hidden items-center gap-1 text-sm font-medium text-slate-600 md:flex">
+            <nav class="site-nav hidden items-center gap-1 text-sm font-medium text-slate-600 md:flex">
                 @if($showLandingNav)
                 <a href="{{ route('landing') }}"
                     class="rounded-lg px-3 py-2 {{ request()->routeIs('landing', 'general.landing', 'general.index') ? 'bg-primary text-white' : 'hover:bg-slate-100' }}">
@@ -100,12 +101,12 @@
             <div class="flex items-center gap-2">
                 @auth
                     <a href="{{ route('user.dashboard.index') }}"
-                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        class="landing-login rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                         Dashboard
                     </a>
                 @else
                     <a href="{{ route('login') }}"
-                        class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                        class="landing-login rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                         Login
                     </a>
                 @endauth

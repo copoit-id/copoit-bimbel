@@ -33,7 +33,7 @@
 @push('styles')
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
-        /* Custom floating and pulse animations for premium feel */
+        /* High-energy academic landing visual, powered by CMS content. */
         @keyframes float-slow {
             0%, 100% { transform: translateY(0px) rotate(0deg); }
             50% { transform: translateY(-8px) rotate(0.5deg); }
@@ -65,77 +65,110 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .landing-header .site-nav,
+        .landing-header .site-nav > a,
+        .landing-header .site-nav > div > button {
+            color: #fff !important;
+        }
+        .landing-header .site-nav > a,
+        .landing-header .site-nav > div > button {
+            background: transparent !important;
+        }
+        .landing-header .site-nav > a:hover,
+        .landing-header .site-nav > div > button:hover {
+            background: rgba(255,255,255,.14) !important;
+        }
+        .landing-header .landing-login {
+            border-color: transparent !important;
+            background: #fbbf24 !important;
+            color: #171717 !important;
+            font-weight: 800;
+        }
+        .landing-hero-layer-one {
+            clip-path: polygon(0 0, 100% 0, 100% 28%, 72% 48%, 40% 27%, 0 48%);
+        }
+        .landing-hero-layer-two {
+            clip-path: polygon(0 12%, 34% 53%, 72% 37%, 100% 57%, 100% 100%, 0 100%);
+        }
     </style>
 @endpush
 
 @section('content')
 <!-- Section 1: Hero / Pengenalan Platform -->
-<section class="relative overflow-hidden border-b border-slate-100 bg-grid-pattern bg-white py-16 sm:py-24">
-    <!-- Decorative background glow blobs -->
-    <div class="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/5 blur-3xl pointer-events-none"></div>
-    <div class="absolute top-1/2 left-10 h-72 w-72 rounded-full bg-indigo-500/5 blur-3xl pointer-events-none"></div>
+<section class="landing-hero relative isolate min-h-[41rem] overflow-hidden bg-[#ef3340] pb-28 pt-32 text-white sm:min-h-[45rem] sm:pb-36 sm:pt-40 lg:min-h-[49rem] lg:pt-48">
+    <div class="landing-hero-layer-one pointer-events-none absolute inset-0 bg-gradient-to-br from-[#fa6978] via-[#ef4051] to-[#d90d2c]"></div>
+    <div class="landing-hero-layer-two pointer-events-none absolute inset-0 bg-[#cf1531]/90"></div>
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#bd1630]/45 to-transparent"></div>
+    <svg class="pointer-events-none absolute inset-x-0 -bottom-px h-44 w-full sm:h-56" viewBox="0 0 1440 250" preserveAspectRatio="none" aria-hidden="true">
+        <path fill="white" d="M0,112 C166,236 380,245 550,180 C730,109 791,162 944,203 C1112,248 1282,198 1440,115 L1440,250 L0,250 Z"></path>
+        <path fill="#e9223e" d="M510,215 C649,150 740,154 865,199 C1005,249 1151,230 1300,175 C1195,248 1010,264 861,218 C725,177 635,180 535,235 Z"></path>
+    </svg>
 
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-        <div class="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-            <!-- Left Column: Content -->
-            <div class="lg:col-span-6 space-y-6 sm:space-y-8 text-center lg:text-left">
-                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/8 text-primary font-bold text-xs sm:text-sm border border-primary/15">
-                    <span class="relative flex h-2.5 w-2.5">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-                    </span>
-                    {{ $landingValue('hero.badge', 'Bimbel Persiapan UTBK 2026 #1') }}
-                </div>
+    <div class="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+        <p class="text-sm font-bold tracking-wide text-white/90 sm:text-base">{{ $landingValue('hero.badge', 'Bimbingan Belajar untuk Target Terbaikmu') }}</p>
+        <h1 class="mt-5 text-5xl font-black leading-none tracking-tight text-white sm:text-7xl lg:mt-8 lg:text-[6.5rem]">{{ $clientBranding['name'] }}</h1>
+        <p class="mx-auto mt-5 max-w-3xl text-base font-semibold leading-relaxed text-white sm:mt-7 sm:text-2xl">
+            {{ $landingValue('hero.description', 'Bimbingan belajar yang membantu kamu belajar terarah dan mencapai kampus impian.') }}
+        </p>
 
-                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight tracking-tight">
-                    {!! $landingValue('hero.title_html', 'Siap Tembus <br class="hidden sm:block"><span class="text-gradient">PTN Impian</span> Kamu?') !!}
-                </h1>
-
-                <p class="text-base sm:text-lg text-slate-600 max-w-xl lg:max-w-lg leading-relaxed mx-auto lg:mx-0 font-medium">
-                    {{ $landingValue('hero.description', 'BimbelHub memandu kamu memahami konsep materi terdalam, strategi memilih jurusan, dan taktik menjawab soal UTBK. Lengkap dengan Tryout IRT nasional, asisten Kak AI, dan bimbingan mentor alumni.') }}
-                </p>
-
-                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                    <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}"
-                       class="inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white transition-all hover:bg-primary-hover shadow-md hover:shadow-lg active:scale-98">
-                        {{ $landingValue('hero.primary_cta.label', 'Mulai Belajar Sekarang') }}
-                        <i class="ri-arrow-right-line text-lg"></i>
-                    </a>
-                    <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="inline-flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-98">
-                        <i class="ri-whatsapp-line text-lg text-emerald-500"></i>
-                        {{ $landingValue('hero.secondary_cta.label', 'Hubungi Admin') }}
-                    </a>
-                </div>
-
-                <!-- Logo grid featuring campus logos as requested -->
-                @php
-                    $heroLogoStack = $landingItems('hero.logo_stack');
-                    $heroLogoColumns = max(1, min(count($heroLogoStack), 6));
-                @endphp
-                <div class="flex flex-col sm:flex-row items-center gap-4 pt-8 border-t border-slate-100 justify-center lg:justify-start">
-                    @if(count($heroLogoStack) > 0)
-                        <div class="grid gap-2" style="grid-template-columns: repeat({{ $heroLogoColumns }}, minmax(0, 2.25rem));">
-                            @foreach($heroLogoStack as $logo)
-                                <img class="h-9 w-9 rounded-full object-contain border-2 border-white bg-white p-0.5 shadow-xs" src="{{ $landingAsset($logo['src'] ?? null, 'img/logo_kampus.png') }}" alt="{{ $logo['alt'] ?? 'Campus Logo' }}">
-                            @endforeach
-                        </div>
-                    @endif
-                    <p class="text-xs sm:text-sm font-semibold text-slate-650">
-                        {!! $landingValue('hero.social_proof_html', 'Bergabung bersama <span class="text-slate-900 font-extrabold">10.000+ Pejuang UTBK & SNBP</span> tahun ini!') !!}
-                    </p>
-                </div>
-            </div>
-
-            <!-- Right Column: Raw Illustration with rounded corners as requested (No background box container, blobs or shadows) -->
-            <div class="lg:col-span-6 flex justify-center lg:justify-end">
-                <img src="{{ $landingAsset($landingValue('hero.image'), 'img/hero_study.png') }}"
-                     alt="{{ $landingValue('hero.image_alt', 'Siswa Belajar UTBK Online') }}"
-                     class="w-full max-w-[480px] aspect-square object-cover rounded-[32px]">
-            </div>
+        <div class="mx-auto mt-9 grid max-w-5xl gap-3 sm:grid-cols-3 sm:gap-5 lg:mt-12">
+            <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Hubungi Kami</a>
+            <a href="#program" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Lihat Program Belajar</a>
+            <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">{{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}</a>
         </div>
+    </div>
+
+    <div class="pointer-events-none absolute bottom-7 left-[29%] z-10 hidden -rotate-12 rounded-full border-4 border-white/85 bg-amber-300 p-4 text-[#ef3340] shadow-xl lg:block"><i class="ri-book-open-fill text-4xl"></i></div>
+    <div class="pointer-events-none absolute bottom-20 right-[13%] z-10 hidden rotate-12 rounded-full border-4 border-white/85 bg-white p-4 text-[#ef3340] shadow-xl lg:block"><i class="ri-graduation-cap-fill text-4xl"></i></div>
+</section>
+
+<!-- About and achievements: the same CMS content is surfaced in a GO-inspired editorial sequence. -->
+<section id="tentang" class="bg-white py-14 sm:py-20">
+    <div class="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+        <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#ef3340]">Tentang {{ $clientBranding['name'] }}</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{{ $landingValue('community.title', 'Belajar lebih terarah, target makin dekat') }}</h2>
+        <p class="mx-auto mt-5 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+            {{ $landingValue('community.description', 'Temukan pendampingan belajar, tryout, dan komunitas yang membantu kamu konsisten bertumbuh sampai target tercapai.') }}
+        </p>
+        <a href="#program" class="mt-7 inline-flex items-center gap-2 text-sm font-extrabold text-[#ef3340] hover:underline">Lihat program belajar <i class="ri-arrow-right-line"></i></a>
+    </div>
+</section>
+
+<section class="bg-[#e93443] py-12 text-white sm:py-16">
+    <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 md:grid-cols-3 lg:px-8">
+        @foreach(array_slice($landingItems('achievements.items'), 0, 3) as $achievement)
+            <article class="border-l-2 border-amber-300/80 pl-5">
+                <p class="text-3xl font-black text-amber-200">{{ data_get($achievement, 'value') }}</p>
+                <h3 class="mt-2 text-lg font-extrabold">{{ data_get($achievement, 'label') }}</h3>
+                <p class="mt-2 text-sm leading-6 text-white/85">{{ data_get($achievement, 'description') }}</p>
+            </article>
+        @endforeach
+    </div>
+</section>
+
+<section id="artikel" class="bg-white py-16 sm:py-20">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mb-9 flex flex-col gap-2 text-center sm:mb-12">
+            <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#ef3340]">Info & Insight</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Artikel terbaru untuk pejuang targetmu</h2>
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            @forelse($landingArticles as $article)
+                <a href="{{ route('articles.show', $article->slug) }}" class="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                    <div class="aspect-[4/3] bg-slate-100">
+                        @if($article->cover_url)
+                            <img src="{{ $article->cover_url }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+                        @else
+                            <div class="flex h-full items-center justify-center bg-[#ef3340]/10 text-[#ef3340]"><i class="ri-article-line text-5xl"></i></div>
+                        @endif
+                    </div>
+                    <div class="p-4"><h3 class="line-clamp-2 text-sm font-extrabold leading-snug text-slate-800">{{ $article->title }}</h3><p class="mt-3 text-xs font-bold text-[#ef3340]">Baca selengkapnya <i class="ri-arrow-right-line"></i></p></div>
+                </a>
+            @empty
+                <div class="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Artikel terbaru sedang disiapkan.</div>
+            @endforelse
+        </div>
+        @if($showArticlesNav)<div class="mt-7 text-center"><a href="{{ route('articles.index') }}" class="text-sm font-extrabold text-[#ef3340] hover:underline">Lihat semua artikel <i class="ri-arrow-right-line"></i></a></div>@endif
     </div>
 </section>
 
@@ -153,26 +186,19 @@
         <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto items-stretch">
             @forelse($landingPackages as $package)
                 @php
-                    $programFeatures = json_decode($package->features ?? '[]', true);
-                    $programFeatures = is_array($programFeatures) ? array_values(array_filter($programFeatures)) : [];
                     $programThumbnail = $package->image
                         ? \Illuminate\Support\Facades\Storage::url($package->image)
                         : null;
                     $isVideoThumbnail = $package->image
                         && in_array(strtolower(pathinfo($package->image, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
-                    $priceLabel = match ($package->type_price) {
-                        'paid' => 'Rp ' . number_format($package->price, 0, ',', '.'),
-                        'free_conditional' => 'Gratis*',
-                        default => 'Gratis',
-                    };
                     $ctaLabel = match ($package->type_price) {
                         'paid' => 'Lihat Paket',
                         'free_conditional' => 'Lihat Persyaratan',
                         default => 'Ambil Paket',
                     };
                 @endphp
-                <article class="relative flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg">
-                    <div class="relative h-48 overflow-hidden bg-gradient-to-br from-primary/10 to-slate-100">
+                <article class="relative mx-auto flex min-h-[30rem] w-full max-w-[24rem] flex-col rounded-[5%] border border-slate-100 bg-white p-3 shadow-[0_2px_25px_-2px_rgba(0,0,0,0.42)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_28px_-4px_rgba(0,0,0,0.32)]">
+                    <div class="relative h-52 overflow-hidden rounded-[4%] bg-gradient-to-br from-[#ef3340]/10 to-amber-100">
                         @if($programThumbnail)
                             @if($isVideoThumbnail)
                                 <video src="{{ $programThumbnail }}" class="h-full w-full object-cover" muted playsinline preload="metadata"></video>
@@ -184,50 +210,32 @@
                                 <i class="ri-book-open-line text-6xl text-primary/30"></i>
                             </div>
                         @endif
-                        <span class="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary shadow-sm backdrop-blur">
+                        <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#ef3340] shadow-sm">
                             {{ str_replace('_', ' ', $package->type_package) }}
                         </span>
                     </div>
 
-                    <div class="flex flex-1 flex-col justify-between p-7">
-                        <div class="space-y-6">
+                    <div class="flex flex-1 flex-col justify-between px-3 pb-2 pt-4 text-center">
+                        <div class="space-y-2">
                             <div>
-                                <h3 class="text-xl font-bold text-slate-800">{{ $package->name }}</h3>
-                                <div class="mt-4 flex items-baseline gap-2">
-                                    <span class="text-3xl font-black text-slate-900">{{ $priceLabel }}</span>
-                                    @if($package->type_price === 'paid')
-                                        <span class="text-2xs font-bold uppercase tracking-wider text-slate-400">Sekali Bayar</span>
-                                    @endif
-                                </div>
-                                <p class="mt-3 text-xs font-medium leading-relaxed text-slate-500">
-                                    {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 150) }}
+                                <h3 class="text-base font-extrabold text-[#ef3340]">{{ $package->name }}</h3>
+                                <p class="mt-2 text-xs font-medium leading-relaxed text-slate-700">
+                                    {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 155) }}
                                 </p>
                             </div>
 
-                            @if($programFeatures !== [])
-                                <div class="h-px bg-slate-100"></div>
-
-                                <ul class="space-y-3 text-xs font-semibold text-slate-600 sm:text-sm">
-                                    @foreach(array_slice($programFeatures, 0, 5) as $feature)
-                                        <li class="flex items-start gap-2.5">
-                                            <i class="ri-checkbox-circle-fill mt-0.5 shrink-0 text-base text-primary"></i>
-                                            <span>{{ is_array($feature) ? data_get($feature, 'label', '') : $feature }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
                         </div>
 
                         @if($package->type_price === 'free_conditional')
                             <button type="button"
                                 data-landing-modal-open="landing-conditional-package-{{ $package->package_id }}"
-                                class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
+                                class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#ef3340] transition hover:underline">
                                 {{ $ctaLabel }}
                                 <i class="ri-file-list-3-line ml-2"></i>
                             </button>
                         @else
                             <a href="{{ route('user.package.detail', $package->package_id) }}"
-                               class="mt-8 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-center text-xs font-bold text-white transition-all hover:bg-primary-hover sm:text-sm">
+                               class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#ef3340] transition hover:underline">
                                 {{ $ctaLabel }}
                                 <i class="ri-arrow-right-line ml-2"></i>
                             </a>
@@ -301,7 +309,7 @@
 <!-- Section 3: Komunitas Belajar -->
 <section class="py-16 bg-white">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-primary to-primary-hover p-8 md:p-12 text-white border border-primary/10">
+        <div class="relative overflow-hidden rounded-[32px] bg-[#ef3340] p-8 text-white md:p-12">
             <!-- Decorative light overlays -->
             <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
             <div class="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/5 blur-2xl pointer-events-none"></div>
@@ -345,27 +353,28 @@
             </p>
         </div>
 
-        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-4 items-stretch">
+        <div class="grid items-stretch gap-8 md:grid-cols-2 lg:grid-cols-3">
             @foreach($landingItems('testimonials.items') as $testimonial)
-                <div class="rounded-2xl border border-slate-200/80 bg-white p-6 flex flex-col justify-between hover:border-primary/25 hover:shadow-md transition-all duration-300">
+                <div class="flex flex-col justify-between rounded-2xl border border-[#ef3340]/20 bg-[#d83a2f] p-6 text-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                     <div class="space-y-4">
+                        <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-32 w-full rounded-xl object-cover object-top">
                         <div class="flex items-center gap-1 text-amber-400">
                             @for($star = 0; $star < 5; $star++)
                                 <i class="ri-star-fill text-sm"></i>
                             @endfor
                         </div>
-                        <p class="text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed italic">
+                        <p class="text-xs sm:text-sm font-semibold leading-relaxed text-white/90 italic">
                             "{{ data_get($testimonial, 'quote') }}"
                         </p>
                     </div>
-                    <div class="flex items-center gap-3 pt-5 border-t border-slate-100 mt-6">
+                    <div class="mt-6 flex items-center gap-3 border-t border-white/20 pt-5">
                         <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1">
-                                <h4 class="text-xs sm:text-sm font-bold text-slate-800 leading-none truncate">{{ data_get($testimonial, 'name') }}</h4>
-                                <i class="ri-checkbox-circle-fill text-emerald-500 text-xs" title="Alumni Terverifikasi"></i>
+                                <h4 class="truncate text-xs font-bold leading-none text-white sm:text-sm">{{ data_get($testimonial, 'name') }}</h4>
+                                <i class="ri-checkbox-circle-fill text-xs text-amber-200" title="Alumni Terverifikasi"></i>
                             </div>
-                            <p class="text-[10px] text-slate-400 font-bold mt-1">{{ data_get($testimonial, 'result') }}</p>
+                            <p class="mt-1 text-[10px] font-bold text-white/65">{{ data_get($testimonial, 'result') }}</p>
                         </div>
                     </div>
                 </div>
@@ -374,8 +383,8 @@
     </div>
 </section>
 
-<!-- Section 5: Pencapaian & Logo Lembaga / Sekolah Kerjasama (Fokus Detail Informasi) -->
-<section class="bg-white py-16 sm:py-24">
+<!-- Section 5: Fasilitas dan pencapaian -->
+<section class="bg-amber-300 py-16 sm:py-24">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-20">
         <!-- Part 1: Achievements Details -->
         <div class="space-y-8">
@@ -389,7 +398,7 @@
                     @php
                         $achievementIcons = ['ri-trophy-line', 'ri-group-line', 'ri-book-open-line'];
                     @endphp
-                    <div class="rounded-3xl border-2 border-slate-200 bg-slate-50/30 p-8 flex flex-col justify-between hover:border-primary/40 transition-all duration-300 hover:shadow-xs">
+                    <div class="flex flex-col justify-between rounded-3xl border-2 border-white/70 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                         <div class="space-y-4">
                             <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
                                 <i class="{{ $achievementIcons[$achievementIndex % count($achievementIcons)] }} text-2xl"></i>
