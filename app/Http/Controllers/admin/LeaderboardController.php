@@ -136,7 +136,6 @@ class LeaderboardController extends Controller
         $scoreDisplayService = $this->scoreDisplayService;
         $statistics['average_score_display'] = $finalScoreSummary['average_formatted'];
         $statistics['highest_score_display'] = $finalScoreSummary['highest_formatted'];
-        $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
         $podiumRankings = $rankingRows
             ->take(3)
             ->values()

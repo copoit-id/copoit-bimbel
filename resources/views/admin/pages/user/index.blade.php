@@ -82,6 +82,9 @@
         @csrf
         @method('DELETE')
     </form>
+    <form id="bulk-reset-password-form" action="{{ route('admin.user.bulk-reset-password', request()->query()) }}" method="POST" class="hidden">
+        @csrf
+    </form>
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
         <div class="mb-4 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
@@ -110,20 +113,27 @@
                 </a>
             </form>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-end gap-3">
                 <div id="user-count" class="text-sm text-gray-500">
                     Menampilkan: <span class="font-medium text-gray-700">{{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }}</span>
                     <span class="mx-1 text-gray-300">•</span>
                     Total {{ $roleOptions[$activeRole] ?? 'User' }}: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
                 </div>
-                <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
-                    class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
-                    <i class="ri-delete-bin-5-line"></i>
-                    Hapus Terpilih
-                    <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
-                        <span id="bulk-selected-count">0</span>
-                    </span>
-                </button>
+                <div id="bulk-actions" class="hidden flex-wrap items-center gap-2">
+                    <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
+                        class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-4 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="ri-delete-bin-5-line"></i>
+                        Hapus Terpilih
+                        <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                            <span id="bulk-selected-count">0</span>
+                        </span>
+                    </button>
+                    <button type="button" id="bulk-reset-password-button" disabled
+                        class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-primary/20 bg-white px-4 text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="ri-lock-password-line"></i>
+                        Reset Password Terpilih
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -155,7 +165,7 @@
                             data-username="{{ Str::lower($user->username) }}" data-phone="{{ Str::lower($user->phone) }}"
                             data-role="{{ $user->role }}" data-status="{{ $user->status }}">
                             <td class="px-6 py-4">
-                                <input type="checkbox" name="ids[]" value="{{ $user->id }}" form="bulk-delete-form"
+                                <input type="checkbox" value="{{ $user->id }}"
                                     class="user-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50">
                             </td>
                             <td class="px-6 py-4">
@@ -270,6 +280,14 @@
                                         <i class="ri-edit-line text-base"></i>
                                         <span class="sr-only">Edit user</span>
                                     </a>
+                                    <button type="button"
+                                        data-password-reset-url="{{ route('admin.user.reset-password', array_merge(request()->query(), ['user' => $user])) }}"
+                                        data-password-reset-message="Reset password {{ $user->name }} ke password default dari emailnya?"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Reset password ke default email" aria-label="Reset password ke default email">
+                                        <i class="ri-lock-password-line text-base"></i>
+                                        <span class="sr-only">Reset password</span>
+                                    </button>
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
                                         onsubmit="return confirm('Hapus user {{ addslashes($user->name) }}?')" class="inline-flex">
                                         @csrf
@@ -307,8 +325,11 @@
         document.addEventListener('DOMContentLoaded', function () {
             const selectAll = document.getElementById('select-all-users');
             const bulkButton = document.getElementById('bulk-delete-button');
+            const bulkResetButton = document.getElementById('bulk-reset-password-button');
+            const bulkActions = document.getElementById('bulk-actions');
             const bulkCount = document.getElementById('bulk-selected-count');
             const bulkForm = document.getElementById('bulk-delete-form');
+            const bulkResetForm = document.getElementById('bulk-reset-password-form');
 
             function getRowCheckboxes() {
                 return Array.from(document.querySelectorAll('.user-checkbox'));
@@ -320,6 +341,15 @@
 
                 if (bulkButton) {
                     bulkButton.disabled = checked.length === 0;
+                }
+
+                if (bulkResetButton) {
+                    bulkResetButton.disabled = checked.length === 0;
+                }
+
+                if (bulkActions) {
+                    bulkActions.classList.toggle('hidden', checked.length === 0);
+                    bulkActions.classList.toggle('flex', checked.length > 0);
                 }
 
                 if (bulkCount) {
@@ -340,6 +370,22 @@
                 }
             }
 
+            function syncBulkFormIds() {
+                const selected = getRowCheckboxes().filter(cb => cb.checked);
+
+                [bulkForm, bulkResetForm].filter(Boolean).forEach(form => {
+                    form.querySelectorAll('[data-bulk-user-id]').forEach(input => input.remove());
+                    selected.forEach(checkbox => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ids[]';
+                        input.value = checkbox.value;
+                        input.dataset.bulkUserId = 'true';
+                        form.appendChild(input);
+                    });
+                });
+            }
+
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
                     getRowCheckboxes().forEach(cb => {
@@ -348,11 +394,26 @@
                         }
                     });
                     updateBulkState();
+                    syncBulkFormIds();
                 });
             }
 
             getRowCheckboxes().forEach(cb => {
-                cb.addEventListener('change', updateBulkState);
+                cb.addEventListener('change', function () {
+                    updateBulkState();
+                    syncBulkFormIds();
+                });
+            });
+
+            document.querySelectorAll('[data-password-reset-url]').forEach(button => {
+                button.addEventListener('click', function () {
+                    openConfirmModal(
+                        'confirm-reset-password',
+                        button.dataset.passwordResetUrl,
+                        'POST',
+                        button.dataset.passwordResetMessage
+                    );
+                });
             });
 
 
@@ -370,10 +431,36 @@
                 });
             }
 
+            if (bulkResetButton) {
+                bulkResetButton.addEventListener('click', function () {
+                    const selected = getRowCheckboxes().filter(cb => cb.checked);
+                    if (selected.length === 0) {
+                        return;
+                    }
+
+                    syncBulkFormIds();
+                    openConfirmModal(
+                        'confirm-reset-password',
+                        '',
+                        'POST',
+                        `Reset password ${selected.length} user terpilih ke password default dari emailnya?`,
+                        'bulk-reset-password-form'
+                    );
+                });
+            }
+
             updateBulkState();
+            syncBulkFormIds();
         });
     </script>
 </div>
+
+<x-confirm-modal
+    id="confirm-reset-password"
+    title="Reset Password"
+    message="Password akan direset ke default dari bagian email sebelum @."
+    confirmText="Ya, reset"
+    confirmVariant="primary" />
 
 <!-- Add User Modal -->
 <div id="add-user-modal" tabindex="-1" aria-hidden="true"

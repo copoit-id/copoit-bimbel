@@ -38,7 +38,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Rata-rata {{ $statistics['score_label'] }}</p>
+                    <p class="text-sm text-gray-600">Rata-rata Nilai</p>
                     <p class="text-2xl font-bold text-dark">{{ $statistics['average_score_display'] }}</p>
                 </div>
                 <i class="ri-bar-chart-line text-3xl text-dark"></i>

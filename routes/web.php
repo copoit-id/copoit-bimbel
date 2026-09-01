@@ -776,11 +776,13 @@ Route::prefix('{portal}')
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);
         Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+        Route::post('/user/bulk-reset-password', [UserController::class, 'bulkResetPassword'])->name('user.bulk-reset-password');
         Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
         Route::get('/user/relationship-options', [UserController::class, 'searchRelationshipUsers'])->name('user.relationship-options');
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
+        Route::post('user/{user}/reset-password', [UserController::class, 'resetPassword'])->name('user.reset-password');
         Route::resource('user', UserController::class);
         Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
             ->name('participant-destination-categories.official.institutions');

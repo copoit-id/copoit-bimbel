@@ -3750,7 +3750,6 @@ class PackageController extends Controller
             'show_score_maximum' => $showScoreMaximum,
             'average_score' => $finalScoreSummary['average'],
             'average_score_display' => $finalScoreSummary['average_formatted'],
-            'score_label' => $scoreDisplayService->present($tryout, 0)['label'],
             'highest_score' => $finalScoreSummary['highest'],
             'highest_score_display' => $finalScoreSummary['highest_formatted'],
             'highest_maximum_display' => ! $showScoreMaximum
