@@ -4,7 +4,6 @@
 @section('content')
     @php
         $packageRouteId = $packageRouteId ?? ($package->package_id ?? 'free');
-        $usesIrtScoreScale = ($tryout->result_score_scale ?? 'raw') === 'scale_100';
         $showPassingGrade = $tryout->shouldShowPassingGrade();
     @endphp
     <div class="package-bimbel space-y-6">
@@ -80,45 +79,33 @@
 
         <!-- Statistics Cards -->
         @if($rankingSummary->isNotEmpty())
-            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-5' : 'md:grid-cols-4' }}">
-                <div class="bg-white p-4 rounded-lg border border-border">
+            <div class="grid grid-cols-2 gap-4 {{ $showPassingGrade ? 'md:grid-cols-6' : 'md:grid-cols-5' }}">
+                <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Total Peserta</p>
-                            <p class="text-2xl font-bold text-dark">{{ $rankingSummary->count() }}</p>
+                            <p class="text-2xl font-bold text-dark">{{ $rankingStatistics['total_participants'] }}</p>
                         </div>
                         <i class="ri-group-line text-3xl text-dark"></i>
                     </div>
                 </div>
-                <div class="bg-white p-4 rounded-lg border border-border">
+                <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm text-gray-600">Rata-rata {{ $usesIrtScoreScale ? 'Nilai' : 'Skor' }}</p>
-                            <p class="text-2xl font-bold text-dark">{{ $usesIrtScoreScale ? number_format($rankingSummary->avg(fn ($ranking) => $ranking['display_score']['value'] ?? 0), 1) : number_format($rankingSummary->avg('raw_score'), 1) }}</p>
+                            <p class="text-sm text-gray-600">Rata-rata Nilai</p>
+                            <p class="text-2xl font-bold text-dark">{{ number_format($rankingStatistics['average_score'], 1) }}</p>
                         </div>
                         <i class="ri-bar-chart-line text-3xl text-dark"></i>
                     </div>
                 </div>
-                <div class="bg-white p-4 rounded-lg border border-border">
+                <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Skor Tertinggi</p>
-                            @php
-                                $highestScore = $usesIrtScoreScale
-                                    ? $rankingSummary->max(fn ($ranking) => $ranking['display_score']['value'] ?? 0)
-                                    : $rankingSummary->max('raw_score');
-                                $highestScoreDisplay = $usesIrtScoreScale
-                                    ? ($rankingSummary->sortByDesc(fn ($ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
-                                    : number_format($highestScore ?? 0, 0);
-                                $highestMaxScore = $usesIrtScoreScale
-                                    ? ($rankingSummary->first()['display_score']['maximum'] ?? null)
-                                    : $rankingSummary->max('max_score');
-                            @endphp
                             <p class="text-2xl font-bold text-dark">
-                                {{ $highestScoreDisplay }}
-                                @if($highestMaxScore)
-                                    <span class="text-base font-semibold text-gray-500">/ {{ number_format($highestMaxScore, 0)
-                                                                                                    }}</span>
+                                {{ $rankingStatistics['highest_score_display'] }}
+                                @if($rankingStatistics['highest_maximum_display'])
+                                    <span class="text-base font-semibold text-gray-500">/ {{ $rankingStatistics['highest_maximum_display'] }}</span>
                                 @endif
                             </p>
                         </div>
@@ -126,32 +113,44 @@
                     </div>
                 </div>
                 @if($showPassingGrade)
-                    <div class="bg-white p-4 rounded-lg border border-border">
+                    <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-600">Tingkat Kelulusan</p>
-                                @php
-                                    $passedCount = $rankingSummary->where('is_passed', true)->count();
-                                    $passRate = $rankingSummary->isNotEmpty() ? ($passedCount / $rankingSummary->count()) * 100 : 0;
-                                @endphp
-                                <p class="text-2xl font-bold text-dark">{{ number_format($passRate, 1) }}%</p>
+                                <p class="text-2xl font-bold text-dark">{{ number_format($rankingStatistics['pass_rate'], 1) }}%</p>
                             </div>
                             <i class="ri-check-double-line text-3xl text-dark"></i>
                         </div>
                     </div>
                 @endif
-                <div class="bg-primary/5 p-4 rounded-lg border border-primary/20">
+                <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-600">Ranking Saya</p>
                             @if($myRanking)
-                                <p class="text-2xl font-bold text-primary">#{{ $myRanking['rank'] }}</p>
+                                <p class="text-2xl font-bold text-dark">#{{ $myRanking['rank'] }}</p>
                                 <p class="text-xs text-gray-500">dari {{ $myRanking['total'] }} peserta</p>
                             @else
                                 <p class="mt-1 text-sm font-semibold text-gray-500">Belum masuk ranking</p>
                             @endif
                         </div>
-                        <i class="ri-user-star-line text-3xl text-primary"></i>
+                        <i class="ri-user-star-line text-3xl text-dark"></i>
+                    </div>
+                </div>
+                <div class="min-h-[116px] rounded-lg border border-border bg-white p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">Nilai Saya</p>
+                            @if($rankingStatistics['my_score'])
+                                <p class="text-2xl font-bold text-dark">{{ $rankingStatistics['my_score']['display_score']['formatted'] }}</p>
+                                @if($rankingStatistics['show_score_maximum'])
+                                    <p class="text-xs text-gray-500">/ {{ $rankingStatistics['my_score']['display_score']['formatted_maximum'] }}</p>
+                                @endif
+                            @else
+                                <p class="mt-1 text-sm font-semibold text-gray-500">Belum ada nilai</p>
+                            @endif
+                        </div>
+                        <i class="ri-award-line text-3xl text-dark"></i>
                     </div>
                 </div>
             </div>
@@ -269,7 +268,7 @@
                                     <td class="px-3 py-2.5 text-center">
                                         <div class="flex justify-center items-center">
                                             <span class="text-base font-semibold">{{ $rawScoreDisplay }}</span>
-                                            @if($maxScoreDisplay)
+                                            @if($rankingStatistics['show_score_maximum'] && $maxScoreDisplay)
                                                 <span class="ml-1 text-xs text-gray-500">/ {{ $maxScoreDisplay }}</span>
                                             @endif
                                         </div>

@@ -66,6 +66,14 @@ class TryoutScoreDisplayService
         return ($tryout->result_score_scale ?? self::SCALE_RAW) === self::SCALE_HUNDRED;
     }
 
+    /**
+     * Keep maximum-score visibility consistent across every score presentation.
+     */
+    public function shouldShowMaximum(Tryout $tryout): bool
+    {
+        return $tryout->shouldShowScoreMaximum();
+    }
+
     private function formatNumber(float $value): string
     {
         return rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.');

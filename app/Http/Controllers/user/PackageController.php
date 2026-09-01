@@ -38,6 +38,7 @@ use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
 use App\Services\TryoutScoreDisplayService;
+use App\Services\TryoutRankingService;
 use App\Support\Pagination;
 use Illuminate\Pagination\LengthAwarePaginator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -3381,7 +3382,7 @@ class PackageController extends Controller
         }
     }
 
-    public function rankingTryout($id_package, $id_tryout)
+    public function rankingTryout($id_package, $id_tryout, TryoutRankingService $tryoutRankingService)
     {
         $tryout = \App\Models\Tryout::with('tryoutDetails.materialCategory')->findOrFail($id_tryout);
         if (! $tryout->show_leaderboard) {
@@ -3496,9 +3497,13 @@ class PackageController extends Controller
         $profileDestinationLabel = $profileChoices[$selectedProfileChoice]['label'];
 
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $sortRankings = fn ($rankings) => $tryoutRankingService->sort($rankings);
+        $selectFirstAttempt = fn ($attempts) => $tryoutRankingService->firstAttempt($attempts);
 
-        $buildRankings = function () use ($id_tryout, $tryout, $scoreDisplayService) {
-            return \App\Models\UserAnswer::where('tryout_id', $id_tryout)
+        $buildRankings = function () use ($id_tryout, $tryout, $scoreDisplayService, $sortRankings, $selectFirstAttempt) {
+            $subtestCount = max(1, $tryout->tryoutDetails->count());
+
+            $rankings = \App\Models\UserAnswer::where('tryout_id', $id_tryout)
                 ->where('status', 'completed')
                 ->select([
                     'user_id',
@@ -3518,13 +3523,13 @@ class PackageController extends Controller
                 ])
                 ->get()
                 ->groupBy('user_id')
-                ->map(function ($userAnswers) use ($tryout, $scoreDisplayService) {
+                ->map(function ($userAnswers) use ($tryout, $scoreDisplayService, $subtestCount, $selectFirstAttempt) {
                 $usesUtbkIrt = method_exists($tryout, 'requiresIrtScoring') && $tryout->requiresIrtScoring();
 
                 if ($usesUtbkIrt) {
                     $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                    $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
+                    $rankingAttempt = $selectFirstAttempt($attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService, $subtestCount) {
                         $representative = $attempt->first();
                         $score = (float) ($representative->utbk_total_score ?? 0);
                         $attempt->loadMissing('tryoutDetail');
@@ -3546,32 +3551,36 @@ class PackageController extends Controller
                         }
                         $displayScore = $scoreDisplayService->present($tryout, $score, $correctAnswers, $totalQuestions, 1000, $attempt->count());
                         $displaySubtestScores = collect($subtestScores)
-                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
+                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore, 0, 0, 1000))
                             ->all();
 
                         return [
                             'user' => $representative->user,
                             'raw_score' => $score,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => 1000,
                             'display_score' => $displayScore,
                             'display_subtest_scores' => $displaySubtestScores,
                             'percentage' => $score / 10,
                             'finished_at' => $attempt->max('finished_at'),
+                            'started_at' => $attempt->min('started_at'),
                             'correct_answers' => $attempt->sum('correct_answers'),
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allPassed,
                             'subtest_scores' => $subtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
-                    })->filter()->sortByDesc('raw_score')->values()->first();
+                    })->filter());
 
-                    return $bestAttempt;
+                    return $rankingAttempt;
                 }
 
                 // Gabungkan skor dari semua subtest dengan group_by attempt_token
                 $attemptGroups = $userAnswers->groupBy('attempt_token');
 
-                $bestAttempt = $attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService) {
+                $rankingAttempt = $selectFirstAttempt($attemptGroups->map(function ($attempt) use ($tryout, $scoreDisplayService, $subtestCount) {
                     if ($tryout->is_toefl == 1) {
                         // For TOEFL, use the actual TOEFL total score
                         $toeflScore = $attempt->first()->toefl_total_score ?? $attempt->first()->score;
@@ -3584,11 +3593,23 @@ class PackageController extends Controller
                             $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
                         }
 
+                        $subtestScores = $attempt
+                            ->mapWithKeys(fn (UserAnswer $answer) => [
+                                $answer->tryout_detail_id => (float) ($answer->score ?? 0),
+                            ])
+                            ->all();
+                        $displaySubtestScores = collect($subtestScores)
+                            ->map(fn (float $subtestScore) => $scoreDisplayService->present($tryout, $subtestScore))
+                            ->all();
+
+                        $displayScore = $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677, $attempt->count());
+
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $toeflScore,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => 677, // TOEFL max score
-                            'display_score' => $scoreDisplayService->present($tryout, $toeflScore, $correctAnswers, $totalQuestions, 677, $attempt->count()),
+                            'display_score' => $displayScore,
                             'percentage' => $toeflScore,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3596,7 +3617,10 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $this->isToeflPassed((int) $toeflScore),
-                            'subtest_scores' => []
+                            'subtest_scores' => $subtestScores,
+                            'display_subtest_scores' => $displaySubtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
                     } else {
                         // Regular scoring
@@ -3604,6 +3628,7 @@ class PackageController extends Controller
                         $totalMaxScore = 0;
                         $allSubtestsPassed = true;
                         $subtestScores = [];
+                        $displaySubtestScores = [];
 
                         foreach ($attempt as $userAnswer) {
                             $subtestScore = $this->calculateTotalScore($userAnswer, $userAnswer->tryoutDetail->type_subtest);
@@ -3615,6 +3640,13 @@ class PackageController extends Controller
                             $totalScore += $subtestScore;
                             $totalMaxScore += $maxSubtestScore;
                             $subtestScores[$userAnswer->tryout_detail_id] = $subtestScore;
+                            $displaySubtestScores[$userAnswer->tryout_detail_id] = $scoreDisplayService->present(
+                                $tryout,
+                                $subtestScore,
+                                (int) ($userAnswer->correct_answers ?? 0),
+                                (int) ($userAnswer->tryoutDetail?->questions_count ?? 0),
+                                $maxSubtestScore
+                            );
 
                             $detail = $userAnswer->tryoutDetail;
                             if (!$this->isSubtestPassed($detail, $subtestScore, $maxSubtestScore, $detail->type_subtest)) {
@@ -3632,11 +3664,21 @@ class PackageController extends Controller
                             $totalQuestions = $correctAnswers + (int) $attempt->sum('wrong_answers') + (int) $attempt->sum('unanswered');
                         }
 
+                        $displayScore = $scoreDisplayService->present(
+                            $tryout,
+                            $totalScore,
+                            $correctAnswers,
+                            $totalQuestions,
+                            $totalMaxScore,
+                            $attempt->count()
+                        );
+
                         return [
                             'user' => $attempt->first()->user,
                             'raw_score' => $totalScore,
+                            'ranking_score' => $displayScore['value'],
                             'max_score' => $totalMaxScore,
-                            'display_score' => $scoreDisplayService->present($tryout, $totalScore, $correctAnswers, $totalQuestions, $totalMaxScore, $attempt->count()),
+                            'display_score' => $displayScore,
                             'percentage' => $percentage,
                             'finished_at' => $attempt->max('finished_at'),
                             'started_at' => $attempt->min('started_at'),
@@ -3644,16 +3686,18 @@ class PackageController extends Controller
                             'wrong_answers' => $attempt->sum('wrong_answers'),
                             'unanswered' => $attempt->sum('unanswered'),
                             'is_passed' => $allSubtestsPassed,
-                            'subtest_scores' => $subtestScores
+                            'subtest_scores' => $subtestScores,
+                            'display_subtest_scores' => $displaySubtestScores,
+                            'subtest_count' => $attempt->count(),
+                            'average_score' => $displayScore['value'] / $subtestCount,
                         ];
                     }
-                })->filter()->sortByDesc('raw_score')->values()->first();
+                })->filter());
 
-                return $bestAttempt;
-            })
-                ->filter() // Remove null values
-                ->sortByDesc('raw_score')
-                ->values();
+                return $rankingAttempt;
+            })->filter();
+
+            return $sortRankings($rankings);
         };
 
         $allRankings = $buildRankings();
@@ -3699,6 +3743,28 @@ class PackageController extends Controller
                 'total' => $rankingSummary->count(),
                 'score' => $rankingSummary->get($myRankingIndex),
             ];
+        $usesIrtScoreScale = $scoreDisplayService->usesHundredScale($tryout);
+        $showScoreMaximum = $scoreDisplayService->shouldShowMaximum($tryout);
+        $rankingStatistics = [
+            'total_participants' => $rankingSummary->count(),
+            'show_score_maximum' => $showScoreMaximum,
+            'average_score' => (float) $rankingSummary->avg('average_score'),
+            'highest_score' => $usesIrtScoreScale
+                ? (float) $rankingSummary->max(fn (array $ranking) => $ranking['display_score']['value'] ?? 0)
+                : (float) $rankingSummary->max('raw_score'),
+            'highest_score_display' => $usesIrtScoreScale
+                ? ($rankingSummary->sortByDesc(fn (array $ranking) => $ranking['display_score']['value'] ?? 0)->first()['display_score']['formatted'] ?? '0')
+                : number_format((float) $rankingSummary->max('raw_score'), 0),
+            'highest_maximum_display' => ! $showScoreMaximum
+                ? null
+                : ($usesIrtScoreScale
+                ? ($rankingSummary->first()['display_score']['formatted_maximum'] ?? null)
+                : (($maximum = $rankingSummary->max('max_score')) === null ? null : number_format((float) $maximum, 0))),
+            'pass_rate' => $rankingSummary->isNotEmpty()
+                ? ($rankingSummary->where('is_passed', true)->count() / $rankingSummary->count()) * 100
+                : 0,
+            'my_score' => $myRanking['score'] ?? null,
+        ];
         $perPage = Pagination::perPage(20);
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $rankings = new LengthAwarePaginator(
@@ -3726,7 +3792,8 @@ class PackageController extends Controller
             'profileDestinationLabel',
             'profileNeedsCompletion',
             'packageRouteId',
-            'myRanking'
+            'myRanking',
+            'rankingStatistics'
         ));
     }
 
