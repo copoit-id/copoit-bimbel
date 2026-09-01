@@ -3765,6 +3765,20 @@ class PackageController extends Controller
                 : 0,
             'my_score' => $myRanking['score'] ?? null,
         ];
+        $podiumRankings = $rankingSummary
+            ->take(3)
+            ->values()
+            ->map(function (array $ranking, int $index) use ($showScoreMaximum): array {
+                return [
+                    'rank' => $index + 1,
+                    'name' => $ranking['user']->name,
+                    'score' => $ranking['display_score']['formatted'],
+                    'maximum' => $showScoreMaximum
+                        ? $ranking['display_score']['formatted_maximum']
+                        : null,
+                ];
+            })
+            ->keyBy('rank');
         $perPage = Pagination::perPage(20);
         $currentPage = LengthAwarePaginator::resolveCurrentPage();
         $rankings = new LengthAwarePaginator(
@@ -3793,7 +3807,8 @@ class PackageController extends Controller
             'profileNeedsCompletion',
             'packageRouteId',
             'myRanking',
-            'rankingStatistics'
+            'rankingStatistics',
+            'podiumRankings'
         ));
     }
 

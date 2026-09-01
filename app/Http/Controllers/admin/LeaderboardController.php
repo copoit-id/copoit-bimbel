@@ -102,10 +102,10 @@ class LeaderboardController extends Controller
         }
 
         // Get leaderboard data - real participants
-        $rankingRows = $this->buildLeaderboardRows(
+        $rankingRows = $this->sortLeaderboardRows($this->buildLeaderboardRows(
             $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get(),
             $tryout
-        );
+        ));
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
@@ -135,6 +135,23 @@ class LeaderboardController extends Controller
             ? number_format($rankingRows->max(fn ($row) => $row->display_score['value'] ?? 0) ?? 0, 1)
             : $scoreDisplayService->present($tryout, $statistics['highest_score'], 0, 0, $rankingRows->max('max_score'))['formatted'];
         $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
+        $podiumRankings = $rankingRows
+            ->take(3)
+            ->values()
+            ->map(function ($ranking, int $index) use ($scoreDisplayService, $tryout): array {
+                $displayScore = $ranking->display_score
+                    ?? $scoreDisplayService->present($tryout, $ranking->raw_score, 0, 0, $ranking->max_score);
+
+                return [
+                    'rank' => $index + 1,
+                    'name' => $ranking->user->name ?? 'Peserta',
+                    'score' => $displayScore['formatted'],
+                    'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
+                        ? $displayScore['formatted_maximum']
+                        : null,
+                ];
+            })
+            ->keyBy('rank');
 
         return view('admin.pages.leaderboard.show', compact(
             'package',
@@ -142,6 +159,7 @@ class LeaderboardController extends Controller
             'tryoutDetail',
             'rankings',
             'statistics',
+            'podiumRankings',
             'destinationCategories',
             'destinationFilter'
         ));
