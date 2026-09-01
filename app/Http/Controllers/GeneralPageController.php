@@ -45,12 +45,6 @@ class GeneralPageController extends Controller
                 ->values();
         }
 
-        if ($landingPackages->isEmpty()) {
-            $landingPackages = $displayedPackagesQuery
-                ->orderBy('name')
-                ->limit(6)
-                ->get();
-        }
         $landingArticles = Article::query()
             ->with('author:id,name')
             ->published()

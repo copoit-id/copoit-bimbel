@@ -199,7 +199,7 @@
                             <i class="ri-information-line mt-0.5 text-lg text-blue-600"></i>
                             <div>
                                 <p class="text-sm font-semibold text-blue-900">Pilih maksimal 3 paket</p>
-                                <p class="mt-1 text-xs text-blue-700">Nama, harga, deskripsi, fitur, dan thumbnail pada landing page otomatis mengikuti data paket. Jika tidak ada paket dipilih, landing menampilkan hingga 6 paket aktif yang statusnya ditampilkan.</p>
+                                <p class="mt-1 text-xs text-blue-700">Nama, harga, deskripsi, fitur, dan thumbnail pada landing page otomatis mengikuti data paket. Hanya paket yang dicentang dan masih aktif/tampil yang akan muncul di landing.</p>
                             </div>
                         </div>
                     </div>

@@ -84,6 +84,12 @@
             color: #171717 !important;
             font-weight: 800;
         }
+        .landing-header.is-scrolled {
+            position: fixed;
+            background: rgba(255, 107, 0, .96);
+            border-bottom: 1px solid rgba(255,255,255,.16);
+            box-shadow: 0 8px 24px rgba(151, 52, 0, .2);
+        }
         .landing-hero-layer-one {
             clip-path: polygon(0 0, 100% 0, 100% 28%, 72% 48%, 40% 27%, 0 48%);
         }
@@ -106,7 +112,7 @@
 
     <div class="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
         <p class="text-sm font-bold tracking-wide text-white/90 sm:text-base">{{ $landingValue('hero.badge', 'Bimbingan Belajar untuk Target Terbaikmu') }}</p>
-        <h1 class="mt-5 text-5xl font-black leading-none tracking-tight text-white sm:text-7xl lg:mt-8 lg:text-[6.5rem]">{{ $clientBranding['name'] }}</h1>
+        <h1 class="mt-5 text-5xl font-bold leading-none tracking-[-.045em] text-white sm:text-7xl lg:mt-8 lg:text-[6.5rem]">{{ $clientBranding['name'] }}</h1>
         <p class="mx-auto mt-5 max-w-3xl text-base font-semibold leading-relaxed text-white sm:mt-7 sm:text-2xl">
             {{ $landingValue('hero.description', 'Bimbingan belajar yang membantu kamu belajar terarah dan mencapai kampus impian.') }}
         </p>
@@ -156,17 +162,19 @@
             <p class="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-slate-600">Cerita, strategi belajar, dan informasi terbaru untuk menemani perjalananmu mencapai target.</p>
         </div>
         @if($landingArticles->isNotEmpty())
-            <div class="relative flex flex-wrap justify-center gap-5">
+            <div class="relative mx-auto grid max-w-6xl gap-7 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($landingArticles as $article)
-                    <a href="{{ route('articles.show', $article->slug) }}" class="group flex w-full max-w-[17rem] flex-col overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white p-2.5 shadow-[0_8px_22px_-15px_rgba(15,23,42,.52)] transition duration-300 hover:-translate-y-1 hover:border-[#FF6B00]/30 hover:shadow-lg sm:w-[calc(50%-0.625rem)] lg:w-[calc(25%-0.9375rem)]">
-                        <div class="relative aspect-[16/10] overflow-hidden rounded-[.9rem] bg-[#FF6B00]/10">
+                    <a href="{{ route('articles.show', $article->slug) }}" class="group flex min-h-[25rem] flex-col overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-[0_16px_32px_-20px_rgba(15,23,42,.34)] transition duration-300 hover:-translate-y-2 hover:border-[#FF6B00]/40 hover:shadow-[0_24px_40px_-20px_rgba(196,75,0,.48)]">
+                        <div class="relative aspect-[4/3] overflow-hidden bg-[#FF6B00]/10">
                             <img src="{{ $article->cover_url }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
-                            <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2 py-1 text-[8px] font-black uppercase tracking-[.12em] text-[#FF6B00]">Insight</span>
+                            <div class="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-slate-950/75 to-transparent"></div>
+                            <span class="absolute left-4 top-4 rounded-full bg-[#FF6B00] px-3 py-1.5 text-[9px] font-black uppercase tracking-[.14em] text-white shadow-lg">Info & Insight</span>
+                            <span class="absolute bottom-4 left-4 text-[10px] font-extrabold uppercase tracking-[.14em] text-white/90">{{ $article->published_date_label }} · {{ $article->reading_minutes }} menit baca</span>
                         </div>
-                        <div class="flex flex-1 flex-col px-1.5 pb-2 pt-4">
-                            <p class="text-[9px] font-extrabold uppercase tracking-[.12em] text-[#FF6B00]">{{ $article->published_date_label }} · {{ $article->reading_minutes }} menit</p>
-                            <h3 class="mt-2 line-clamp-3 text-sm font-black leading-snug text-slate-800">{{ $article->title }}</h3>
-                            <span class="mt-4 text-xs font-extrabold text-[#FF6B00]">Baca artikel <i class="ri-arrow-right-line"></i></span>
+                        <div class="flex flex-1 flex-col p-5">
+                            <h3 class="line-clamp-2 text-xl font-black leading-tight text-slate-900">{{ $article->title }}</h3>
+                            <p class="mt-3 line-clamp-3 text-sm font-medium leading-relaxed text-slate-600">{{ \Illuminate\Support\Str::limit(strip_tags($article->content), 145) }}</p>
+                            <span class="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-extrabold text-[#FF6B00]">Baca selengkapnya <i class="ri-arrow-right-line text-lg transition-transform group-hover:translate-x-1"></i></span>
                         </div>
                     </a>
                 @endforeach
@@ -178,6 +186,7 @@
     </div>
 </section>
 
+@if($landingPackages->isNotEmpty())
 <!-- Section 2: Daftar Paket, positioned directly after Info & Insight. -->
 <section id="program" class="border-b border-slate-100 bg-white py-12 sm:py-16">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -203,29 +212,32 @@
                         default => 'Ambil Paket',
                     };
                 @endphp
-                <article class="relative mx-auto flex min-h-[30rem] w-full max-w-[24rem] flex-col rounded-[5%] border border-[#FF6B00]/10 bg-white p-3 shadow-[0_8px_26px_-16px_rgba(196,75,0,.52)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_32px_-18px_rgba(196,75,0,.58)]">
-                    <div class="relative h-52 overflow-hidden rounded-[4%] bg-gradient-to-br from-[#FF6B00]/10 to-amber-100">
+                <article class="group relative mx-auto flex min-h-[31rem] w-full max-w-[24rem] flex-col overflow-hidden rounded-[1.4rem] border-2 border-[#FF6B00]/20 bg-white p-3 shadow-[0_14px_30px_-18px_rgba(196,75,0,.62)] transition-all duration-300 hover:-translate-y-2 hover:border-[#FF6B00]/50 hover:shadow-[0_24px_38px_-18px_rgba(196,75,0,.65)]">
+                    <div class="absolute inset-x-0 top-0 h-1.5 bg-[#FF6B00]"></div>
+                    <div class="relative h-56 overflow-hidden rounded-[1rem] bg-gradient-to-br from-[#FF6B00]/15 to-amber-100">
                         @if($programThumbnail)
                             @if($isVideoThumbnail)
-                                <video src="{{ $programThumbnail }}" class="h-full w-full object-cover" muted playsinline preload="metadata"></video>
+                                <video src="{{ $programThumbnail }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" muted playsinline preload="metadata"></video>
                             @else
-                                <img src="{{ $programThumbnail }}" alt="Thumbnail {{ $package->name }}" class="h-full w-full object-cover" loading="lazy">
+                                <img src="{{ $programThumbnail }}" alt="Thumbnail {{ $package->name }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
                             @endif
                         @else
                             <div class="flex h-full items-center justify-center">
                                 <i class="ri-book-open-line text-6xl text-primary/30"></i>
                             </div>
                         @endif
-                        <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#FF6B00] shadow-sm">
+                        <div class="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/45 to-transparent"></div>
+                        <span class="absolute left-3 top-3 rounded-md bg-[#FF6B00] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
                             {{ str_replace('_', ' ', $package->type_package) }}
                         </span>
                     </div>
 
-                    <div class="flex flex-1 flex-col justify-between px-3 pb-2 pt-4 text-center">
-                        <div class="space-y-2">
+                    <div class="flex flex-1 flex-col justify-between px-4 pb-3 pt-5 text-center">
+                        <div class="space-y-3">
                             <div>
-                                <h3 class="text-base font-extrabold text-[#FF6B00]">{{ $package->name }}</h3>
-                                <p class="mt-2 text-xs font-medium leading-relaxed text-slate-700">
+                                <h3 class="text-lg font-black leading-tight text-slate-900">{{ $package->name }}</h3>
+                                <div class="mx-auto mt-3 h-1 w-10 bg-[#FFB11A] transition duration-300 group-hover:w-16"></div>
+                                <p class="mt-3 text-xs font-medium leading-relaxed text-slate-600">
                                     {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 155) }}
                                 </p>
                             </div>
@@ -235,13 +247,13 @@
                         @if($package->type_price === 'free_conditional')
                             <button type="button"
                                 data-landing-modal-open="landing-conditional-package-{{ $package->package_id }}"
-                                class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#FF6B00] transition hover:underline">
+                                class="mt-6 inline-flex items-center justify-center rounded-lg bg-[#FF6B00] px-4 py-3 text-xs font-extrabold text-white shadow-[0_8px_16px_-10px_rgba(196,75,0,.8)] transition hover:-translate-y-0.5 hover:bg-[#D94F00]">
                                 {{ $ctaLabel }}
                                 <i class="ri-file-list-3-line ml-2"></i>
                             </button>
                         @else
                             <a href="{{ route('user.package.detail', $package->package_id) }}"
-                               class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#FF6B00] transition hover:underline">
+                               class="mt-6 inline-flex items-center justify-center rounded-lg bg-[#FF6B00] px-4 py-3 text-xs font-extrabold text-white shadow-[0_8px_16px_-10px_rgba(196,75,0,.8)] transition hover:-translate-y-0.5 hover:bg-[#D94F00]">
                                 {{ $ctaLabel }}
                                 <i class="ri-arrow-right-line ml-2"></i>
                             </a>
@@ -311,6 +323,7 @@
         </div>
     </div>
 </section>
+@endif
 
 <!-- Section 3: Komunitas Belajar -->
 <section class="bg-white py-16 sm:py-24">
@@ -552,6 +565,13 @@
 @include('user.components.floating-whatsapp')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const landingHeader = document.querySelector('[data-landing-header]');
+        if (landingHeader) {
+            const syncLandingHeader = () => landingHeader.classList.toggle('is-scrolled', window.scrollY > 12);
+            syncLandingHeader();
+            window.addEventListener('scroll', syncLandingHeader, { passive: true });
+        }
+
         const openModal = (id) => {
             const modal = document.getElementById(id);
             if (!modal) return;
