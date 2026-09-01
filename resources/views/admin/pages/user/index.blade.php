@@ -130,7 +130,7 @@
         <!-- User Table -->
         <div>
             <div class="relative overflow-x-auto">
-                <table class="w-full text-sm text-left rtl:text-right text-gray-500">
+                <table class="min-w-[1180px] w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 w-12">
@@ -145,7 +145,7 @@
                             <th scope="col" class="px-6 py-3">Role</th>
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
-                            <th scope="col" class="px-6 py-3 text-center">Aksi</th>
+                            <th scope="col" class="sticky right-0 z-20 w-[220px] min-w-[220px] border-l border-gray-200 bg-gray-50 px-6 py-3 text-center shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.25)]">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="user-tbody">
@@ -237,7 +237,7 @@
                             <td class="px-6 py-4">
                                 {{ optional($user->created_at)->format('Y-m-d') }}
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="sticky right-0 z-10 min-w-[220px] border-l border-gray-100 bg-white px-6 py-4 shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.15)]">
                                 <div class="flex items-center justify-center gap-1.5">
                                     <a href="{{ route('admin.user.show', $user->id) }}"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
