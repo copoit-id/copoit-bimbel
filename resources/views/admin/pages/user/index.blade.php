@@ -180,20 +180,26 @@
                                         <i class="ri-edit-line"></i>
                                     </a>
                                     @if($user->role === 'user')
-                                    <form action="{{ route('admin.user.tryout-attempts.reset', $user->id) }}" method="POST"
-                                        onsubmit="return confirm(@json(__('Reset seluruh data attempt tryout peserta ini? Riwayat jawaban dan hasil tryout akan dihapus permanen.')))" class="inline-block">
+                                    <form action="{{ route('admin.user.tryout-attempts.reset', $user->id) }}" method="POST" class="inline-block">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-orange-600 hover:text-orange-800" title="{{ __('Reset attempt tryout') }}">
+                                        <button type="button" class="open-confirm-modal text-orange-600 hover:text-orange-800"
+                                            data-confirm-title="{{ __('Reset attempt tryout?') }}"
+                                            data-confirm-message="{{ __('Seluruh riwayat jawaban dan hasil tryout peserta ini akan dihapus permanen.') }}"
+                                            data-confirm-label="{{ __('Ya, reset data') }}"
+                                            title="{{ __('Reset attempt tryout') }}">
                                             <i class="ri-restart-line"></i>
                                         </button>
                                     </form>
                                     @endif
-                                    <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
-                                        onsubmit="return confirm(@json(__('Hapus user ini?')))" class="inline-block">
+                                    <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST" class="inline-block">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-red-600 hover:text-red-800" title="{{ __('Hapus') }}">
+                                        <button type="button" class="open-confirm-modal text-red-600 hover:text-red-800"
+                                            data-confirm-title="{{ __('Hapus user?') }}"
+                                            data-confirm-message="{{ __('User beserta data terkait akan dihapus permanen.') }}"
+                                            data-confirm-label="{{ __('Ya, hapus user') }}"
+                                            title="{{ __('Hapus') }}">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
                                     </form>
@@ -350,10 +356,61 @@
                 });
             }
 
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const confirmationTitle = document.getElementById('confirmation-modal-title');
+            const confirmationMessage = document.getElementById('confirmation-modal-message');
+            const confirmationButton = document.getElementById('confirmation-modal-submit');
+            const cancelConfirmationButton = document.getElementById('confirmation-modal-cancel');
+            let pendingConfirmationForm = null;
+
+            function closeConfirmationModal() {
+                confirmationModal.classList.add('hidden');
+                pendingConfirmationForm = null;
+            }
+
+            document.querySelectorAll('.open-confirm-modal').forEach(button => {
+                button.addEventListener('click', function () {
+                    pendingConfirmationForm = this.closest('form');
+                    confirmationTitle.textContent = this.dataset.confirmTitle;
+                    confirmationMessage.textContent = this.dataset.confirmMessage;
+                    confirmationButton.textContent = this.dataset.confirmLabel;
+                    confirmationModal.classList.remove('hidden');
+                    cancelConfirmationButton.focus();
+                });
+            });
+
+            cancelConfirmationButton.addEventListener('click', closeConfirmationModal);
+            confirmationModal.addEventListener('click', function (event) {
+                if (event.target === confirmationModal) closeConfirmationModal();
+            });
+            confirmationButton.addEventListener('click', function () {
+                if (pendingConfirmationForm) pendingConfirmationForm.submit();
+            });
+
             applyFilters();
             updateBulkState();
         });
     </script>
+</div>
+
+<div id="confirmation-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="confirmation-modal-title">
+    <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <i class="ri-error-warning-line text-xl"></i>
+            </div>
+            <div>
+                <h3 id="confirmation-modal-title" class="text-lg font-semibold text-gray-900"></h3>
+                <p id="confirmation-modal-message" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-3">
+            <button id="confirmation-modal-cancel" type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                {{ __('Batal') }}
+            </button>
+            <button id="confirmation-modal-submit" type="button" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"></button>
+        </div>
+    </div>
 </div>
 
 <!-- Add User Modal -->
