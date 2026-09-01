@@ -179,6 +179,16 @@
                                         class="text-blue-600 hover:text-blue-800" title="{{ __('Edit') }}">
                                         <i class="ri-edit-line"></i>
                                     </a>
+                                    @if($user->role === 'user')
+                                    <form action="{{ route('admin.user.tryout-attempts.reset', $user->id) }}" method="POST"
+                                        onsubmit="return confirm(@json(__('Reset seluruh data attempt tryout peserta ini? Riwayat jawaban dan hasil tryout akan dihapus permanen.')))" class="inline-block">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-orange-600 hover:text-orange-800" title="{{ __('Reset attempt tryout') }}">
+                                            <i class="ri-restart-line"></i>
+                                        </button>
+                                    </form>
+                                    @endif
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
                                         onsubmit="return confirm(@json(__('Hapus user ini?')))" class="inline-block">
                                         @csrf

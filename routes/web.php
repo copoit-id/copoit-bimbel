@@ -309,6 +309,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', AdminMiddleware::cla
     Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
     Route::get('user/{user}/report/download', [UserController::class, 'downloadReport'])->name('user.report.download');
     Route::get('user/{user}/report/download-excel', [UserController::class, 'downloadReportExcel'])->name('user.report.download-excel');
+    Route::delete('user/{user}/tryout-attempts', [UserController::class, 'resetTryoutAttempts'])->name('user.tryout-attempts.reset');
     Route::resource('user', UserController::class);
     Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
     Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');

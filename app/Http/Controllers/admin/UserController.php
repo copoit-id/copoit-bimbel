@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use App\Models\Question;
 use App\Models\User;
+use App\Models\UserAnswer;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -179,6 +181,38 @@ class UserController extends Controller
 
         return redirect()->route('admin.user.index')
             ->with('success', 'User berhasil dihapus');
+    }
+
+    /**
+     * Remove every tryout attempt belonging to a participant so they can start over.
+     * User answer details are removed by the database cascade.
+     */
+    public function resetTryoutAttempts($id)
+    {
+        $user = User::findOrFail($id);
+
+        if ($user->role !== 'user') {
+            return redirect()->route('admin.user.index')
+                ->with('error', 'Reset attempt hanya dapat dilakukan untuk peserta.');
+        }
+
+        $attempts = UserAnswer::where('user_id', $user->id)
+            ->select('tryout_id', 'attempt_token')
+            ->distinct()
+            ->get()
+            ->count();
+
+        if ($attempts === 0) {
+            return redirect()->route('admin.user.index')
+                ->with('error', "{$user->name} belum memiliki data attempt tryout.");
+        }
+
+        DB::transaction(function () use ($user) {
+            UserAnswer::where('user_id', $user->id)->delete();
+        });
+
+        return redirect()->route('admin.user.index')
+            ->with('success', "{$attempts} attempt tryout milik {$user->name} berhasil direset.");
     }
 
     public function report($id)
