@@ -9,6 +9,7 @@
     $testimonials = old('content.testimonials.items', data_get($content, 'testimonials.items', []));
     $achievements = old('content.achievements.items', data_get($content, 'achievements.items', []));
     $partners = old('content.partners.items', data_get($content, 'partners.items', []));
+    $facilities = old('content.facilities.items', data_get($content, 'facilities.items', []));
     $faqs = old('content.faq.items', data_get($content, 'faq.items', []));
     $logoStack = old('content.hero.logo_stack', data_get($content, 'hero.logo_stack', []));
     $seoValue = fn (string $key, mixed $default = '') => old('seo.' . $key, data_get($seo ?? [], $key, $default));
@@ -41,6 +42,7 @@
             testimonials: @js($testimonials),
             achievements: @js($achievements),
             partners: @js($partners),
+            facilities: @js($facilities),
             faqs: @js($faqs),
         })">
         @csrf
@@ -79,7 +81,7 @@
                         'community' => 'Komunitas',
                         'testimonials' => 'Testimoni',
                         'achievements' => 'Pencapaian',
-                        'partners' => 'Mitra',
+                        'facilities' => 'Fasilitas',
                         'faq' => 'FAQ',
                         'footer' => 'Footer',
                         'advanced' => 'SEO',
@@ -197,7 +199,7 @@
                             <i class="ri-information-line mt-0.5 text-lg text-blue-600"></i>
                             <div>
                                 <p class="text-sm font-semibold text-blue-900">Pilih maksimal 3 paket</p>
-                                <p class="mt-1 text-xs text-blue-700">Nama, harga, deskripsi, fitur, dan thumbnail pada landing page otomatis mengikuti data paket.</p>
+                                <p class="mt-1 text-xs text-blue-700">Nama, harga, deskripsi, fitur, dan thumbnail pada landing page otomatis mengikuti data paket. Jika tidak ada paket dipilih, landing menampilkan hingga 6 paket aktif yang statusnya ditampilkan.</p>
                             </div>
                         </div>
                     </div>
@@ -334,40 +336,35 @@
                     </div>
                 </section>
 
-                <section x-show="tab === 'partners'" class="space-y-5">
+                <section x-show="tab === 'facilities'" class="space-y-5">
                     <div class="grid gap-5 lg:grid-cols-2">
-                        <x-admin-input name="content[partners][eyebrow]" label="Eyebrow" :value="$value('partners.eyebrow')" />
+                        <x-admin-input name="content[facilities][eyebrow]" label="Eyebrow" :value="$value('facilities.eyebrow')" />
+                        <x-admin-input name="content[facilities][title]" label="Judul" :value="$value('facilities.title')" />
                     </div>
                     <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Mitra</label>
-                        <textarea name="content[partners][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('partners.description') }}</textarea>
+                        <label class="mb-2 block text-sm font-medium text-gray-700">Deskripsi Fasilitas</label>
+                        <textarea name="content[facilities][description]" rows="2" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">{{ $value('facilities.description') }}</textarea>
                     </div>
                     <div class="flex justify-end">
-                        <button type="button" @click="addPartner()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                        <button type="button" @click="addFacility()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
                             <i class="ri-add-line"></i>
-                            Tambah Mitra
+                            Tambah Fasilitas
                         </button>
                     </div>
                     <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-                        <template x-for="(item, index) in partners" :key="item._key">
+                        <template x-for="(item, index) in facilities" :key="item._key">
                             <div class="rounded-lg border border-gray-200 p-4">
                                 <div class="mb-3 flex items-center justify-between gap-3">
-                                    <p class="font-semibold text-gray-900">Mitra <span x-text="index + 1"></span></p>
-                                    <button type="button" @click="removePartner(index)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+                                    <p class="font-semibold text-gray-900">Fasilitas <span x-text="index + 1"></span></p>
+                                    <button type="button" @click="removeFacility(index)" class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
                                         <i class="ri-delete-bin-line"></i>
                                         Hapus
                                     </button>
                                 </div>
                                 <div class="space-y-3">
-                                    <input type="text" :name="`content[partners][items][${index}][name]`" x-model="item.name" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Nama mitra/sekolah">
-                                    <input type="text" :name="`content[partners][items][${index}][location]`" x-model="item.location" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Lokasi">
-                                    <input type="text" :name="`content[partners][items][${index}][logo]`" x-model="item.logo" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Logo Path/URL">
-                                    <label class="block">
-                                        <span class="mb-2 block text-sm font-medium text-gray-700">Upload Logo</span>
-                                        <input type="file" :name="`landing_images[partners][${index}][logo]`" accept="image/*" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
-                                        <span class="mt-1 block text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1); PNG transparan direkomendasikan.</span>
-                                    </label>
-                                    <input type="text" :name="`content[partners][items][${index}][alt]`" x-model="item.alt" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Alt logo">
+                                    <input type="text" :name="`content[facilities][items][${index}][icon]`" x-model="item.icon" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Remix icon, contoh: ri-book-open-line">
+                                    <input type="text" :name="`content[facilities][items][${index}][title]`" x-model="item.title" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Judul fasilitas">
+                                    <textarea :name="`content[facilities][items][${index}][description]`" x-model="item.description" rows="3" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Deskripsi fasilitas"></textarea>
                                 </div>
                             </div>
                         </template>
@@ -378,6 +375,16 @@
                     <div class="grid gap-5 lg:grid-cols-2">
                         <x-admin-input name="content[faq][eyebrow]" label="Eyebrow" :value="$value('faq.eyebrow')" />
                         <x-admin-input name="content[faq][title]" label="Judul" :value="$value('faq.title')" />
+                        <x-admin-input name="content[faq][visual_image]" label="Gambar FAQ Path/URL" :value="$value('faq.visual_image')" />
+                        <x-admin-input name="content[faq][visual_alt]" label="Alt Gambar FAQ" :value="$value('faq.visual_alt', 'Ilustrasi tim siap membantu')" />
+                        <div>
+                            <label class="mb-2 block text-sm font-medium text-gray-700">Upload Gambar FAQ Transparan</label>
+                            <input type="file" name="landing_images[faq_visual_image]" accept="image/png,image/webp" class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90">
+                            <span class="mt-1 block text-xs text-gray-500">Gunakan PNG/WebP transparan dengan orang mengarah ke panel FAQ. Rasio portrait direkomendasikan.</span>
+                            @error('landing_images.faq_visual_image')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
                     <div class="flex justify-end">
                         <button type="button" @click="addFaq()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
@@ -486,6 +493,7 @@
             testimonials: [],
             achievements: [],
             partners: [],
+            facilities: [],
             faqs: [],
 
             init() {
@@ -496,6 +504,7 @@
                 this.testimonials = this.withKeys(initial.testimonials || [], this.normalizeTestimonial.bind(this));
                 this.achievements = this.withKeys(initial.achievements || [], this.normalizeAchievement.bind(this));
                 this.partners = this.withKeys(initial.partners || [], this.normalizePartner.bind(this));
+                this.facilities = this.withKeys(initial.facilities || [], this.normalizeFacility.bind(this));
                 this.faqs = this.withKeys(initial.faqs || [], this.normalizeFaq.bind(this));
             },
 
@@ -560,6 +569,15 @@
                 };
             },
 
+            normalizeFacility(item = {}) {
+                return {
+                    _key: this.makeKey(),
+                    icon: item.icon || 'ri-book-open-line',
+                    title: item.title || '',
+                    description: item.description || '',
+                };
+            },
+
             normalizeFaq(item = {}) {
                 return {
                     _key: this.makeKey(),
@@ -598,6 +616,14 @@
 
             removePartner(index) {
                 this.partners.splice(index, 1);
+            },
+
+            addFacility() {
+                this.facilities.push(this.normalizeFacility());
+            },
+
+            removeFacility(index) {
+                this.facilities.splice(index, 1);
             },
 
             addFaq() {

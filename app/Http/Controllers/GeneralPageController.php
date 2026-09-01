@@ -29,19 +29,33 @@ class GeneralPageController extends Controller
             ->unique()
             ->take(3)
             ->values();
-        $landingPackagesById = Package::query()
-            ->whereIn('package_id', $selectedPackageIds)
+        $displayedPackagesQuery = Package::query()
             ->where('status', 'active')
-            ->where('is_displayed', true)
-            ->get()
-            ->keyBy('package_id');
-        $landingPackages = $selectedPackageIds
-            ->map(fn (int $packageId) => $landingPackagesById->get($packageId))
-            ->filter()
-            ->values();
+            ->where('is_displayed', true);
+        $landingPackages = collect();
+
+        if ($selectedPackageIds->isNotEmpty()) {
+            $landingPackagesById = (clone $displayedPackagesQuery)
+                ->whereIn('package_id', $selectedPackageIds)
+                ->get()
+                ->keyBy('package_id');
+            $landingPackages = $selectedPackageIds
+                ->map(fn (int $packageId) => $landingPackagesById->get($packageId))
+                ->filter()
+                ->values();
+        }
+
+        if ($landingPackages->isEmpty()) {
+            $landingPackages = $displayedPackagesQuery
+                ->orderBy('name')
+                ->limit(6)
+                ->get();
+        }
         $landingArticles = Article::query()
             ->with('author:id,name')
             ->published()
+            ->whereNotNull('cover_image')
+            ->where('cover_image', '!=', '')
             ->latest('published_at')
             ->limit(4)
             ->get();
@@ -446,6 +460,17 @@ class GeneralPageController extends Controller
                         'name' => 'SMA K. Yusuf',
                         'location' => 'DKI Jakarta',
                     ],
+                ],
+            ],
+            'facilities' => [
+                'eyebrow' => 'Fasilitas',
+                'title' => 'Fasilitas Unggulan BimbelHub Untuk Mencapai Target Akademikmu',
+                'description' => 'Dukungan belajar terintegrasi agar kamu bisa belajar lebih terarah dan konsisten.',
+                'items' => [
+                    ['icon' => 'ri-live-line', 'title' => 'Kelas Interaktif', 'description' => 'Belajar bersama pengajar dan teman seperjuangan secara terarah.'],
+                    ['icon' => 'ri-file-list-3-line', 'title' => 'Bank Soal Terstruktur', 'description' => 'Latihan soal dan pembahasan untuk memperkuat pemahaman konsep.'],
+                    ['icon' => 'ri-bar-chart-box-line', 'title' => 'Evaluasi Berkala', 'description' => 'Pantau progres dan temukan materi yang perlu kamu tingkatkan.'],
+                    ['icon' => 'ri-message-3-line', 'title' => 'Ruang Diskusi', 'description' => 'Tanyakan materi yang sulit dan dapatkan bantuan saat belajar.'],
                 ],
             ],
             'faq' => [

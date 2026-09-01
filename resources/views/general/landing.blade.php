@@ -95,13 +95,13 @@
 
 @section('content')
 <!-- Section 1: Hero / Pengenalan Platform -->
-<section class="landing-hero relative isolate min-h-[41rem] overflow-hidden bg-[#ef3340] pb-28 pt-32 text-white sm:min-h-[45rem] sm:pb-36 sm:pt-40 lg:min-h-[49rem] lg:pt-48">
-    <div class="landing-hero-layer-one pointer-events-none absolute inset-0 bg-gradient-to-br from-[#fa6978] via-[#ef4051] to-[#d90d2c]"></div>
-    <div class="landing-hero-layer-two pointer-events-none absolute inset-0 bg-[#cf1531]/90"></div>
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#bd1630]/45 to-transparent"></div>
+<section class="landing-hero relative isolate min-h-[41rem] overflow-hidden bg-[#FF6B00] pb-28 pt-32 text-white sm:min-h-[45rem] sm:pb-36 sm:pt-40 lg:min-h-[49rem] lg:pt-48">
+    <div class="landing-hero-layer-one pointer-events-none absolute inset-0 bg-gradient-to-br from-[#ffb067] via-[#FF7A1A] to-[#D94F00]"></div>
+    <div class="landing-hero-layer-two pointer-events-none absolute inset-0 bg-[#E85D00]/90"></div>
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#B83B00]/45 to-transparent"></div>
     <svg class="pointer-events-none absolute inset-x-0 -bottom-px h-44 w-full sm:h-56" viewBox="0 0 1440 250" preserveAspectRatio="none" aria-hidden="true">
         <path fill="white" d="M0,112 C166,236 380,245 550,180 C730,109 791,162 944,203 C1112,248 1282,198 1440,115 L1440,250 L0,250 Z"></path>
-        <path fill="#e9223e" d="M510,215 C649,150 740,154 865,199 C1005,249 1151,230 1300,175 C1195,248 1010,264 861,218 C725,177 635,180 535,235 Z"></path>
+        <path fill="#F26A21" d="M510,215 C649,150 740,154 865,199 C1005,249 1151,230 1300,175 C1195,248 1010,264 861,218 C725,177 635,180 535,235 Z"></path>
     </svg>
 
     <div class="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
@@ -112,29 +112,29 @@
         </p>
 
         <div class="mx-auto mt-9 grid max-w-5xl gap-3 sm:grid-cols-3 sm:gap-5 lg:mt-12">
-            <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Hubungi Kami</a>
-            <a href="#program" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Lihat Program Belajar</a>
-            <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#a90d28]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">{{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}</a>
+            <a href="{{ $landingValue('hero.secondary_cta.href', 'https://wa.me/628561078411?text=Halo%20Admin%20saya%20Ingin%20Tanya%20Program%20Bimbel') }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#B83B00]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Hubungi Kami</a>
+            <a href="#program" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#B83B00]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">Lihat Program Belajar</a>
+            <a href="{{ $landingValue('hero.primary_cta.href', route('login')) }}" class="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-5 text-center text-xs font-black uppercase tracking-[.13em] text-slate-950 shadow-xl shadow-[#B83B00]/20 transition hover:-translate-y-0.5 hover:bg-amber-50 sm:text-sm">{{ $landingValue('hero.primary_cta.label', 'Mulai Belajar') }}</a>
         </div>
     </div>
 
-    <div class="pointer-events-none absolute bottom-7 left-[29%] z-10 hidden -rotate-12 rounded-full border-4 border-white/85 bg-amber-300 p-4 text-[#ef3340] shadow-xl lg:block"><i class="ri-book-open-fill text-4xl"></i></div>
-    <div class="pointer-events-none absolute bottom-20 right-[13%] z-10 hidden rotate-12 rounded-full border-4 border-white/85 bg-white p-4 text-[#ef3340] shadow-xl lg:block"><i class="ri-graduation-cap-fill text-4xl"></i></div>
+    <div class="pointer-events-none absolute bottom-7 left-[29%] z-10 hidden -rotate-12 rounded-full border-4 border-white/85 bg-amber-300 p-4 text-[#FF6B00] shadow-xl lg:block"><i class="ri-book-open-fill text-4xl"></i></div>
+    <div class="pointer-events-none absolute bottom-20 right-[13%] z-10 hidden rotate-12 rounded-full border-4 border-white/85 bg-white p-4 text-[#FF6B00] shadow-xl lg:block"><i class="ri-graduation-cap-fill text-4xl"></i></div>
 </section>
 
 <!-- About and achievements: the same CMS content is surfaced in a GO-inspired editorial sequence. -->
 <section id="tentang" class="bg-white py-14 sm:py-20">
     <div class="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-        <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#ef3340]">Tentang {{ $clientBranding['name'] }}</p>
+        <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#FF6B00]">Tentang {{ $clientBranding['name'] }}</p>
         <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">{{ $landingValue('community.title', 'Belajar lebih terarah, target makin dekat') }}</h2>
         <p class="mx-auto mt-5 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
             {{ $landingValue('community.description', 'Temukan pendampingan belajar, tryout, dan komunitas yang membantu kamu konsisten bertumbuh sampai target tercapai.') }}
         </p>
-        <a href="#program" class="mt-7 inline-flex items-center gap-2 text-sm font-extrabold text-[#ef3340] hover:underline">Lihat program belajar <i class="ri-arrow-right-line"></i></a>
+        <a href="#program" class="mt-7 inline-flex items-center gap-2 text-sm font-extrabold text-[#FF6B00] hover:underline">Lihat program belajar <i class="ri-arrow-right-line"></i></a>
     </div>
 </section>
 
-<section class="bg-[#e93443] py-12 text-white sm:py-16">
+<section class="bg-[#FF6B00] py-12 text-white sm:py-16">
     <div class="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 md:grid-cols-3 lg:px-8">
         @foreach(array_slice($landingItems('achievements.items'), 0, 3) as $achievement)
             <article class="border-l-2 border-amber-300/80 pl-5">
@@ -146,38 +146,44 @@
     </div>
 </section>
 
-<section id="artikel" class="bg-white py-16 sm:py-20">
+<section id="artikel" class="relative overflow-hidden bg-white py-16 sm:py-24">
+    <div class="pointer-events-none absolute left-0 top-12 h-44 w-44 -translate-x-1/2 rounded-full bg-[#FF6B00]/5"></div>
+    <div class="pointer-events-none absolute bottom-8 right-0 h-56 w-56 translate-x-1/2 rounded-full bg-amber-300/25"></div>
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="mb-9 flex flex-col gap-2 text-center sm:mb-12">
-            <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#ef3340]">Info & Insight</p>
-            <h2 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Artikel terbaru untuk pejuang targetmu</h2>
+        <div class="relative mb-9 flex flex-col gap-3 text-center sm:mb-12">
+            <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#FF6B00]">Info & Insight</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Mading {{ $clientBranding['name'] }}</h2>
+            <p class="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-slate-600">Cerita, strategi belajar, dan informasi terbaru untuk menemani perjalananmu mencapai target.</p>
         </div>
-        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            @forelse($landingArticles as $article)
-                <a href="{{ route('articles.show', $article->slug) }}" class="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                    <div class="aspect-[4/3] bg-slate-100">
-                        @if($article->cover_url)
+        @if($landingArticles->isNotEmpty())
+            <div class="relative flex flex-wrap justify-center gap-5">
+                @foreach($landingArticles as $article)
+                    <a href="{{ route('articles.show', $article->slug) }}" class="group flex w-full max-w-[17rem] flex-col overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white p-2.5 shadow-[0_8px_22px_-15px_rgba(15,23,42,.52)] transition duration-300 hover:-translate-y-1 hover:border-[#FF6B00]/30 hover:shadow-lg sm:w-[calc(50%-0.625rem)] lg:w-[calc(25%-0.9375rem)]">
+                        <div class="relative aspect-[16/10] overflow-hidden rounded-[.9rem] bg-[#FF6B00]/10">
                             <img src="{{ $article->cover_url }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
-                        @else
-                            <div class="flex h-full items-center justify-center bg-[#ef3340]/10 text-[#ef3340]"><i class="ri-article-line text-5xl"></i></div>
-                        @endif
-                    </div>
-                    <div class="p-4"><h3 class="line-clamp-2 text-sm font-extrabold leading-snug text-slate-800">{{ $article->title }}</h3><p class="mt-3 text-xs font-bold text-[#ef3340]">Baca selengkapnya <i class="ri-arrow-right-line"></i></p></div>
-                </a>
-            @empty
-                <div class="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Artikel terbaru sedang disiapkan.</div>
-            @endforelse
-        </div>
-        @if($showArticlesNav)<div class="mt-7 text-center"><a href="{{ route('articles.index') }}" class="text-sm font-extrabold text-[#ef3340] hover:underline">Lihat semua artikel <i class="ri-arrow-right-line"></i></a></div>@endif
+                            <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2 py-1 text-[8px] font-black uppercase tracking-[.12em] text-[#FF6B00]">Insight</span>
+                        </div>
+                        <div class="flex flex-1 flex-col px-1.5 pb-2 pt-4">
+                            <p class="text-[9px] font-extrabold uppercase tracking-[.12em] text-[#FF6B00]">{{ $article->published_date_label }} · {{ $article->reading_minutes }} menit</p>
+                            <h3 class="mt-2 line-clamp-3 text-sm font-black leading-snug text-slate-800">{{ $article->title }}</h3>
+                            <span class="mt-4 text-xs font-extrabold text-[#FF6B00]">Baca artikel <i class="ri-arrow-right-line"></i></span>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <div class="relative rounded-[1.5rem] border border-dashed border-[#FF6B00]/30 bg-[#FF6B00]/5 px-6 py-12 text-center text-sm font-semibold text-slate-600">Artikel terbaru sedang disiapkan.</div>
+        @endif
+        @if($showArticlesNav)<div class="relative mt-9 text-center"><a href="{{ route('articles.index') }}" class="inline-flex items-center gap-2 rounded-full border-2 border-[#FF6B00] px-5 py-2.5 text-sm font-extrabold text-[#FF6B00] transition hover:bg-[#FF6B00] hover:text-white">Lihat semua artikel <i class="ri-arrow-right-line"></i></a></div>@endif
     </div>
 </section>
 
-<!-- Section 2: Program / Kelas yang Dibuka -->
-<section id="program" class="border-b border-slate-100 bg-slate-50/50 py-16 sm:py-24">
+<!-- Section 2: Daftar Paket, positioned directly after Info & Insight. -->
+<section id="program" class="border-b border-slate-100 bg-white py-12 sm:py-16">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="text-center max-w-3xl mx-auto mb-16">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">{{ $landingValue('program.eyebrow', 'Investasi Masa Depan') }}</span>
-            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('program.title', 'Program Bimbingan Belajar Pilihan') }}</h2>
+        <div class="text-center max-w-3xl mx-auto mb-11">
+            <span class="text-[#FF6B00] font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">{{ $landingValue('program.eyebrow', 'Daftar Paket') }}</span>
+            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('program.title', 'Paket Belajar Pilihan') }}</h2>
             <p class="text-sm sm:text-base text-slate-550 mt-4 leading-relaxed font-medium">
                 {{ $landingValue('program.description', 'Pilih paket belajar persiapan ujian yang sesuai dengan kriteria target jurusan dan kampus favoritmu.') }}
             </p>
@@ -197,8 +203,8 @@
                         default => 'Ambil Paket',
                     };
                 @endphp
-                <article class="relative mx-auto flex min-h-[30rem] w-full max-w-[24rem] flex-col rounded-[5%] border border-slate-100 bg-white p-3 shadow-[0_2px_25px_-2px_rgba(0,0,0,0.42)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_28px_-4px_rgba(0,0,0,0.32)]">
-                    <div class="relative h-52 overflow-hidden rounded-[4%] bg-gradient-to-br from-[#ef3340]/10 to-amber-100">
+                <article class="relative mx-auto flex min-h-[30rem] w-full max-w-[24rem] flex-col rounded-[5%] border border-[#FF6B00]/10 bg-white p-3 shadow-[0_8px_26px_-16px_rgba(196,75,0,.52)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_32px_-18px_rgba(196,75,0,.58)]">
+                    <div class="relative h-52 overflow-hidden rounded-[4%] bg-gradient-to-br from-[#FF6B00]/10 to-amber-100">
                         @if($programThumbnail)
                             @if($isVideoThumbnail)
                                 <video src="{{ $programThumbnail }}" class="h-full w-full object-cover" muted playsinline preload="metadata"></video>
@@ -210,7 +216,7 @@
                                 <i class="ri-book-open-line text-6xl text-primary/30"></i>
                             </div>
                         @endif
-                        <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#ef3340] shadow-sm">
+                        <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#FF6B00] shadow-sm">
                             {{ str_replace('_', ' ', $package->type_package) }}
                         </span>
                     </div>
@@ -218,7 +224,7 @@
                     <div class="flex flex-1 flex-col justify-between px-3 pb-2 pt-4 text-center">
                         <div class="space-y-2">
                             <div>
-                                <h3 class="text-base font-extrabold text-[#ef3340]">{{ $package->name }}</h3>
+                                <h3 class="text-base font-extrabold text-[#FF6B00]">{{ $package->name }}</h3>
                                 <p class="mt-2 text-xs font-medium leading-relaxed text-slate-700">
                                     {{ \Illuminate\Support\Str::limit(strip_tags($package->description ?: 'Paket pembelajaran lengkap untuk mendukung target belajarmu.'), 155) }}
                                 </p>
@@ -229,13 +235,13 @@
                         @if($package->type_price === 'free_conditional')
                             <button type="button"
                                 data-landing-modal-open="landing-conditional-package-{{ $package->package_id }}"
-                                class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#ef3340] transition hover:underline">
+                                class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#FF6B00] transition hover:underline">
                                 {{ $ctaLabel }}
                                 <i class="ri-file-list-3-line ml-2"></i>
                             </button>
                         @else
                             <a href="{{ route('user.package.detail', $package->package_id) }}"
-                               class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#ef3340] transition hover:underline">
+                               class="mt-5 inline-flex items-center justify-center text-xs font-extrabold text-[#FF6B00] transition hover:underline">
                                 {{ $ctaLabel }}
                                 <i class="ri-arrow-right-line ml-2"></i>
                             </a>
@@ -307,12 +313,13 @@
 </section>
 
 <!-- Section 3: Komunitas Belajar -->
-<section class="py-16 bg-white">
+<section class="bg-white py-16 sm:py-24">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-[32px] bg-[#ef3340] p-8 text-white md:p-12">
+        <div class="relative overflow-hidden rounded-[2rem] bg-[#FF6B00] p-8 text-white shadow-[0_16px_32px_-20px_rgba(196,75,0,.6)] md:p-12">
             <!-- Decorative light overlays -->
-            <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
-            <div class="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/5 blur-2xl pointer-events-none"></div>
+            <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-300/25 blur-3xl"></div>
+            <div class="pointer-events-none absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"></div>
+            <div class="pointer-events-none absolute -right-16 bottom-0 h-28 w-[55%] -rotate-6 bg-[#D94F00]/60"></div>
 
             <div class="relative grid lg:grid-cols-12 gap-8 items-center z-10">
                 <!-- Left: Content details -->
@@ -342,184 +349,184 @@
     </div>
 </section>
 
-<!-- Section 4: Testimoni Siswa (Using Real Student Photo Images as requested) -->
-<section class="border-y border-slate-100 bg-slate-50/50 py-16 sm:py-24">
+<!-- Section 4: Testimoni Siswa -->
+<section class="border-y border-slate-100 bg-white py-16 sm:py-24">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="text-center max-w-3xl mx-auto mb-16">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block mb-3">{{ $landingValue('testimonials.eyebrow', 'Kisah Sukses Pejuang') }}</span>
-            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('testimonials.title', 'Apa Kata Alumni Kami?') }}</h2>
+            <span class="text-[#FF6B00] font-extrabold tracking-widest uppercase text-xs sm:text-sm block mb-3">{{ $landingValue('testimonials.eyebrow', 'Kisah Sukses Pejuang') }}</span>
+            <h2 class="text-3xl sm:text-4.5xl font-black text-slate-900 leading-tight">{{ $landingValue('testimonials.title', 'Apa Kata Mereka Tentang ' . $clientBranding['name'] . '?') }}</h2>
             <p class="text-sm sm:text-base text-slate-550 mt-4 leading-relaxed font-medium">
                 {{ $landingValue('testimonials.description', 'Mereka telah membuktikan keakuratan data dan bimbingan kami, kini berhasil lolos ke prodi impian.') }}
             </p>
         </div>
 
-        <div class="grid items-stretch gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div class="grid items-stretch gap-7 md:grid-cols-2 lg:grid-cols-3">
             @foreach($landingItems('testimonials.items') as $testimonial)
-                <div class="flex flex-col justify-between rounded-2xl border border-[#ef3340]/20 bg-[#d83a2f] p-6 text-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                    <div class="space-y-4">
-                        <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-32 w-full rounded-xl object-cover object-top">
-                        <div class="flex items-center gap-1 text-amber-400">
-                            @for($star = 0; $star < 5; $star++)
-                                <i class="ri-star-fill text-sm"></i>
-                            @endfor
-                        </div>
-                        <p class="text-xs sm:text-sm font-semibold leading-relaxed text-white/90 italic">
-                            "{{ data_get($testimonial, 'quote') }}"
-                        </p>
+                <article class="group relative mx-auto flex w-full max-w-[25rem] flex-col overflow-hidden rounded-[1.8rem] bg-gradient-to-b from-[#FF862D] to-[#D94F00] p-4 text-white shadow-[0_18px_35px_-20px_rgba(196,75,0,.65)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_24px_42px_-18px_rgba(196,75,0,.6)]">
+                    <div class="relative aspect-[16/10] overflow-hidden rounded-[1.25rem] border border-white/25 bg-[#C94A00]">
+                        <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent"></div>
+                        <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.12em] text-[#D94F00]">Cerita pejuang</span>
+                        <span class="absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/85 bg-slate-950/45 pl-0.5 text-xl text-white backdrop-blur-sm transition group-hover:scale-110"><i class="ri-play-fill"></i></span>
                     </div>
-                    <div class="mt-6 flex items-center gap-3 border-t border-white/20 pt-5">
-                        <img src="{{ $landingAsset(data_get($testimonial, 'image'), 'img/student_rian.png') }}" alt="{{ data_get($testimonial, 'name') }}" class="h-10 w-10 rounded-full object-cover shrink-0 border border-slate-200">
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1">
-                                <h4 class="truncate text-xs font-bold leading-none text-white sm:text-sm">{{ data_get($testimonial, 'name') }}</h4>
-                                <i class="ri-checkbox-circle-fill text-xs text-amber-200" title="Alumni Terverifikasi"></i>
-                            </div>
-                            <p class="mt-1 text-[10px] font-bold text-white/65">{{ data_get($testimonial, 'result') }}</p>
+                    <div class="flex flex-1 flex-col px-3 pb-3 pt-5">
+                        <h3 class="text-xl font-black leading-tight">{{ data_get($testimonial, 'name') }}</h3>
+                        <p class="mt-1 text-sm font-bold text-amber-200">{{ data_get($testimonial, 'result') }}</p>
+                        <div class="mt-5 flex items-start gap-2">
+                            <i class="ri-double-quotes-l text-3xl leading-none text-amber-300"></i>
+                            <p class="pt-1 text-sm font-medium leading-relaxed text-white/95">{{ data_get($testimonial, 'quote') }}</p>
+                        </div>
+                        <div class="mt-auto flex items-center justify-between border-t border-white/20 pt-5">
+                            <span class="text-[10px] font-extrabold uppercase tracking-[.12em] text-white/70">Alumni terverifikasi</span>
+                            <i class="ri-checkbox-circle-fill text-lg text-amber-300" title="Alumni Terverifikasi"></i>
                         </div>
                     </div>
-                </div>
+                </article>
             @endforeach
         </div>
     </div>
 </section>
 
-<!-- Section 5: Fasilitas dan pencapaian -->
-<section class="bg-amber-300 py-16 sm:py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-20">
-        <!-- Part 1: Achievements Details -->
-        <div class="space-y-8">
-            <div class="text-center max-w-3xl mx-auto">
-                <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm mb-3 block">{{ $landingValue('achievements.eyebrow', 'Pencapaian Terbaik Kami') }}</span>
-                <h3 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">{{ $landingValue('achievements.title', 'Bukti Nyata Kualitas Pendampingan BimbelHub') }}</h3>
+@if(count($landingItems('facilities.items')) > 0)
+<!-- Section 5: Fasilitas -->
+<section class="relative isolate overflow-hidden bg-[#FF6B00] py-16 sm:py-20">
+    <div class="landing-hero-layer-one pointer-events-none absolute inset-0 bg-gradient-to-br from-[#ffb067] via-[#FF7A1A] to-[#D94F00]"></div>
+    <div class="landing-hero-layer-two pointer-events-none absolute inset-0 bg-[#E85D00]/90"></div>
+    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="space-y-12">
+            <div class="mx-auto max-w-3xl text-center">
+                <span class="text-xs font-extrabold uppercase tracking-[.18em] text-[#FFE1B8] sm:text-sm">{{ $landingValue('facilities.eyebrow', 'Fasilitas') }}</span>
+                <h2 class="mt-4 text-2xl font-black leading-tight text-white sm:text-3xl">{{ $landingValue('facilities.title', 'Fasilitas Unggulan BimbelHub Untuk Mencapai Target Akademikmu') }}</h2>
+                <p class="mt-4 text-sm font-semibold leading-relaxed text-white/85">{{ $landingValue('facilities.description', 'Dukungan belajar terintegrasi agar kamu bisa belajar lebih terarah dan konsisten.') }}</p>
             </div>
 
-            <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach($landingItems('achievements.items') as $achievementIndex => $achievement)
-                    @php
-                        $achievementIcons = ['ri-trophy-line', 'ri-group-line', 'ri-book-open-line'];
-                    @endphp
-                    <div class="flex flex-col justify-between rounded-3xl border-2 border-white/70 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                        <div class="space-y-4">
-                            <div class="h-12 w-12 rounded-2xl bg-primary/8 flex items-center justify-center text-primary border border-primary/20">
-                                <i class="{{ $achievementIcons[$achievementIndex % count($achievementIcons)] }} text-2xl"></i>
-                            </div>
-                            <h4 class="text-3xl sm:text-4.5xl font-black text-primary leading-none">{{ data_get($achievement, 'value') }}</h4>
-                            <p class="text-sm font-bold text-slate-850">{{ data_get($achievement, 'label') }}</p>
-                            <p class="text-xs text-slate-500 leading-relaxed font-medium">{{ data_get($achievement, 'description') }}</p>
-                        </div>
-                    </div>
+            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach($landingItems('facilities.items') as $facilityIndex => $facility)
+                    <article class="group relative overflow-hidden rounded-xl border border-white/80 bg-white p-5 text-center shadow-[0_16px_28px_-20px_rgba(120,65,0,.55)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_22px_34px_-18px_rgba(120,65,0,.5)]">
+                        <span class="absolute right-4 top-3 text-[10px] font-black tracking-[.16em] text-[#FF6B00]/30">0{{ $facilityIndex + 1 }}</span>
+                        <div class="mx-auto flex h-[3.75rem] w-[3.75rem] items-center justify-center rounded-lg bg-[#FF6B00] text-white shadow-[0_10px_18px_-12px_rgba(196,75,0,.75)] transition duration-300 group-hover:-rotate-3 group-hover:bg-[#D94F00]"><i class="{{ data_get($facility, 'icon', 'ri-book-open-line') }} text-2xl"></i></div>
+                        <h3 class="mt-5 text-sm font-extrabold text-slate-900">{{ data_get($facility, 'title') }}</h3>
+                        <div class="mx-auto mt-3 h-0.5 w-8 rounded-full bg-[#FFB11A] transition group-hover:w-12"></div>
+                        <p class="mt-3 text-xs font-medium leading-relaxed text-slate-600">{{ data_get($facility, 'description') }}</p>
+                    </article>
                 @endforeach
             </div>
         </div>
-
-        @if(count($landingItems('partners.items')) > 0)
-        <!-- Part 2: Cooperating Institutions & Schools (Logo Lembaga yang Bekerjasama) -->
-        <div class="space-y-12 border-t border-slate-100 pt-16">
-            <div class="text-center">
-                <span class="text-xs sm:text-sm font-bold uppercase tracking-widest text-slate-400">{{ $landingValue('partners.eyebrow', 'Lembaga & Sekolah Mitra Kerja Sama') }}</span>
-                <p class="text-xs text-slate-400 font-medium mt-1">{{ $landingValue('partners.description', 'Kami bekerjasama secara resmi dengan sekolah mitra dalam menyelenggarakan tryout nasional & sosialisasi PTN') }}</p>
-                <div class="mt-3.5 h-0.5 w-12 bg-primary/30 mx-auto rounded"></div>
-            </div>
-
-            <!-- Grid of Cooperating Schools (Lembaga Bekerjasama) -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6">
-                @foreach($landingItems('partners.items') as $partner)
-                    <div class="flex flex-col items-center justify-center text-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-primary/25 hover:shadow-2xs transition-all duration-300 group">
-                        <img src="{{ $landingAsset(data_get($partner, 'logo'), 'img/logo_kampus.png') }}" alt="{{ data_get($partner, 'alt', 'Logo ' . data_get($partner, 'name', 'Mitra')) }}" class="h-12 w-12 object-contain rounded-xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
-                        <p class="text-xs font-bold text-slate-800 leading-tight">{{ data_get($partner, 'name') }}</p>
-                        <p class="text-[9px] text-slate-400 font-bold uppercase mt-1">{{ data_get($partner, 'location') }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-        @endif
     </div>
 </section>
+@endif
 
-<!-- Section 6: FAQ (Alpine.js Accordion) -->
-<section class="border-t border-slate-100 bg-slate-50/50 py-16 sm:py-24">
-    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 space-y-12">
-        <div class="text-center space-y-3">
-            <span class="text-primary font-extrabold tracking-widest uppercase text-xs sm:text-sm block">{{ $landingValue('faq.eyebrow', 'Pertanyaan Umum') }}</span>
-            <h2 class="text-2xl sm:text-3.5xl font-black text-slate-900 leading-tight">{{ $landingValue('faq.title', 'FAQ (Frequently Asked Questions)') }}</h2>
-        </div>
-
-        <div x-data="{ activeIndex: null }" class="space-y-4">
-            @foreach($landingItems('faq.items') as $faqIndex => $faq)
-                <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all duration-200">
-                    <button @click="activeIndex = (activeIndex === {{ $faqIndex }} ? null : {{ $faqIndex }})"
-                            class="w-full text-left px-6 py-5 flex items-center justify-between gap-4 font-bold text-slate-800 text-sm sm:text-base focus:outline-none select-none">
-                        <span>{{ data_get($faq, 'question') }}</span>
-                        <i :class="activeIndex === {{ $faqIndex }} ? 'ri-subtract-line text-primary' : 'ri-add-line text-slate-400'" class="text-xl transition-transform"></i>
-                    </button>
-                    <div x-show="activeIndex === {{ $faqIndex }}"
-                         x-collapse
-                         class="px-6 pb-6 pt-2 border-t border-slate-150 text-xs sm:text-sm font-semibold text-slate-600 leading-relaxed"
-                         style="display: none;">
-                        {{ data_get($faq, 'answer') }}
-                    </div>
+<!-- Section 6: FAQ -->
+<section class="relative overflow-hidden bg-white py-16 sm:py-24">
+    <div class="pointer-events-none absolute bottom-0 left-0 h-4 w-full bg-[#FF6B00]"></div>
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        @php
+            $faqItems = $landingItems('faq.items');
+            $faqVisualImage = $landingValue('faq.visual_image');
+        @endphp
+        <div class="grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
+            <div class="lg:col-span-7">
+                <div class="mb-8">
+                    <p class="text-sm font-extrabold uppercase tracking-[.18em] text-[#FF6B00]">{{ $landingValue('faq.eyebrow', 'Pertanyaan Umum') }}</p>
+                    <h2 class="mt-3 text-3xl font-black leading-tight text-slate-900 sm:text-4xl">{{ $landingValue('faq.title', 'Tanya Jawab') }}</h2>
                 </div>
-            @endforeach
+                <div x-data="{ activeIndex: null, showAll: false }" class="overflow-hidden rounded-[1.5rem] bg-white shadow-[0_20px_38px_-24px_rgba(15,23,42,.38)]">
+                    <div class="divide-y-4 divide-white">
+                        @foreach($faqItems as $faqIndex => $faq)
+                            <div x-show="showAll || {{ $faqIndex }} < 3" x-collapse class="bg-[#FF6B00]">
+                                <button @click="activeIndex = (activeIndex === {{ $faqIndex }} ? null : {{ $faqIndex }})" class="flex w-full items-center justify-between gap-5 px-6 py-6 text-left text-sm font-extrabold leading-relaxed text-white transition hover:bg-[#e65f00] sm:px-8 sm:text-lg">
+                                    <span>{{ data_get($faq, 'question') }}</span>
+                                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF1DF] text-2xl font-medium text-[#FF6B00]">
+                                        <i :class="activeIndex === {{ $faqIndex }} ? 'ri-subtract-line' : 'ri-add-line'"></i>
+                                    </span>
+                                </button>
+                                <div x-show="activeIndex === {{ $faqIndex }}" x-collapse class="border-t border-white/30 px-6 pb-6 pt-1 text-sm font-medium leading-relaxed text-white/95 sm:px-8">
+                                    {{ data_get($faq, 'answer') }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @if(count($faqItems) > 3)
+                        <button type="button" @click="showAll = !showAll" class="flex w-full items-center gap-2 bg-white px-6 py-6 text-left text-sm font-extrabold text-[#FF6B00] transition hover:bg-[#FFF1DF] sm:px-8">
+                            <span x-text="showAll ? 'Sembunyikan pertanyaan' : 'Lihat semua pertanyaan'"></span><i class="ri-arrow-right-line text-lg"></i>
+                        </button>
+                    @endif
+                </div>
+            </div>
+            <div class="relative mx-auto flex min-h-[20rem] w-full max-w-sm items-end justify-center lg:col-span-5 lg:min-h-[28rem] lg:max-w-none">
+                @if($faqVisualImage)
+                    <img src="{{ $landingAsset($faqVisualImage, '') }}" alt="{{ $landingValue('faq.visual_alt', 'Ilustrasi tim siap membantu') }}" class="relative z-10 h-full max-h-[30rem] w-full object-contain object-bottom">
+                @else
+                    <div class="flex aspect-[4/5] w-full max-w-xs flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-[#FF6B00]/25 bg-[#FFF1DF] px-8 text-center">
+                        <i class="ri-image-add-line text-5xl text-[#FF6B00]/55"></i>
+                        <p class="mt-4 text-sm font-bold text-slate-600">Tambahkan ilustrasi PNG transparan melalui CMS</p>
+                        <p class="mt-1 text-xs font-medium leading-relaxed text-slate-400">Gunakan gambar orang yang mengarah ke daftar pertanyaan.</p>
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </section>
 
 <!-- Section 7: Kontak & Footer Khusus Landing Page -->
-<footer class="bg-primary text-white border-t border-primary-hover pt-16 pb-8">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid gap-12 md:grid-cols-12 pb-12 border-b border-white/10">
+<footer class="relative isolate overflow-hidden bg-[#D94F00] pb-8 pt-16 text-white">
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-2 bg-[#FFB11A]"></div>
+    <div class="landing-hero-layer-one pointer-events-none absolute inset-0 bg-gradient-to-br from-[#FF862D] via-[#E85D00] to-[#9C3200]"></div>
+    <div class="landing-hero-layer-two pointer-events-none absolute inset-0 bg-[#B83B00]/70"></div>
+    <div class="relative mx-auto grid max-w-7xl gap-12 border-b border-white/15 px-4 pb-12 sm:px-6 md:grid-cols-12 lg:px-8">
         <!-- Logo & Description -->
         <div class="md:col-span-6 space-y-6">
             <div class="flex items-center gap-3">
                 <img src="{{ $clientBranding['logo_url'] }}" alt="{{ $clientBranding['name'] }} Logo"
                      class="client-brand-logo h-12 w-12 rounded-xl object-contain bg-white p-1 shadow-md">
                 <div>
-                    <h3 class="text-lg sm:text-xl font-bold leading-none">{{ $clientBranding['name'] }}</h3>
-                    <p class="text-xs text-white/70 font-medium mt-1">{{ $landingValue('footer.tagline', 'Platform Sukses Tembus PTN Impian') }}</p>
+                    <h3 class="text-lg font-black leading-none sm:text-xl">{{ $clientBranding['name'] }}</h3>
+                    <p class="mt-1 text-xs font-semibold text-[#FFD28C]">{{ $landingValue('footer.tagline', 'Platform Sukses Tembus PTN Impian') }}</p>
                 </div>
             </div>
-            <p class="text-sm text-slate-100/80 font-medium leading-relaxed max-w-md">
+            <p class="max-w-md text-sm font-medium leading-relaxed text-white/75">
                 {{ $landingValue('footer.description', 'Penyedia layanan bimbingan belajar, tryout IRT online nasional, pendampingan konsultasi jurusan, serta rasionalisasi rapor seleksi SNBP/SNBT terpercaya di Indonesia.') }}
             </p>
         </div>
 
         <!-- Services Menu Link -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.navigation_title', 'Navigasi') }}</h4>
-            <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90 list-disc pl-5">
-                <li><a href="{{ route('landing') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_landing_label', 'Home Landing') }}</a></li>
+            <h4 class="text-sm font-black uppercase tracking-[.14em] text-[#FFD28C] sm:text-base">{{ $landingValue('footer.navigation_title', 'Navigasi') }}</h4>
+            <ul class="space-y-3 text-xs font-semibold text-white/80 sm:text-sm">
+                <li><a href="{{ route('landing') }}" class="inline-flex items-center gap-2 transition-colors hover:text-[#FFB11A]"><i class="ri-arrow-right-s-line text-[#FFB11A]"></i>{{ $landingValue('footer.nav_landing_label', 'Home Landing') }}</a></li>
                 @if($showStatisticsNav)
-                    <li><a href="{{ route('statistics') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbp_label', 'Statistik PTN SNBP') }}</a></li>
-                    <li><a href="{{ route('statistics.snbt') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_statistics_snbt_label', 'Statistik PTN SNBT') }}</a></li>
+                    <li><a href="{{ route('statistics') }}" class="inline-flex items-center gap-2 transition-colors hover:text-[#FFB11A]"><i class="ri-arrow-right-s-line text-[#FFB11A]"></i>{{ $landingValue('footer.nav_statistics_snbp_label', 'Statistik PTN SNBP') }}</a></li>
+                    <li><a href="{{ route('statistics.snbt') }}" class="inline-flex items-center gap-2 transition-colors hover:text-[#FFB11A]"><i class="ri-arrow-right-s-line text-[#FFB11A]"></i>{{ $landingValue('footer.nav_statistics_snbt_label', 'Statistik PTN SNBT') }}</a></li>
                 @endif
                 @if($showArticlesNav)
-                    <li><a href="{{ route('articles.index') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_articles_label', 'Insight & Artikel') }}</a></li>
+                    <li><a href="{{ route('articles.index') }}" class="inline-flex items-center gap-2 transition-colors hover:text-[#FFB11A]"><i class="ri-arrow-right-s-line text-[#FFB11A]"></i>{{ $landingValue('footer.nav_articles_label', 'Insight & Artikel') }}</a></li>
                 @endif
-                <li><a href="{{ route('login') }}" class="hover:text-amber-300 transition-colors">{{ $landingValue('footer.nav_login_label', 'Daftar / Login Akun') }}</a></li>
+                <li><a href="{{ route('login') }}" class="inline-flex items-center gap-2 transition-colors hover:text-[#FFB11A]"><i class="ri-arrow-right-s-line text-[#FFB11A]"></i>{{ $landingValue('footer.nav_login_label', 'Daftar / Login Akun') }}</a></li>
             </ul>
         </div>
 
         <!-- Contact Links -->
         <div class="md:col-span-3 space-y-4">
-            <h4 class="font-bold text-sm sm:text-base tracking-wide uppercase text-white/95">{{ $landingValue('footer.contact_title', 'Hubungi Kami') }}</h4>
-            <ul class="space-y-3 text-xs sm:text-sm font-semibold text-slate-200/90">
+            <h4 class="text-sm font-black uppercase tracking-[.14em] text-[#FFD28C] sm:text-base">{{ $landingValue('footer.contact_title', 'Hubungi Kami') }}</h4>
+            <ul class="space-y-3 text-xs font-semibold text-white/80 sm:text-sm">
                 <li>
                     <a href="{{ $landingValue('footer.instagram_href', 'https://instagram.com/naufalacademy') }}" target="_blank" rel="noopener noreferrer"
-                       class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
-                        <i class="ri-instagram-line text-base"></i>
+                       class="flex items-center gap-2.5 transition-colors hover:text-[#FFB11A]">
+                        <i class="ri-instagram-line flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-base text-[#FFB11A]"></i>
                         {{ $landingValue('footer.instagram_label', '@naufalacademy') }}
                     </a>
                 </li>
                 <li>
                     <a href="{{ $landingValue('footer.whatsapp_href', 'https://wa.me/628561078411?text=Halo%2520Admin%2520saya%2520Ingin%2520Bertanya') }}" target="_blank" rel="noopener noreferrer"
-                       class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
-                        <i class="ri-whatsapp-line text-base"></i>
+                       class="flex items-center gap-2.5 transition-colors hover:text-[#FFB11A]">
+                        <i class="ri-whatsapp-line flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-base text-[#FFB11A]"></i>
                         {{ $landingValue('footer.whatsapp_label', '+62 856-1078-411') }}
                     </a>
                 </li>
                 <li>
                     <a href="{{ $landingValue('footer.email_href', 'mailto:team.naufalacademy@gmail.com') }}"
-                       class="flex items-center gap-2.5 hover:text-amber-300 transition-colors">
-                        <i class="ri-mail-line text-base"></i>
+                       class="flex items-center gap-2.5 transition-colors hover:text-[#FFB11A]">
+                        <i class="ri-mail-line flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-base text-[#FFB11A]"></i>
                         {{ $landingValue('footer.email_label', 'team.naufalacademy@gmail.com') }}
                     </a>
                 </li>
@@ -527,7 +534,7 @@
         </div>
     </div>
 
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs sm:text-sm font-semibold text-slate-300 text-center">
+    <div class="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 pt-8 text-center text-xs font-semibold text-white/60 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-sm lg:px-8">
         <p>&copy; {{ date('Y') }} {{ $clientBranding['name'] }}. {{ $landingValue('footer.copyright_suffix', 'Hak cipta dilindungi undang-undang.') }}</p>
         <div class="flex gap-4 justify-center">
             <a href="{{ $landingValue('footer.terms_href', '#') }}" class="hover:text-white">{{ $landingValue('footer.terms_label', 'Syarat & Ketentuan') }}</a>

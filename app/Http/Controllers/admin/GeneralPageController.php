@@ -47,6 +47,7 @@ class GeneralPageController extends Controller
             'landing_images.logo_stack.*.src' => ['nullable', 'image', 'max:10240'],
             'landing_images.testimonials.*.image' => ['nullable', 'image', 'max:10240'],
             'landing_images.partners.*.logo' => ['nullable', 'image', 'max:10240'],
+            'landing_images.faq_visual_image' => ['nullable', 'image', 'max:10240'],
             'landing_images.seo_image' => ['nullable', 'image', 'max:10240'],
         ]);
 
@@ -104,6 +105,10 @@ class GeneralPageController extends Controller
             }
         }
 
+        if ($request->hasFile('landing_images.faq_visual_image')) {
+            data_set($content, 'faq.visual_image', $this->storeLandingImage($request->file('landing_images.faq_visual_image')));
+        }
+
         if ($request->hasFile('landing_images.seo_image')) {
             $seo['image'] = $this->storeLandingImage($request->file('landing_images.seo_image'));
         }
@@ -118,7 +123,7 @@ class GeneralPageController extends Controller
     {
         $content['meta']['title'] = trim((string) data_get($content, 'meta.title', ''));
 
-        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'faq', 'footer'] as $section) {
+        foreach (['hero', 'program', 'community', 'testimonials', 'achievements', 'partners', 'facilities', 'faq', 'footer'] as $section) {
             if (! isset($content[$section]) || ! is_array($content[$section])) {
                 $content[$section] = [];
             }
@@ -151,6 +156,11 @@ class GeneralPageController extends Controller
         $content['partners']['items'] = array_values(array_filter(
             data_get($content, 'partners.items', []),
             fn ($item) => is_array($item) && (trim((string) ($item['name'] ?? '')) !== '' || trim((string) ($item['logo'] ?? '')) !== '')
+        ));
+
+        $content['facilities']['items'] = array_values(array_filter(
+            data_get($content, 'facilities.items', []),
+            fn ($item) => is_array($item) && (trim((string) ($item['title'] ?? '')) !== '' || trim((string) ($item['description'] ?? '')) !== '')
         ));
 
         $content['faq']['items'] = array_values(array_filter(
