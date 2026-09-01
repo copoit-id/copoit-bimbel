@@ -461,6 +461,7 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
+    Route::get('/admins/copy-text', [SuperAdminController::class, 'copyText'])->name('admins.copy-text');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
     Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
@@ -775,11 +776,13 @@ Route::prefix('{portal}')
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);
         Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+        Route::post('/user/bulk-reset-password', [UserController::class, 'bulkResetPassword'])->name('user.bulk-reset-password');
         Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
         Route::get('/user/relationship-options', [UserController::class, 'searchRelationshipUsers'])->name('user.relationship-options');
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
+        Route::post('user/{user}/reset-password', [UserController::class, 'resetPassword'])->name('user.reset-password');
         Route::resource('user', UserController::class);
         Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
             ->name('participant-destination-categories.official.institutions');

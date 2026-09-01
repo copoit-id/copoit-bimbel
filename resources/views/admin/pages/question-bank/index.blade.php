@@ -7,18 +7,27 @@
             <h1 class="text-2xl font-bold text-gray-900">Bank Soal</h1>
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
-        @unless ($tryoutDetail)
-            {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
-            <x-plan-quota-button
-                feature="question_bank"
-                href="#"
-                icon="ri-add-circle-line"
-                label="Tambah Bank"
-                variant="primary"
-                size="md"
-                tooltipPosition="bottom"
-                id="openCreateBank" />
-        @endunless
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            @if(auth()->user()?->hasPermission('feedback', 'view'))
+                <a href="{{ route('admin.feedback.index') }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                    <i class="ri-message-3-line"></i>
+                    Feedback Tryout
+                </a>
+            @endif
+            @unless ($tryoutDetail)
+                {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
+                <x-plan-quota-button
+                    feature="question_bank"
+                    href="#"
+                    icon="ri-add-circle-line"
+                    label="Tambah Bank"
+                    variant="primary"
+                    size="md"
+                    tooltipPosition="bottom"
+                    id="openCreateBank" />
+            @endunless
+        </div>
     </div>
 
     @if (session('success'))

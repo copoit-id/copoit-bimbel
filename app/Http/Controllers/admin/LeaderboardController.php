@@ -11,6 +11,7 @@ use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\TryoutRankingService;
 use App\Services\TryoutScoreDisplayService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -28,6 +29,12 @@ class LeaderboardController extends Controller
 {
     /** @var array<string, float> */
     private array $maxPossibleScoreCache = [];
+
+    public function __construct(
+        private readonly TryoutRankingService $tryoutRankingService,
+        private readonly TryoutScoreDisplayService $scoreDisplayService,
+    ) {
+    }
 
     public function index()
     {
@@ -102,17 +109,16 @@ class LeaderboardController extends Controller
         }
 
         // Get leaderboard data - real participants
-        $rankingRows = $this->buildLeaderboardRows(
+        $rankingRows = $this->sortLeaderboardRows($this->buildLeaderboardRows(
             $this->getLeaderboardRankings($tryout_id, $destinationFilter['ids'])->get(),
             $tryout
-        );
+        ));
         $rankings = $this->paginateLeaderboardRows($rankingRows);
 
         // Calculate statistics
         $totalParticipants = $rankingRows->count();
 
-        $averageScore = $rankingRows->avg('raw_score');
-        $highestScore = $rankingRows->max('raw_score');
+        $finalScoreSummary = $this->scoreDisplayService->summarizeFinalScores($rankingRows);
 
         $passedCount = $rankingRows->where('is_passed', true)->count();
 
@@ -120,21 +126,33 @@ class LeaderboardController extends Controller
 
         $statistics = [
             'total_participants' => $totalParticipants,
-            'average_score' => round($averageScore ?? 0, 1),
-            'highest_score' => $highestScore ?? 0,
+            'average_score' => $finalScoreSummary['average'],
+            'highest_score' => $finalScoreSummary['highest'],
             'pass_rate' => round($passRate, 1),
             'total_questions' => (int) $tryout->tryoutDetails->sum('questions_count'),
             'duration' => (int) $tryout->tryoutDetails->sum('duration')
         ];
 
-        $scoreDisplayService = app(TryoutScoreDisplayService::class);
-        $statistics['average_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? number_format($rankingRows->avg(fn ($row) => $row->display_score['value'] ?? 0) ?? 0, 1)
-            : $scoreDisplayService->present($tryout, $statistics['average_score'], 0, 0, $rankingRows->max('max_score'))['formatted'];
-        $statistics['highest_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? number_format($rankingRows->max(fn ($row) => $row->display_score['value'] ?? 0) ?? 0, 1)
-            : $scoreDisplayService->present($tryout, $statistics['highest_score'], 0, 0, $rankingRows->max('max_score'))['formatted'];
-        $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
+        $scoreDisplayService = $this->scoreDisplayService;
+        $statistics['average_score_display'] = $finalScoreSummary['average_formatted'];
+        $statistics['highest_score_display'] = $finalScoreSummary['highest_formatted'];
+        $podiumRankings = $rankingRows
+            ->take(3)
+            ->values()
+            ->map(function ($ranking, int $index) use ($scoreDisplayService, $tryout): array {
+                $displayScore = $ranking->display_score
+                    ?? $scoreDisplayService->present($tryout, $ranking->raw_score, 0, 0, $ranking->max_score);
+
+                return [
+                    'rank' => $index + 1,
+                    'name' => $ranking->user->name ?? 'Peserta',
+                    'score' => $displayScore['formatted'],
+                    'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
+                        ? $displayScore['formatted_maximum']
+                        : null,
+                ];
+            })
+            ->keyBy('rank');
 
         return view('admin.pages.leaderboard.show', compact(
             'package',
@@ -142,6 +160,7 @@ class LeaderboardController extends Controller
             'tryoutDetail',
             'rankings',
             'statistics',
+            'podiumRankings',
             'destinationCategories',
             'destinationFilter'
         ));
@@ -406,17 +425,20 @@ class LeaderboardController extends Controller
 
     private function sortLeaderboardRows(Collection $rankings): Collection
     {
-        return $rankings
-            ->sortBy([
-                ['raw_score', 'desc'],
-                ['finished_at', 'asc'],
-            ])
-            ->values();
+        return $this->tryoutRankingService->sort($rankings->map(function (object $ranking): array {
+            return [
+                'ranking_score' => $ranking->display_score['value'] ?? $ranking->raw_score ?? 0,
+                'raw_score' => $ranking->raw_score ?? 0,
+                'finished_at' => $ranking->finished_at,
+                'user' => $ranking->user,
+                'ranking' => $ranking,
+            ];
+        }))->map(fn (array $row): object => $row['ranking']);
     }
 
     private function buildLeaderboardRows(Collection $allAnswers, Tryout $tryout): Collection
     {
-        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $scoreDisplayService = $this->scoreDisplayService;
 
         return $allAnswers->groupBy('user_id')->map(function ($userAnswers) use ($tryout, $scoreDisplayService) {
             $attemptGroups = $userAnswers->groupBy('attempt_token');

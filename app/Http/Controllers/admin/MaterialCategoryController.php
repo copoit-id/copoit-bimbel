@@ -19,13 +19,13 @@ class MaterialCategoryController extends Controller
     {
         $categories = MaterialCategory::query()
             ->root()
-            ->with(['children' => fn($query) => $query->withCount('materials')])
+            ->with(['children' => fn ($query) => $query->reorder()->latest('created_at')->withCount('materials')])
             ->withCount('materials')
-            ->ordered()
+            ->latest('created_at')
             ->get();
         $parentOptions = MaterialCategory::query()
             ->root()
-            ->ordered()
+            ->latest('created_at')
             ->get();
 
         return view('admin.pages.material-category.index', compact('categories', 'parentOptions'));

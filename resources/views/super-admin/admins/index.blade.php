@@ -14,6 +14,10 @@
                 Salin Link Pengajuan
             </button>
             @if ($tab === 'admins')
+                <button type="button" data-copy-admins-url="{{ route('super-admin.admins.copy-text') }}" class="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:cursor-wait disabled:opacity-60">
+                    <i class="ri-file-copy-line text-lg"></i>
+                    <span data-copy-admins-label>Salin Semua Data</span>
+                </button>
                 <a href="{{ route('super-admin.admins.export-excel') }}" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
                     <i class="ri-file-excel-2-line text-lg"></i>
                     Export Excel
@@ -653,6 +657,42 @@
                     window.alert('Link pengajuan demo berhasil disalin.');
                 } catch (error) {
                     window.prompt('Salin link pengajuan demo berikut:', button.dataset.copyDemoLink);
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-copy-admins-url]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const label = button.querySelector('[data-copy-admins-label]');
+                const originalLabel = label?.textContent || 'Salin Semua Data';
+                button.disabled = true;
+                if (label) label.textContent = 'Menyiapkan data...';
+
+                try {
+                    const response = await fetch(button.dataset.copyAdminsUrl, {
+                        headers: { 'Accept': 'text/plain' },
+                        credentials: 'same-origin',
+                    });
+                    if (!response.ok) throw new Error('Gagal mengambil data admin.');
+
+                    const text = await response.text();
+                    if (!text.trim()) throw new Error('Belum ada data admin untuk disalin.');
+
+                    if (navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(text);
+                    } else {
+                        window.prompt('Salin semua data admin berikut:', text);
+                    }
+
+                    if (label) label.textContent = 'Berhasil disalin';
+                    window.setTimeout(() => {
+                        if (label) label.textContent = originalLabel;
+                    }, 2000);
+                } catch (error) {
+                    if (label) label.textContent = originalLabel;
+                    window.alert(error.message || 'Data admin gagal disalin.');
+                } finally {
+                    button.disabled = false;
                 }
             });
         });

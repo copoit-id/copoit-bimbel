@@ -12,9 +12,11 @@ use App\Services\ParticipantDestinationSelectionService;
 use App\Services\PlanQuotaService;
 use App\Services\PlanModuleService;
 use App\Services\TutorProfileService;
+use App\Services\UserPasswordResetService;
 use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -863,6 +865,42 @@ class UserController extends Controller
 
         return redirect()->route('admin.user.index')
             ->with('success', "{$deleted} user berhasil dihapus.");
+    }
+
+    public function resetPassword(User $user, Request $request, UserPasswordResetService $passwordResetService): RedirectResponse
+    {
+        abort_if($user->role === 'super_admin', 404);
+        $this->ensureParentPortalUserIsAvailable($user);
+
+        $passwordResetService->reset($user);
+
+        return redirect()->route('admin.user.index', $request->query())
+            ->with('success', "Password {$user->name} berhasil direset ke password default.");
+    }
+
+    public function bulkResetPassword(Request $request, UserPasswordResetService $passwordResetService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'distinct'],
+        ], [
+            'ids.required' => 'Pilih minimal satu user untuk direset passwordnya.',
+        ]);
+
+        $resetCount = $passwordResetService->resetMany(
+            User::query()
+                ->where('role', '!=', 'super_admin')
+                ->when(! $this->parentPortalEnabled(), fn ($query) => $query->where('role', '!=', 'parent'))
+                ->whereIn('id', $validated['ids'])
+        );
+
+        if ($resetCount === 0) {
+            return redirect()->route('admin.user.index', $request->query())
+                ->with('error', 'Tidak ada user yang passwordnya direset.');
+        }
+
+        return redirect()->route('admin.user.index', $request->query())
+            ->with('success', "Password {$resetCount} user berhasil direset ke password default.");
     }
 
     public function destroy($id)

@@ -65,6 +65,13 @@
             </div>
             @unless ($tryoutDetail)
             <div class="flex flex-wrap gap-2">
+                @if(auth()->user()?->hasPermission('feedback', 'view'))
+                <a href="{{ route('admin.feedback.index') }}"
+                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                    <i class="ri-message-3-line"></i>
+                    Feedback Tryout
+                </a>
+                @endif
                 @if($clientBranding['ai_question_generator_enabled'] ?? false)
                 <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
                     class="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50">
@@ -220,7 +227,7 @@
                 </div>
             </div>
         </div>
-        <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 {{ $tryoutDetail ? 'sticky top-32 z-40' : '' }} lg:flex-row lg:items-center lg:justify-between">
             <span id="bulkSelectionCount" class="text-sm font-medium text-gray-700">0 dipilih</span>
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
             @unless ($tryoutDetail)
@@ -314,18 +321,25 @@
                     $question->explanation . ' ' .
                     $question->options->pluck('option_text')->implode(' ')
                 )));
+                $questionNumber = ($questions->firstItem() ?? 1) + $loop->index;
             @endphp
             <article class="bank-question-row rounded-2xl border border-gray-200 bg-white p-5"
                 data-question="{{ $searchText }}"
                 data-type="{{ strtolower($question->question_type) }}">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="flex min-w-0 flex-1 gap-3">
-                        <div class="pt-1">
+                        <div class="flex shrink-0 flex-col items-center gap-2 pt-0.5">
+                            <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-white" title="Soal nomor {{ $questionNumber }}">
+                                {{ $questionNumber }}
+                            </span>
                             <input type="checkbox" class="bank-question-checkbox rounded border-gray-300 text-primary focus:ring-primary"
-                                value="{{ $question->id }}">
+                                value="{{ $question->id }}" aria-label="Pilih soal nomor {{ $questionNumber }}">
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="mb-3 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">
+                                    Soal {{ $questionNumber }}
+                                </span>
                                 <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                                     {{ ucwords(str_replace('_', ' ', $question->question_type)) }}
                                 </span>

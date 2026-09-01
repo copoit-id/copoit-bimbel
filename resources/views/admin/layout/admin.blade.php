@@ -172,12 +172,12 @@
 
     <script>
     (function() {
-        let pendingAction = { action: '', method: 'POST' };
+        let pendingAction = { action: '', method: 'POST', formId: null };
         let currentModalId = null;
 
-        function openConfirmModal(id, action, method, message) {
+        function openConfirmModal(id, action, method, message, formId) {
             method = method || 'POST';
-            pendingAction = { action, method };
+            pendingAction = { action, method, formId: formId || null };
             currentModalId = id;
 
             const messageEl = document.getElementById(id + '_message');
@@ -201,6 +201,14 @@
 
         function submitConfirmForm() {
             closeConfirmModal();
+
+            if (pendingAction.formId) {
+                const existingForm = document.getElementById(pendingAction.formId);
+                if (existingForm) {
+                    existingForm.requestSubmit();
+                    return;
+                }
+            }
 
             if (pendingAction.method === 'GET') {
                 window.location.href = pendingAction.action || '#';

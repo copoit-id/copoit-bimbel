@@ -66,4 +66,29 @@ class TryoutScoreDisplayServiceTest extends TestCase
         $this->assertSame('Skala 0 - 300', $presentation['label']);
     }
 
+    public function test_maximum_score_visibility_uses_the_tryout_setting(): void
+    {
+        $service = app(TryoutScoreDisplayService::class);
+
+        $this->assertFalse($service->shouldShowMaximum(new Tryout([
+            'show_score_maximum' => false,
+        ])));
+        $this->assertTrue($service->shouldShowMaximum(new Tryout([
+            'show_score_maximum' => true,
+        ])));
+    }
+
+    public function test_it_summarizes_total_final_scores_on_the_configured_scale(): void
+    {
+        $summary = app(TryoutScoreDisplayService::class)->summarizeFinalScores(collect([
+            ['raw_score' => 15, 'display_score' => ['value' => 150]],
+            ['raw_score' => 21, 'display_score' => ['value' => 210]],
+        ]));
+
+        $this->assertSame(180.0, $summary['average']);
+        $this->assertSame('180', $summary['average_formatted']);
+        $this->assertSame(210.0, $summary['highest']);
+        $this->assertSame('210', $summary['highest_formatted']);
+    }
+
 }

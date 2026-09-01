@@ -73,6 +73,7 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ $user->name }}</p>
                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500"><i class="ri-school-line mr-1"></i>{{ $user->origin_institution ?: 'Sekolah belum diisi' }}</p>
                             <p class="text-xs text-gray-400 mt-0.5">
                                 Akses: {{ $access->created_at->format('d M Y') }}
                                 @if($type === 'package' && $access->end_date)
@@ -159,6 +160,7 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ $user->name }}</p>
                             <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                            <p class="mt-0.5 text-xs text-gray-500"><i class="ri-school-line mr-1"></i>{{ $user->origin_institution ?: 'Sekolah belum diisi' }}</p>
                         </div>
                     </div>
                     
@@ -247,6 +249,7 @@
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'school' => $user->origin_institution,
                 ];
             })->values(),
         ];
@@ -343,6 +346,7 @@ document.getElementById('study_group_select')?.addEventListener('change', functi
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-medium text-gray-900">${escapeHtml(user.name)}</span>
                     <span class="block truncate text-xs text-gray-500">${escapeHtml(user.email || '-')}</span>
+                    <span class="block truncate text-xs text-gray-500">${escapeHtml(user.school || 'Sekolah belum diisi')}</span>
                 </span>
             </label>
         `).join('')}
