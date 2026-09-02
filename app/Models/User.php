@@ -92,6 +92,16 @@ class User extends Authenticatable
         return self::obfuscateUrlLike($name);
     }
 
+    public function getLeaderboardMajorChoicesDisplayAttribute(): ?string
+    {
+        $choices = array_values(array_filter([
+            trim((string) ($this->attributes['major_choice_1'] ?? '')),
+            trim((string) ($this->attributes['major_choice_2'] ?? '')),
+        ]));
+
+        return $choices === [] ? null : implode(' / ', $choices);
+    }
+
     public function setNameAttribute($value): void
     {
         $this->attributes['name'] = self::sanitizeName((string) $value);

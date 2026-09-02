@@ -3518,7 +3518,7 @@ class PackageController extends Controller
                     'unanswered',
                 ])
                 ->with([
-                    'user:id,name,email,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
+                    'user:id,name,email,origin_institution,major_choice_1,major_choice_2,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
                     'tryoutDetail' => fn ($query) => $query->withCount('questions'),
                 ])
                 ->get()
@@ -3767,6 +3767,8 @@ class PackageController extends Controller
                 return [
                     'rank' => $index + 1,
                     'name' => $ranking['user']->name,
+                    'origin_institution' => $ranking['user']->origin_institution,
+                    'major_choices' => $ranking['user']->leaderboard_major_choices_display,
                     'score' => $ranking['display_score']['formatted'],
                     'maximum' => $showScoreMaximum
                         ? $ranking['display_score']['formatted_maximum']
