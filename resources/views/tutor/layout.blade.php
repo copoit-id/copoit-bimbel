@@ -10,6 +10,8 @@
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
+    @stack('styles')
+    @yield('styles')
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
     @php
@@ -52,7 +54,7 @@
 
         <div class="border-t border-gray-100 p-3">
             <div class="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5"><span class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(auth()->user()->name, 0, 1)) }}</span><div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-900">{{ auth()->user()->name }}</p><p class="text-xs text-gray-500">Tutor</p></div></div>
-            <form method="POST" action="{{ route('logout') }}">@csrf<button class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600"><i class="ri-logout-box-r-line text-lg"></i>Keluar</button></form>
+            <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600" onclick="return confirm('Yakin ingin logout?')"><i class="ri-logout-box-r-line text-lg"></i>Logout</button></form>
         </div>
     </aside>
 
@@ -72,6 +74,7 @@
             @if($canShowLearningProgress)<a href="{{ route('tutor.development.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.development.*') ? $activeLinkClass : $inactiveLinkClass }}">Perkembangan</a>@endif
             @if($clientBranding['tutor_chat_enabled'] ?? false)<a href="{{ route('tutor.chat.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.chat.*') ? $activeLinkClass : $inactiveLinkClass }}">Chat Siswa</a>@endif
             @if($canShowTutorProfile)<a href="{{ route('tutor.profile.edit') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.profile.*') ? $activeLinkClass : $inactiveLinkClass }}">Profil Saya</a>@endif
+            <form method="POST" action="{{ route('logout') }}" class="mt-2 border-t border-gray-100 pt-2">@csrf<button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600 hover:bg-red-50" onclick="return confirm('Yakin ingin logout?')"><i class="ri-logout-box-r-line text-lg"></i>Logout</button></form>
         </nav>
     </header>
 
@@ -82,6 +85,7 @@
     </main>
     @vite('resources/js/app.js')
     @stack('scripts')
+    @yield('scripts')
     <x-website-translator />
 </body>
 </html>

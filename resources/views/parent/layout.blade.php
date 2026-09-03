@@ -33,7 +33,13 @@
                         @endforeach
                     </select>
                 @endif
-                <form method="POST" action="{{ route('logout') }}">@csrf<button class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 sm:inline-flex">Keluar</button></form>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600" onclick="return confirm('Yakin ingin logout?')">
+                        <i class="ri-logout-circle-r-line text-lg"></i>
+                        <span class="hidden sm:inline">Logout</span>
+                    </button>
+                </form>
             </div>
         </div>
     </header>

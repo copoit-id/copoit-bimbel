@@ -59,6 +59,17 @@
 
             <div class="p-6 space-y-6">
                 <div class="grid grid-cols-1 gap-6">
+                    <div class="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                            <x-form.select name="role" label="Role" :options="$roleOptions ?? ['admin' => 'Admin', 'user' => 'User']"
+                                :value="old('role', $user->role ?? 'user')" required />
+                            <x-form.select name="status" label="Status"
+                                :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"
+                                :value="old('status', $user->status ?? 'aktif')" required />
+                        </div>
+                        <p class="mt-3 text-sm text-gray-500">Pilih role terlebih dahulu. Field data akademik hanya ditampilkan untuk peserta/siswa.</p>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="name" label="Nama" :value="old('name', $user->name ?? '')" required />
                         <x-form.input name="username" label="Username" :value="old('username', $user->username ?? '')"
@@ -68,7 +79,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="email" name="email" label="Email" :value="old('email', $user->email ?? '')"
                             required />
+                        <x-form.input type="password" name="password" label="Password {{ $user
+                            ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />
+                    </div>
 
+                    <div data-student-field class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="tel" name="phone" label="Nomor WhatsApp"
                             :value="old('phone', $user->phone ?? '')"
                             placeholder="Contoh: 6281234567890"
@@ -76,37 +91,23 @@
                             inputmode="numeric"
                             pattern="62[0-9]{8,14}"
                             autocomplete="tel" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="date" name="birthday" label="Tanggal Lahir"
                             :value="old('birthday', $user->birthday ?? '')"
                             max="{{ now()->toDateString() }}" />
-
-                        <x-form.input type="password" name="password" label="Password {{ $user
-                            ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div data-student-field class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="education_level" label="Kelas / Level (Opsional)"
                             :value="old('education_level', $user->education_level ?? '')" placeholder="Contoh: Kelas 12" />
                         <x-form.input name="origin_institution" label="Asal Sekolah / Instansi (Opsional)"
                             :value="old('origin_institution', $user->origin_institution ?? '')" placeholder="Contoh: SMA Negeri 1 Jakarta" />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div data-student-field class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="major_choice_1" label="Pilihan Jurusan 1 (Opsional)"
                             :value="old('major_choice_1', $user->major_choice_1 ?? '')" placeholder="Contoh: Teknik Informatika" />
                         <x-form.input name="major_choice_2" label="Pilihan Jurusan 2 (Opsional)"
                             :value="old('major_choice_2', $user->major_choice_2 ?? '')" placeholder="Contoh: Sistem Informasi" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <x-form.select name="role" label="Role" :options="$roleOptions ?? ['admin' => 'Admin', 'user' => 'User']"
-                            :value="old('role', $user->role ?? '')" required />
-                        <x-form.select name="status" label="Status"
-                            :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"
-                            :value="old('status', $user->status ?? 'aktif')" required />
                     </div>
 
                     @if($parentPortalEnabled ?? false)
@@ -185,7 +186,7 @@
                     </section>
                     @endif
 
-                    <div>
+                    <div data-student-field>
                         @php
                             $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id ?? null);
                             $selectedDestinationSource = old('participant_destination_source', $user->participant_destination_source ?? ($selectedDestinationId ? 'db' : ''));
@@ -275,6 +276,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const roleSelect = document.querySelector('select[name="role"]');
+        const studentFields = document.querySelectorAll('[data-student-field]');
         const parentChildSection = document.getElementById('parent-child-section');
         const studentParentSection = document.getElementById('student-parent-section');
         const childSearch = document.getElementById('child-search');
@@ -292,6 +294,13 @@
 
         const syncRelationshipSections = () => {
             const role = roleSelect?.value || '';
+            const isStudent = role === 'user';
+            studentFields.forEach((field) => {
+                field.classList.toggle('hidden', !isStudent);
+                field.querySelectorAll('input, select, textarea').forEach((input) => {
+                    input.disabled = !isStudent;
+                });
+            });
             parentChildSection?.classList.toggle('hidden', role !== 'parent');
             studentParentSection?.classList.toggle('hidden', role !== 'user');
         };
