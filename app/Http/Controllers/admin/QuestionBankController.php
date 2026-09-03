@@ -106,8 +106,15 @@ class QuestionBankController extends Controller
         return back()->with('success', 'Bank soal berhasil diperbarui.');
     }
 
-    public function destroy(QuestionBank $questionBank)
+    public function destroy(Request $request, QuestionBank $questionBank)
     {
+        abort_unless(
+            app(\App\Services\TutorContentVisibilityService::class)
+                ->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
         // Delete all questions in this bank and sub-banks recursively
         $this->deleteBankRecursively($questionBank);
 
@@ -167,7 +174,7 @@ class QuestionBankController extends Controller
             ->pluck('question_type');
 
         $questionsQuery = $questionBank->questions()
-            ->with('options');
+            ->with(['options', 'creator:id,name,role']);
 
         if ($questionType !== 'all') {
             $questionsQuery->where('question_type', $questionType);
@@ -203,6 +210,8 @@ class QuestionBankController extends Controller
             'perPage' => $perPage,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
+            'canDeleteBank' => app(\App\Services\TutorContentVisibilityService::class)
+                ->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
             'pptImportPreview' => $pptImportPreview,
             'recursiveQuestionCounts' => $recursiveQuestionCounts,
             'bankTotalQuestions' => $bankTotalQuestions,
@@ -656,6 +665,8 @@ class QuestionBankController extends Controller
 
     public function previewPptQuestions(Request $request, QuestionBank $questionBank, QuestionPptImportService $pptImportService)
     {
+        abort_if($request->user()?->isTutor(), 403, 'Import PPT hanya tersedia untuk Admin.');
+
         $request->validate([
             'ppt_files' => ['required', 'array', 'min:1', 'max:10'],
             'ppt_files.*' => ['required', 'file', 'mimes:pptx', 'max:10240'],
@@ -714,6 +725,8 @@ class QuestionBankController extends Controller
 
     public function storePptQuestions(Request $request, QuestionBank $questionBank)
     {
+        abort_if($request->user()?->isTutor(), 403, 'Import PPT hanya tersedia untuk Admin.');
+
         $validated = $request->validate([
             'groups_json' => ['required', 'string'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
@@ -1231,15 +1244,32 @@ class QuestionBankController extends Controller
             'question_ids' => 'Daftar soal',
         ]);
 
-        $deleted = QuestionBankQuestion::query()
+        $questions = QuestionBankQuestion::query()
+            ->with('bank:id,created_by')
             ->whereIn('id', $validated['question_ids'])
-            ->delete();
+            ->get();
+
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        abort_unless(
+            $questions->every(fn (QuestionBankQuestion $question): bool => $visibility->canDeleteContentOwnedBy($question->bank?->created_by, $request->user())),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
+        $deleted = QuestionBankQuestion::query()->whereKey($questions->modelKeys())->delete();
 
         return back()->with('success', $deleted.' soal berhasil dihapus dari bank.');
     }
 
-    public function destroyQuestion(QuestionBankQuestion $question)
+    public function destroyQuestion(Request $request, QuestionBankQuestion $question)
     {
+        abort_unless(
+            app(\App\Services\TutorContentVisibilityService::class)
+                ->canDeleteContentOwnedBy($question->bank?->created_by, $request->user()),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
         $question->delete();
 
         return back()->with('success', 'Soal berhasil dihapus dari bank.');

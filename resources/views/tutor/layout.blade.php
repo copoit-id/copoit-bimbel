@@ -23,6 +23,9 @@
             && \Illuminate\Support\Facades\Route::has('tutor.development.index');
         $canShowAttendance = $planModules->allows('attendance')
             && \Illuminate\Support\Facades\Route::has('tutor.attendance.index');
+        $canShowQuestionBank = $planModules->allows('question_bank')
+            && (auth()->user()?->hasPermission('question_bank', 'view') ?? false)
+            && \Illuminate\Support\Facades\Route::has('admin.question-bank.index');
         $activeLinkClass = 'bg-primary text-white shadow-sm';
         $inactiveLinkClass = 'text-slate-600 hover:bg-slate-100 hover:text-primary';
     @endphp
@@ -38,6 +41,7 @@
         <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5 text-sm font-semibold">
             <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Menu Tutor</p>
             <a href="{{ route('tutor.dashboard') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.dashboard') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-dashboard-line text-lg"></i>Dashboard</a>
+            @if($canShowQuestionBank)<a href="{{ route('admin.question-bank.index', ['portal' => 'tutor']) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('admin.question-bank.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-folder-3-line text-lg"></i>Bank Soal</a>@endif
             <a href="{{ route('tutor.schedule.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-2-line text-lg"></i>Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-schedule-line text-lg"></i>Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-checkbox-circle-line text-lg"></i>Absensi</a>@endif
@@ -61,6 +65,7 @@
         </div>
         <nav id="tutor-mobile-nav" class="hidden border-t border-gray-100 px-4 py-2 text-sm font-semibold">
             <a href="{{ route('tutor.dashboard') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.dashboard') ? $activeLinkClass : $inactiveLinkClass }}">Dashboard</a>
+            @if($canShowQuestionBank)<a href="{{ route('admin.question-bank.index', ['portal' => 'tutor']) }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('admin.question-bank.*') ? $activeLinkClass : $inactiveLinkClass }}">Bank Soal</a>@endif
             <a href="{{ route('tutor.schedule.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}">Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}">Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}">Absensi</a>@endif

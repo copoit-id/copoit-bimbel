@@ -109,7 +109,7 @@ class SettingController extends Controller
             'material_nav_label' => ['required', 'string', 'max:80'],
             'package_nav_label' => ['required', 'string', 'max:80'],
             'tryout_nav_label' => ['required', 'string', 'max:80'],
-            'tutor_content_visibility' => ['nullable', 'in:shared,isolated'],
+            'tutor_content_visibility' => ['nullable', 'in:shared,isolated,tutor_isolated'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
