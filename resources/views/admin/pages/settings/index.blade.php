@@ -309,7 +309,7 @@
                 );
             @endphp
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'shared' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
                     <input type="radio" name="tutor_content_visibility" value="shared"
                         class="mt-1 h-5 w-5 text-primary focus:ring-primary"
@@ -324,8 +324,17 @@
                         class="mt-1 h-5 w-5 text-primary focus:ring-primary"
                         {{ $tutorContentVisibility === 'isolated' ? 'checked' : '' }}>
                     <div>
+                        <p class="font-semibold text-gray-900">Isolasi Penuh</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap akun hanya melihat dan mengelola konten miliknya. Super Admin tetap dapat melihat seluruh konten.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'tutor_isolated' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="tutor_isolated"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'tutor_isolated' ? 'checked' : '' }}>
+                    <div>
                         <p class="font-semibold text-gray-900">Isolasi Tutor</p>
-                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap Tutor atau akun operasional hanya melihat konten miliknya. Admin dan Super Admin tetap dapat melihat seluruh konten.</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Tutor melihat konten sendiri dan Admin, tetapi tidak dapat menghapus konten Admin. Konten Tutor lain tetap terpisah.</p>
                     </div>
                 </label>
             </div>

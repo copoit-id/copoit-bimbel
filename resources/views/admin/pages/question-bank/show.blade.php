@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends(auth()->user()?->isTutor() ? 'tutor.question-bank-layout' : 'admin.layout.admin')
 @section('title', 'Detail Bank Soal')
 @section('content')
 @php
@@ -84,11 +84,13 @@
                     <i class="ri-file-excel-2-line"></i>
                     Import Excel
                 </button>
-                <button type="button" id="openImportPpt"
-                    class="inline-flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50">
-                    <i class="ri-slideshow-3-line"></i>
-                    Import PPT
-                </button>
+                @if(! auth()->user()?->isTutor())
+                    <button type="button" id="openImportPpt"
+                        class="inline-flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50">
+                        <i class="ri-slideshow-3-line"></i>
+                        Import PPT
+                    </button>
+                @endif
                 <button id="openCreateSubBank"
                     class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
                     <i class="ri-folder-add-line"></i>
@@ -256,7 +258,7 @@
                     Pindahkan Terpilih
                 </button>
             </form>
-            <form id="bulkDeleteForm" action="{{ route('admin.question-bank.questions.bulk-delete') }}" method="POST">
+            @if($canDeleteBank)<form id="bulkDeleteForm" action="{{ route('admin.question-bank.questions.bulk-delete') }}" method="POST">
                 @csrf
                 @method('DELETE')
                 <button type="submit" id="bulkDeleteBtn"
@@ -265,6 +267,7 @@
                     Hapus Terpilih
                 </button>
             </form>
+            @endif
             @endunless
             @if ($tryoutDetail)
             <button type="button" id="bulkCloneBtn"
@@ -474,12 +477,13 @@
                     </div>
 
                     <div class="flex w-full shrink-0 flex-col gap-2 sm:w-40">
+                        <p class="text-center text-xs text-gray-500">Dibuat oleh: {{ $question->creator?->name ?? 'Tidak tercatat' }}</p>
                         @unless ($tryoutDetail)
                         <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
                             class="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
                                 <i class="ri-edit-line"></i> Edit
                             </a>
-                        <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
+                        @if($canDeleteBank)<form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
                             @csrf
                             @method('DELETE')
                             <button type="button"
@@ -488,6 +492,7 @@
                                 <i class="ri-delete-bin-line"></i> Hapus
                             </button>
                         </form>
+                        @endif
                         @else
                         <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}" method="POST" class="w-full">
                             @csrf

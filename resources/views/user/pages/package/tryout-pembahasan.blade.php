@@ -1,7 +1,7 @@
 @extends('user.layout.new-user')
 @section('title', 'Pembahasan Tryout')
 @section('content')
-<div class="package-bimbel flex flex-col gap-4 pb-28">
+<div class="package-bimbel flex flex-col gap-4 pb-40 md:pb-28">
     @php
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
@@ -138,6 +138,12 @@
 
             .ai-flashcard-inner {
                 transition-duration: 1ms;
+            }
+        }
+
+        @media (max-width: 767px) {
+            #floating-whatsapp {
+                bottom: 12rem;
             }
         }
     </style>
@@ -943,7 +949,7 @@
     </div>
 
     <!-- Floating Action Buttons -->
-    <div class="fixed inset-x-3 bottom-3 z-40 flex justify-center sm:inset-x-6 sm:bottom-5">
+    <div class="fixed inset-x-3 bottom-20 z-40 flex justify-center sm:inset-x-6 md:bottom-5">
     <div class="flex max-w-4xl flex-wrap justify-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl backdrop-blur sm:gap-3 sm:p-3">
         @if($package)
             <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
@@ -982,7 +988,7 @@
     </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
-    <a id="ai-gateway-usage-badge" href="{{ $hasActiveAiGatewayPackage ? route('user.ai-gateway.index') : '#' }}" @if($shouldOpenAiGatewayBuyModal) onclick="event.preventDefault(); openAiDiscussionFeatureModal();" @endif class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $aiGatewayBadgeTitle }}">
+    <a id="ai-gateway-usage-badge" href="{{ $hasActiveAiGatewayPackage ? route('user.ai-gateway.index') : '#' }}" @if($shouldOpenAiGatewayBuyModal) onclick="event.preventDefault(); openAiDiscussionFeatureModal();" @endif class="group fixed bottom-48 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $aiGatewayBadgeTitle }}">
         <span class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center text-gray-700">
         @if($hasActiveAiGatewayPackage)
             <i class="ri-robot-2-line mb-1 text-xs text-primary"></i><span id="ai-gateway-used-percentage" class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>

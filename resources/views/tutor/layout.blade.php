@@ -10,6 +10,8 @@
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
+    @stack('styles')
+    @yield('styles')
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
     @php
@@ -23,6 +25,9 @@
             && \Illuminate\Support\Facades\Route::has('tutor.development.index');
         $canShowAttendance = $planModules->allows('attendance')
             && \Illuminate\Support\Facades\Route::has('tutor.attendance.index');
+        $canShowQuestionBank = $planModules->allows('question_bank')
+            && (auth()->user()?->hasPermission('question_bank', 'view') ?? false)
+            && \Illuminate\Support\Facades\Route::has('admin.question-bank.index');
         $activeLinkClass = 'bg-primary text-white shadow-sm';
         $inactiveLinkClass = 'text-slate-600 hover:bg-slate-100 hover:text-primary';
     @endphp
@@ -38,6 +43,7 @@
         <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5 text-sm font-semibold">
             <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Menu Tutor</p>
             <a href="{{ route('tutor.dashboard') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.dashboard') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-dashboard-line text-lg"></i>Dashboard</a>
+            @if($canShowQuestionBank)<a href="{{ route('admin.question-bank.index', ['portal' => 'tutor']) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('admin.question-bank.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-folder-3-line text-lg"></i>Bank Soal</a>@endif
             <a href="{{ route('tutor.schedule.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-2-line text-lg"></i>Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-schedule-line text-lg"></i>Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-checkbox-circle-line text-lg"></i>Absensi</a>@endif
@@ -48,7 +54,7 @@
 
         <div class="border-t border-gray-100 p-3">
             <div class="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5"><span class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr(auth()->user()->name, 0, 1)) }}</span><div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-900">{{ auth()->user()->name }}</p><p class="text-xs text-gray-500">Tutor</p></div></div>
-            <form method="POST" action="{{ route('logout') }}">@csrf<button class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600"><i class="ri-logout-box-r-line text-lg"></i>Keluar</button></form>
+            <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600" onclick="return confirm('Yakin ingin logout?')"><i class="ri-logout-box-r-line text-lg"></i>Logout</button></form>
         </div>
     </aside>
 
@@ -61,12 +67,14 @@
         </div>
         <nav id="tutor-mobile-nav" class="hidden border-t border-gray-100 px-4 py-2 text-sm font-semibold">
             <a href="{{ route('tutor.dashboard') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.dashboard') ? $activeLinkClass : $inactiveLinkClass }}">Dashboard</a>
+            @if($canShowQuestionBank)<a href="{{ route('admin.question-bank.index', ['portal' => 'tutor']) }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('admin.question-bank.*') ? $activeLinkClass : $inactiveLinkClass }}">Bank Soal</a>@endif
             <a href="{{ route('tutor.schedule.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}">Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}">Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}">Absensi</a>@endif
             @if($canShowLearningProgress)<a href="{{ route('tutor.development.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.development.*') ? $activeLinkClass : $inactiveLinkClass }}">Perkembangan</a>@endif
             @if($clientBranding['tutor_chat_enabled'] ?? false)<a href="{{ route('tutor.chat.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.chat.*') ? $activeLinkClass : $inactiveLinkClass }}">Chat Siswa</a>@endif
             @if($canShowTutorProfile)<a href="{{ route('tutor.profile.edit') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.profile.*') ? $activeLinkClass : $inactiveLinkClass }}">Profil Saya</a>@endif
+            <form method="POST" action="{{ route('logout') }}" class="mt-2 border-t border-gray-100 pt-2">@csrf<button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600 hover:bg-red-50" onclick="return confirm('Yakin ingin logout?')"><i class="ri-logout-box-r-line text-lg"></i>Logout</button></form>
         </nav>
     </header>
 
@@ -77,6 +85,7 @@
     </main>
     @vite('resources/js/app.js')
     @stack('scripts')
+    @yield('scripts')
     <x-website-translator />
 </body>
 </html>

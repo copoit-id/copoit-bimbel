@@ -174,6 +174,16 @@
                             <article class="leaderboard-podium__entry leaderboard-podium__entry--{{ $podiumRank }}">
                                 <span class="leaderboard-podium__medal"><i class="ri-medal-fill"></i></span>
                                 <p class="leaderboard-podium__name" title="{{ $podium['name'] }}">{{ $podium['name'] }}</p>
+                                @if($podium['origin_institution'] || $podium['major_choices'])
+                                    <div class="leaderboard-podium__profile">
+                                        @if($podium['origin_institution'])
+                                            <p title="{{ $podium['origin_institution'] }}">{{ $podium['origin_institution'] }}</p>
+                                        @endif
+                                        @if($podium['major_choices'])
+                                            <p title="{{ $podium['major_choices'] }}">{{ $podium['major_choices'] }}</p>
+                                        @endif
+                                    </div>
+                                @endif
                                 <p class="leaderboard-podium__score">{{ $podium['score'] }}@if($podium['maximum'])<span>/ {{ $podium['maximum'] }}</span>@endif</p>
                                 <div class="leaderboard-podium__block" aria-label="Peringkat {{ $podium['rank'] }}">
                                     <span>{{ $podium['rank'] }}</span>
@@ -187,11 +197,13 @@
         @endif
 
         <div class="relative overflow-x-auto rounded-lg border border-gray-200">
-            <table class="w-full min-w-[640px] text-left text-sm text-gray-600">
+            <table class="w-full min-w-[900px] text-left text-sm text-gray-600">
                 <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-600">
                     <tr>
-                        <th scope="col" class="px-3 py-2.5">Rank</th>
-                        <th scope="col" class="px-3 py-2.5">Peserta</th>
+                        <th scope="col" class="sticky left-0 z-20 w-16 min-w-16 bg-gray-50 px-3 py-2.5 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Rank</th>
+                        <th scope="col" class="sticky left-16 z-20 min-w-[200px] bg-gray-50 px-3 py-2.5 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Peserta</th>
+                        <th scope="col" class="px-3 py-2.5">Asal Sekolah / Instansi</th>
+                        <th scope="col" class="px-3 py-2.5">Pilihan Jurusan</th>
                         @php
                             $hasMultipleSubtests = $tryout->tryoutDetails->count() > 1;
                         @endphp
@@ -240,7 +252,7 @@
                                     };
                                 @endphp
                                 <tr class="border-b border-dashed border-gray-200 text-gray-700 transition-colors {{ $rowClass }}">
-                                    <td class="px-3 py-2.5">
+                                    <td class="sticky left-0 z-10 w-16 min-w-16 bg-inherit px-3 py-2.5 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                                         <div class="flex items-center gap-2">
                                             @if($rank <= 3)
                                                 <div class="relative flex h-9 w-9 items-center justify-center rounded-full border {{ $rankBadgeClass }}" title="Peringkat {{ $rank }}">
@@ -255,7 +267,7 @@
                                         </div>
                                     </td>
 
-                                    <td class="px-3 py-2.5">
+                                    <td class="sticky left-16 z-10 min-w-[200px] bg-inherit px-3 py-2.5 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                                         <div class="flex min-w-[180px] items-center gap-2">
                                             <img src="https://ui-avatars.com/api/?name={{ urlencode($ranking['user']->name) }}&background=444444&color=fff"
                                                 class="h-8 w-8 rounded-full" alt="">
@@ -272,6 +284,14 @@
                                                 <p class="truncate text-xs text-gray-500">{{ $ranking['user']->email }}</p>
                                             </div>
                                         </div>
+                                    </td>
+
+                                    <td class="px-3 py-2.5">
+                                        <p class="min-w-[150px] text-xs font-medium text-gray-700">{{ $ranking['user']->origin_institution ?: '—' }}</p>
+                                    </td>
+
+                                    <td class="px-3 py-2.5">
+                                        <p class="min-w-[180px] text-xs font-medium text-gray-700">{{ $ranking['user']->leaderboard_major_choices_display ?: '—' }}</p>
                                     </td>
 
                                     @if($hasMultipleSubtests)
@@ -337,7 +357,7 @@
                                 </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ ($showPassingGrade ? 5 : 4) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
+                            <td colspan="{{ ($showPassingGrade ? 7 : 6) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}" class="px-3 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
                                     <p>Belum ada peserta yang menyelesaikan tryout ini</p>
@@ -427,6 +447,9 @@
         .leaderboard-podium__entry--2 .leaderboard-podium__medal { color:#e7edf4; }
         .leaderboard-podium__entry--3 .leaderboard-podium__medal { color:#f3b17d; }
         .leaderboard-podium__name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1rem; font-weight:700; letter-spacing:-.015em; }
+        .leaderboard-podium__profile { margin-top:.2rem; min-height:2rem; color:rgba(255,255,255,.8); font-size:.6875rem; line-height:1.35; }
+        .leaderboard-podium__profile p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .leaderboard-podium__profile p + p { color:rgba(255,255,255,.62); }
         .leaderboard-podium__score { display:inline-block; margin:.38rem 0 .9rem; border-radius:.55rem; padding:.32rem .68rem; background:rgba(255,255,255,.78); color:#26374f; font-size:.8125rem; font-weight:700; }
         .leaderboard-podium__score span { color:rgba(38,55,79,.68); font-weight:500; }
         .leaderboard-podium__block { display:flex; height:6.5rem; align-items:center; justify-content:center; border-radius:.65rem .65rem 0 0; background:linear-gradient(135deg, #dce3e9, #91a1b0); }

@@ -52,6 +52,8 @@
                 <th class="text-center">Peringkat</th>
                 <th>Peserta</th>
                 <th>Email</th>
+                <th>Asal Sekolah / Instansi</th>
+                <th>Pilihan Jurusan</th>
                 <th>Tujuan / Instansi</th>
                 @foreach($subtests ?? [] as $subtest)
                     <th class="text-center">{{ $subtest['alias'] }}</th>
@@ -80,6 +82,8 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
+                    <td>{{ $ranking->user?->origin_institution ?? '-' }}</td>
+                    <td>{{ $ranking->user?->leaderboard_major_choices_display ?? '-' }}</td>
                     <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
                     @foreach($subtests ?? [] as $subtest)
                         <td class="text-center">
@@ -98,7 +102,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ 9 + count($subtests ?? []) }}" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="{{ 11 + count($subtests ?? []) }}" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
                 </tr>
             @endforelse
         </tbody>

@@ -146,6 +146,8 @@ class LeaderboardController extends Controller
                 return [
                     'rank' => $index + 1,
                     'name' => $ranking->user->name ?? 'Peserta',
+                    'origin_institution' => $ranking->user?->origin_institution,
+                    'major_choices' => $ranking->user?->leaderboard_major_choices_display,
                     'score' => $displayScore['formatted'],
                     'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
                         ? $displayScore['formatted_maximum']
@@ -186,6 +188,8 @@ class LeaderboardController extends Controller
             'Peringkat',
             'Nama Peserta',
             'Email',
+            'Asal Sekolah / Instansi',
+            'Pilihan Jurusan',
             'Tujuan / Instansi',
         ];
 
@@ -218,6 +222,8 @@ class LeaderboardController extends Controller
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
+                $ranking->user?->origin_institution ?? '-',
+                $ranking->user?->leaderboard_major_choices_display ?? '-',
                 $ranking->user?->participant_destination_display_name ?? '-',
             ];
 
@@ -247,7 +253,9 @@ class LeaderboardController extends Controller
         $sheet->getColumnDimension('B')->setWidth(28);
         $sheet->getColumnDimension('C')->setWidth(32);
         $sheet->getColumnDimension('D')->setWidth(28);
-        for ($column = 5; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
+        $sheet->getColumnDimension('E')->setWidth(32);
+        $sheet->getColumnDimension('F')->setWidth(28);
+        for ($column = 7; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
             $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column))->setWidth(15);
         }
         $this->styleExportSheet($sheet, $lastColumn, $row - 1);
@@ -292,7 +300,7 @@ class LeaderboardController extends Controller
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', $tryout->tryoutDetails->count() > 1 ? 'landscape' : 'portrait');
+        $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
 
         $filename = sprintf(
@@ -333,6 +341,7 @@ class LeaderboardController extends Controller
                 });
             })
             ->with([
+                'user:id,name,email,origin_institution,major_choice_1,major_choice_2,participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name',
                 'user.participantDestinationCategory.parent',
                 'tryoutDetail',
                 'userAnswerDetails.question.questionOptions',
