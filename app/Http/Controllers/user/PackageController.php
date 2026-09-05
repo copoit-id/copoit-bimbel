@@ -23,6 +23,7 @@ use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -1298,7 +1299,68 @@ class PackageController extends Controller
         return back()->with('error', $message);
     }
 
-    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
+    public function requestProgram(Request $request, $package_id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'mode' => ['required', 'in:program,custom'],
+        ]);
+        $package = Package::query()
+            ->where('status', 'active')
+            ->where('is_displayed', true)
+            ->where('enrollment_mode', Package::ENROLLMENT_PROGRAM)
+            ->with('bookingRule:package_id,is_enabled,learning_mode')
+            ->findOrFail($package_id);
+        $isCustomRequest = $validated['mode'] === 'custom';
+        if ($isCustomRequest && (! $package->bookingRule?->is_enabled || ! in_array($package->bookingRule->learning_mode, ['personal', 'both'], true))) {
+            return back()->with('error', 'Program ini belum mengaktifkan pengajuan jadwal custom.');
+        }
+        $existingAccess = UserPackageAcces::query()
+            ->where('user_id', $request->user()->id)
+            ->where('package_id', $package->package_id)
+            ->first();
+
+        if ($existingAccess?->is_active) {
+            return back()->with('info', 'Anda sudah join program ini.');
+        }
+        if ($existingAccess?->requirement_status === 'pending') {
+            return back()->with('info', 'Pengajuan join program masih menunggu persetujuan admin.');
+        }
+
+        $this->saveConditionalRequest(
+            $package,
+            $existingAccess,
+            [],
+            $isCustomRequest ? 'Pengajuan jadwal custom' : 'Pengajuan join program',
+            $isCustomRequest
+                ? 'Pengajuan jadwal custom menunggu persetujuan admin.'
+                : 'Pengajuan join program menunggu persetujuan admin.'
+        );
+
+        if ($isCustomRequest) {
+            $customAccess = UserPackageAcces::query()
+                ->where('user_id', $request->user()->id)
+                ->where('package_id', $package->package_id)
+                ->first();
+
+            return redirect()
+                ->route('user.booking.index', ['access' => $customAccess?->user_package_access_id, 'mode' => 'custom'])
+                ->with('info', 'Pilih tutor dan waktu untuk mengajukan jadwal custom.');
+        }
+
+        return back()->with(
+            'success',
+            ($isCustomRequest ? 'Pengajuan jadwal custom' : 'Pengajuan join program')
+                .' berhasil dikirim. Tunggu persetujuan admin.'
+        );
+    }
+
+    private function saveConditionalRequest(
+        Package $package,
+        ?UserPackageAcces $existingAccess,
+        array $proofs,
+        ?string $userNotes = null,
+        ?string $requestNotes = null
+    ): void
     {
         $proofPaths = collect($proofs)
             ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs', 'public'))
@@ -1327,7 +1389,7 @@ class PackageController extends Controller
             'status' => 'pending',
             'payment_amount' => 0,
             'payment_status' => 'conditional',
-            'notes' => $package->conditional_requirement,
+            'notes' => $requestNotes ?? $package->conditional_requirement,
             'requirement_proof_path' => $proofPaths[0] ?? null,
             'requirement_proof_paths' => $proofPaths,
             'requirement_user_notes' => $userNotes ? trim($userNotes) : null,
@@ -5211,7 +5273,11 @@ class PackageController extends Controller
                 'detailPackages',
             ];
 
-        $package = Package::with(array_merge($relations, ['freeClaimTryout:tryout_id,name']))
+        $package = Package::with(array_merge($relations, [
+            'freeClaimTryout:tryout_id,name',
+            'bookingRule:package_id,is_enabled,learning_mode',
+            'schedules.tentor:id,name',
+        ]))
             ->where('status', 'active')
             ->where('is_displayed', true)
             ->findOrFail($package_id);
@@ -5219,19 +5285,36 @@ class PackageController extends Controller
         // Check if user is logged in and has access
         $hasAccess = false;
         $isOwned = false;
+        $bookingAccessId = null;
+        $canRequestCustomSchedule = false;
+        $isProgramRequestPending = false;
         $isPendingConditional = false;
         $pendingPackagePayment = null;
         
         if (Auth::check()) {
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+            $activeAccess = UserPackageAcces::query()
+                ->select(['user_package_access_id', 'package_id'])
+                ->where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->where('status', 'active')
                 ->where(function ($query) {
                     $query->whereNull('end_date')
                         ->orWhere('end_date', '>', Carbon::now());
                 })
-                ->exists();
+                ->latest('user_package_access_id')
+                ->first();
+            $hasAccess = $activeAccess !== null;
             $isOwned = $hasAccess;
+            $bookingAccessId = $activeAccess?->user_package_access_id;
+            $canRequestCustomSchedule = $package->enrollment_mode === Package::ENROLLMENT_PROGRAM
+                && $hasAccess
+                && $package->bookingRule?->is_enabled
+                && in_array($package->bookingRule->learning_mode, ['personal', 'both'], true);
+            $isProgramRequestPending = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('requirement_status', 'pending')
+                ->exists();
             $isPendingConditional = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->where('requirement_status', 'pending')
@@ -5284,6 +5367,9 @@ class PackageController extends Controller
             'package',
             'hasAccess',
             'isOwned',
+            'bookingAccessId',
+            'canRequestCustomSchedule',
+            'isProgramRequestPending',
             'isPendingConditional',
             'pendingPackagePayment',
             'totalVideos',

@@ -118,6 +118,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed', true);
             $this->normalizeAccessDuration($validated);
 
@@ -240,6 +241,7 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed');
             $this->normalizeAccessDuration($validated);
 

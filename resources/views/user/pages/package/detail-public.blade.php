@@ -16,6 +16,7 @@ $classCount = $package->classes->count();
 $requiresCompletedTryout = $package->type_price === 'free_conditional'
     && $package->free_claim_requirement_type === 'completed_tryout'
     && $package->freeClaimTryout;
+$isProgramPackage = $package->enrollment_mode === \App\Models\Package::ENROLLMENT_PROGRAM;
 @endphp
 
 <!-- Header -->
@@ -24,8 +25,8 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
         <i class="ri-arrow-left-line text-xl text-gray-600"></i>
     </a>
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">Detail Paket</h1>
-        <p class="text-gray-500 text-sm">Informasi lengkap paket pembelajaran</p>
+        <h1 class="text-2xl font-bold text-gray-800">{{ $isProgramPackage ? 'Detail Program' : 'Detail Paket' }}</h1>
+        <p class="text-gray-500 text-sm">{{ $isProgramPackage ? 'Jadwal dan informasi program pembelajaran' : 'Informasi lengkap paket pembelajaran' }}</p>
     </div>
 </div>
 
@@ -51,7 +52,9 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
         </div>
         @endif
         
-        @if($package->type_price === 'free_unconditional' || $package->type_price === 'free_conditional')
+        @if($isProgramPackage)
+        <div class="absolute top-4 right-4 z-20 px-4 py-2 rounded-full text-sm font-bold bg-sky-600 text-white"><i class="ri-calendar-schedule-line mr-1"></i>PROGRAM</div>
+        @elseif($package->type_price === 'free_unconditional' || $package->type_price === 'free_conditional')
         <div class="absolute top-4 right-4 z-20 px-4 py-2 rounded-full text-sm font-bold bg-green-500 text-white">
             <i class="ri-gift-line mr-1"></i>GRATIS
         </div>
@@ -150,6 +153,12 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
                         <span>{{ $classCount }} Kelas</span>
                     </div>
                     @endif
+                    @if($isProgramPackage && $package->schedules->isNotEmpty())
+                    <div class="flex items-center gap-2 text-sm text-gray-600">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15"><i class="ri-calendar-schedule-line" style="color: {{ $primaryColor }}"></i></div>
+                        <span>{{ $package->schedules->count() }} Jadwal</span>
+                    </div>
+                    @endif
                     @if($totalMaterials > 0)
                     <div class="flex items-center gap-2 text-sm text-gray-600">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {{ $primaryColor }}15">
@@ -164,12 +173,43 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
             <!-- Action Buttons -->
             <div class="flex flex-col gap-3 w-full md:w-[280px]">
                 @auth
-                    @if($isOwned)
+                    @if($isProgramPackage && ! $isOwned)
+                        @if($isProgramRequestPending)
+                        <button type="button" disabled class="min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold bg-amber-100 text-amber-700 cursor-not-allowed">
+                            <i class="ri-time-line"></i><span>Menunggu Persetujuan Admin</span>
+                        </button>
+                        <p class="text-xs text-gray-500 text-center">Setelah disetujui admin, kamu bisa mengajukan jadwal custom.</p>
+                        @else
+                        <form action="{{ route('user.package.program.request', $package->package_id) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="mode" value="program">
+                            <button type="submit" class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                                <i class="ri-user-add-line"></i><span>Join Program</span>
+                            </button>
+                        </form>
+                        @if($package->bookingRule?->is_enabled && in_array($package->bookingRule->learning_mode, ['personal', 'both'], true))
+                        <form action="{{ route('user.package.program.request', $package->package_id) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="mode" value="custom">
+                            <button type="submit" class="w-full min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 border border-primary text-center font-semibold text-primary transition-colors hover:bg-primary hover:text-white">
+                                <i class="ri-calendar-schedule-line"></i><span>Ajukan Jadwal Custom</span>
+                            </button>
+                        </form>
+                        @endif
+                        <p class="text-xs text-gray-500 text-center">Pilih tutor dan waktu custom, lalu tunggu persetujuan tutor/admin.</p>
+                        @endif
+                    @elseif($isOwned)
                     <a href="{{ route('user.package.show', $package->package_id) }}" 
                        class="min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity"
                        style="background-color: {{ $primaryColor }}">
                         <i class="ri-play-circle-line"></i><span>Mulai Belajar</span>
                     </a>
+                    @if($canRequestCustomSchedule)
+                    <a href="{{ route('user.booking.index', ['access' => $bookingAccessId]) }}"
+                       class="min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 border border-primary text-center font-semibold text-primary transition-colors hover:bg-primary hover:text-white">
+                        <i class="ri-calendar-schedule-line"></i><span>Ajukan Jadwal Custom</span>
+                    </a>
+                    @endif
                     @elseif($package->type_price === 'free_unconditional')
                     <form action="{{ route('user.event.join', $package->package_id) }}" method="POST" class="claim-form">
                         @csrf
@@ -277,7 +317,9 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
                     </form>
                     @endif
                 @else
-                    @if($package->type_price === 'free_unconditional' || $package->type_price === 'free_conditional')
+                    @if($isProgramPackage)
+                    <a href="{{ route('login') }}" class="min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}"><i class="ri-login-box-line"></i><span>Masuk untuk melihat status program</span></a>
+                    @elseif($package->type_price === 'free_unconditional' || $package->type_price === 'free_conditional')
                     <a href="{{ route('login') }}" 
                        class="min-h-[48px] px-6 py-3 rounded-xl inline-flex items-center justify-center gap-2 text-center font-semibold text-white hover:opacity-90 transition-opacity"
                        style="background-color: {{ $primaryColor }}">
@@ -301,6 +343,21 @@ $requiresCompletedTryout = $package->type_price === 'free_conditional'
 </div>
 
 <!-- Contents -->
+@if($isProgramPackage)
+<section class="mb-6 rounded-2xl border border-sky-100 bg-white p-6">
+    <div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600"><i class="ri-calendar-schedule-line text-xl"></i></span><div><h2 class="font-bold text-gray-800">Jadwal program</h2><p class="mt-1 text-sm text-gray-500">Jadwal dapat berubah sesuai pemberitahuan admin.</p></div></div>
+    <div class="mt-5 space-y-3">
+        @forelse($package->schedules as $schedule)
+            <article class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-800">{{ $schedule->title }}</p><p class="mt-1 text-sm text-gray-600"><i class="ri-calendar-line mr-1 text-primary"></i>{{ $schedule->start_date ? \Carbon\Carbon::parse($schedule->start_date)->translatedFormat('d M Y') : 'Tanggal menyusul' }} · {{ $schedule->start_time ? substr((string) $schedule->start_time, 0, 5) : 'Jam menyusul' }}</p>@if($schedule->tentor)<p class="mt-1 text-sm text-gray-500"><i class="ri-user-star-line mr-1"></i>{{ $schedule->tentor->name }}</p>@endif</div><span class="w-fit rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-semibold text-sky-700">Terjadwal</span></article>
+        @empty
+            <div class="rounded-xl border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500">Jadwal program akan diumumkan oleh admin.</div>
+        @endforelse
+    </div>
+    @if($package->bookingRule?->is_enabled)
+        <p class="mt-4 text-sm text-gray-600"><i class="ri-calendar-check-line mr-1 text-primary"></i>Program ini juga mendukung pengajuan jadwal custom.</p>
+    @endif
+</section>
+@endif
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Materials List -->
     <div class="lg:col-span-2 space-y-6">

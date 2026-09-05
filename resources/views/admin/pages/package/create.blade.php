@@ -250,6 +250,21 @@
                         </label>
                     </section>
 
+                    <section id="program-schedule-settings" class="rounded-xl border border-sky-200 bg-sky-50 p-5 {{ $enrollmentMode === 'program' ? '' : 'hidden' }}">
+                        <div class="flex items-start gap-3">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-primary"><i class="ri-calendar-schedule-line text-lg"></i></span>
+                            <div>
+                                <h3 class="font-semibold text-gray-800">Jadwal program</h3>
+                                <p class="mt-1 text-sm text-gray-600">Program berfokus pada jadwal. Kamu dapat menautkan jadwal kelas yang sudah tersedia, dan tetap mengaktifkan jadwal custom bila diperlukan.</p>
+                                @if(isset($package))
+                                    <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}" class="mt-3 inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-calendar-check-line"></i> Pilih jadwal program</a>
+                                @else
+                                    <p class="mt-3 text-xs font-medium text-gray-500">Simpan program terlebih dahulu, lalu pilih jadwal pada menu Jadwal Kelas.</p>
+                                @endif
+                            </div>
+                        </div>
+                    </section>
+
                     @if($canManageBooking)
                         <section id="custom-booking-option" class="rounded-xl border border-gray-200 bg-gray-50 p-5">
                             <input type="hidden" name="allow_custom_booking" value="0">
@@ -334,6 +349,7 @@
     const durationUnit = document.getElementById('access_duration_unit');
     const durationValue = document.getElementById('access_duration_value');
     const enrollmentMode = document.getElementById('enrollment_mode');
+    const programScheduleSettings = document.getElementById('program-schedule-settings');
     const packageType = document.getElementById('type_package');
     const customBookingOption = document.getElementById('custom-booking-option');
 
@@ -387,12 +403,18 @@
             : 'Peserta membeli paket langsung dari katalog. Setelah pembayaran berhasil, akses paket aktif seperti alur yang berjalan saat ini.';
     }
 
+    function toggleProgramScheduleSettings() {
+        programScheduleSettings?.classList.toggle('hidden', enrollmentMode?.value !== 'program');
+    }
+
     toggleFields();
     updateEnrollmentModeDescription();
+    toggleProgramScheduleSettings();
     typePriceSelect.addEventListener('change', toggleFields);
     enrollmentMode?.addEventListener('change', () => {
         toggleFields();
         updateEnrollmentModeDescription();
+        toggleProgramScheduleSettings();
     });
     claimRequirementType?.addEventListener('change', toggleClaimRequirement);
 

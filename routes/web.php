@@ -224,6 +224,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('paket-pembelian')->group(function () {
         Route::post('/{package_id}/buy', [PackageController::class, 'buyPackage'])->name('user.package.buy');
+        Route::post('/{package_id}/ikuti-program', [PackageController::class, 'requestProgram'])->name('user.package.program.request');
         Route::post('/{package_id}/discount/preview', [PackageController::class, 'previewDiscount'])->name('user.package.discount.preview');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');

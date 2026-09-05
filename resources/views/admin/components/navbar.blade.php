@@ -33,7 +33,7 @@
         : 'client-brand-logo h-full w-full object-contain';
 @endphp
 
-<nav class="fixed {{ !empty($isQuestionPickerMode) ? 'top-14' : 'top-0' }} z-50 w-full {{ $navClasses }}">
+<nav class="fixed {{ !empty($isPickerMode) ? 'top-14' : 'top-0' }} z-50 w-full {{ $navClasses }}">
     <div class="px-2 py-2 sm:px-3 sm:py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex min-w-0 flex-1 items-center justify-start rtl:justify-end">

@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\ClassModel;
 use App\Models\ClassSchedule;
 use App\Models\ClassSession;
+use App\Models\Package;
 use App\Models\PackageBookingRule;
 use App\Models\ScheduleBookingRequest;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
 use App\Models\User;
 use App\Models\UserPackageAcces;
+use App\Services\PurchaseAccessDuration;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -93,7 +95,6 @@ class ScheduleBookingService
                 ->startOfMinute();
             $scheduledEnd = $scheduledStart->copy()->addMinutes($rule->duration_minutes);
 
-            $this->ensureWithinBookingWindow($rule, $scheduledStart);
             $this->ensureAccessCoversSession($access, $scheduledStart);
 
             if ($scheduledStart->lte(now())) {
@@ -124,6 +125,17 @@ class ScheduleBookingService
             if (! $session) {
                 throw ValidationException::withMessages([
                     'booking' => 'Sesi booking gagal dibuat. Silakan coba kembali.',
+                ]);
+            }
+
+            if ($access->status === 'pending') {
+                $startDate = now();
+                $access->update([
+                    'start_date' => $startDate,
+                    'end_date' => PurchaseAccessDuration::expiresAt($access->package, $startDate),
+                    'status' => 'active',
+                    'payment_status' => 'free',
+                    'requirement_status' => 'approved',
                 ]);
             }
 
@@ -237,7 +249,6 @@ class ScheduleBookingService
                 ]);
             }
 
-            $this->ensureWithinBookingWindow($rule, $startAt);
             $this->ensureAccessCoversSession($access, $startAt);
 
             $lockedBooking->update([
@@ -307,10 +318,17 @@ class ScheduleBookingService
             ->whereKey($booking->user_package_access_id)
             ->where('user_id', $booking->user_id)
             ->where('package_id', $booking->package_id)
-            ->where('status', 'active')
             ->where(function ($query): void {
-                $query->whereNull('end_date')
-                    ->orWhere('end_date', '>', now());
+                $query->where(function ($activeQuery): void {
+                    $activeQuery->where('status', 'active')
+                        ->where(function ($dateQuery): void {
+                            $dateQuery->whereNull('end_date')->orWhere('end_date', '>', now());
+                        });
+                })->orWhere(function ($pendingQuery): void {
+                    $pendingQuery->where('status', 'pending')
+                        ->where('requirement_status', 'pending')
+                        ->whereHas('package', fn ($packageQuery) => $packageQuery->where('enrollment_mode', Package::ENROLLMENT_PROGRAM));
+                });
             })
             ->lockForUpdate()
             ->first();
@@ -464,20 +482,6 @@ class ScheduleBookingService
     ): void {
         if (! in_array($booking->status, $allowedStatuses, true)) {
             throw ValidationException::withMessages(['booking' => $message]);
-        }
-    }
-
-    private function ensureWithinBookingWindow(
-        PackageBookingRule $rule,
-        Carbon $startAt
-    ): void {
-        $minimumStart = now()->addHours($rule->min_notice_hours);
-        $maximumStart = now()->addDays($rule->max_advance_days)->endOfDay();
-
-        if ($startAt->lt($minimumStart) || $startAt->gt($maximumStart)) {
-            throw ValidationException::withMessages([
-                'scheduled_start_at' => "Waktu booking harus antara {$rule->min_notice_hours} jam hingga {$rule->max_advance_days} hari dari sekarang.",
-            ]);
         }
     }
 

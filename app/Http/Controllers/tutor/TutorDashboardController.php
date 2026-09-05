@@ -112,12 +112,21 @@ class TutorDashboardController extends Controller
     public function schedule(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
-        $schedule = $this->weeklyScheduleData($tentor->id);
+        $scheduleRange = $request->string('range')->toString();
+        $scheduleRange = in_array($scheduleRange, ['week', 'month', 'all'], true) ? $scheduleRange : 'week';
+        $schedule = $scheduleRange === 'week'
+            ? $this->weeklyScheduleData($tentor->id)
+            : [
+                'scheduleSessions' => $this->sessionsFor($tentor->id, includeTutorAttendance: false)
+                    ->when($scheduleRange === 'month', fn ($query) => $query->whereBetween('session_date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()]))
+                    ->get(),
+            ];
         $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
             'canManageSchedule' => $canManageSchedule,
+            'scheduleRange' => $scheduleRange,
             ...$schedule,
         ]);
     }

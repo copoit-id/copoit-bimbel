@@ -1,5 +1,5 @@
 <aside id="logo-sidebar" x-ignore
-    class="fixed top-0 left-0 z-40 w-64 h-screen {{ !empty($isQuestionPickerMode) ? 'pt-36' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
+    class="fixed top-0 left-0 z-40 w-64 h-screen {{ !empty($isPickerMode) ? 'pt-36' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
         <p class="{{ $sectionLabelClass }} text-sm">Menu</p>

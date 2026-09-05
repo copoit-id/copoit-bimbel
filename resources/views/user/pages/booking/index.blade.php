@@ -22,7 +22,7 @@
         'completed' => 'border-primary/20 bg-primary/5 text-primary',
         'expired' => 'border-gray-200 bg-gray-50 text-gray-600',
     ];
-    $initialAccess = (string) old('user_package_access_id', $accesses->first()?->user_package_access_id ?? '');
+    $initialAccess = (string) old('user_package_access_id', $initialAccessId ?? '');
 @endphp
 
 <div class="space-y-6" x-data="{
@@ -236,10 +236,7 @@
 
                     <label class="block">
                         <span class="text-sm font-semibold text-gray-700">Tanggal & jam yang diinginkan</span>
-                        <input type="datetime-local" name="requested_start_at" required value="{{ old('requested_start_at') }}" min="{{ now()->addMinute()->format('Y-m-d\TH:i') }}" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
-                        <p x-show="selected" class="mt-1 text-xs text-gray-500">
-                            Ajukan minimal <span x-text="selected?.min_notice_hours"></span> jam dan maksimal <span x-text="selected?.max_advance_days"></span> hari dari sekarang.
-                        </p>
+                        <input type="datetime-local" name="requested_start_at" required value="{{ old('requested_start_at') }}" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">
                     </label>
 
                     <label class="block">

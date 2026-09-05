@@ -43,6 +43,8 @@
 <body data-app-selects>
     @if ($isQuestionPickerMode)
         <x-question-bank.picker-context :tryout-detail="$questionPickerDetail" />
+    @elseif ($isProgramSchedulePickerMode)
+        <x-package.schedule-picker-context :package="$programSchedulePicker" />
     @endif
     @include('admin.components.navbar')
     @include('components.confirm-modal')
@@ -50,7 +52,7 @@
     @include('components.flash-alert')
 
 
-    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isQuestionPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
+    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
         @yield('content')
     </div>
 

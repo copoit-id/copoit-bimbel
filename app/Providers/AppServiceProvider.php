@@ -58,10 +58,17 @@ class AppServiceProvider extends ServiceProvider
             $questionPickerDetail = $isQuestionPickerRoute
                 ? app(AdminLayoutContextService::class)->questionPickerDetail(request()->integer('import_for'))
                 : null;
+            $isProgramSchedulePickerRoute = request()->routeIs('admin.class-schedules.index');
+            $programSchedulePicker = $isProgramSchedulePickerRoute
+                ? app(AdminLayoutContextService::class)->programSchedulePicker(request()->integer('package_id'))
+                : null;
 
             $view->with([
                 'questionPickerDetail' => $questionPickerDetail,
                 'isQuestionPickerMode' => $questionPickerDetail !== null,
+                'programSchedulePicker' => $programSchedulePicker,
+                'isProgramSchedulePickerMode' => $programSchedulePicker !== null,
+                'isPickerMode' => $questionPickerDetail !== null || $programSchedulePicker !== null,
             ]);
         });
         View::composer(['user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
