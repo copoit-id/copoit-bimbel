@@ -12,6 +12,7 @@
             @endif
             @if(! $isTutor && $featureVisibility['dashboard'])
                 <li><a href="{{ route('admin.dashboard') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.dashboard') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ request()->routeIs('admin.dashboard') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
+                <li><a href="{{ route('admin.tutor-leave.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('admin.tutor-leave.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-close-line text-[20px] {{ request()->routeIs('admin.tutor-leave.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengajuan Cuti Tutor</span></a></li>
             @endif
             @if($canShowMasterMenu)
                 <li><details id="menu-master" class="group" {{ $isMasterActive ? 'open' : '' }}><summary class="flex items-center justify-between py-2 px-4 cursor-pointer {{ $isMasterActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group" style="list-style: none;"><span class="flex items-center"><i class="ri-stack-line text-[20px] {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Manajemen Master</span></span><i class="ri-arrow-down-s-line text-[18px] transition-transform group-open:rotate-180 {{ $isMasterActive ? $iconActiveClass : $iconInactiveClass }}"></i></summary><ul class="mt-1 ms-2 space-y-1">
@@ -26,6 +27,7 @@
             @endif
             @if($canShowTutorScheduleMenu)
                 <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                <li><a href="{{ route('tutor.leave.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('tutor.leave.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-close-line text-[20px] {{ request()->routeIs('tutor.leave.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengajuan Cuti</span></a></li>
                 @if($canShowTutorAttendanceMenu)
                 <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
                 @endif

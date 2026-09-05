@@ -42,6 +42,7 @@ use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutAiQuestionGeneratorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\TutorPayrollController;
+use App\Http\Controllers\admin\TutorLeaveController as AdminTutorLeaveController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
@@ -69,6 +70,7 @@ use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\tutor\TutorProfileController;
+use App\Http\Controllers\tutor\TutorLeaveController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
@@ -421,6 +423,8 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     // Legacy URL retained for existing links/bookmarks.
     Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
     Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
+    Route::get('cuti', [TutorLeaveController::class, 'index'])->name('leave.index');
+    Route::post('cuti', [TutorLeaveController::class, 'store'])->name('leave.store');
     Route::middleware('module:schedule')->group(function (): void {
         Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
         Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
@@ -549,6 +553,9 @@ Route::prefix('{portal}')
         Route::post('/tours/{tourKey}/complete', [AdminTourController::class, 'complete'])->name('tours.complete');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
+        Route::get('/cuti-tutor', [AdminTutorLeaveController::class, 'index'])->name('tutor-leave.index');
+        Route::post('/cuti-tutor/{leave}/setujui', [AdminTutorLeaveController::class, 'approve'])->name('tutor-leave.approve');
+        Route::post('/cuti-tutor/{leave}/tolak', [AdminTutorLeaveController::class, 'reject'])->name('tutor-leave.reject');
         Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
         Route::get('/update-notifications/{updateNotification}', [UpdateNotificationController::class, 'show'])->name('update-notifications.show');
         Route::prefix('keuangan')->name('finance.')->group(function () {

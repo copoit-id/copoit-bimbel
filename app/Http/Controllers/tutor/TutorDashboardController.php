@@ -114,13 +114,11 @@ class TutorDashboardController extends Controller
         $tentor = $request->user()->tentorProfile;
         $scheduleRange = $request->string('range')->toString();
         $scheduleRange = in_array($scheduleRange, ['week', 'month', 'all'], true) ? $scheduleRange : 'week';
-        $schedule = $scheduleRange === 'week'
-            ? $this->weeklyScheduleData($tentor->id)
-            : [
-                'scheduleSessions' => $this->sessionsFor($tentor->id, includeTutorAttendance: false)
-                    ->when($scheduleRange === 'month', fn ($query) => $query->whereBetween('session_date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()]))
-                    ->get(),
-            ];
+        $schedule = match ($scheduleRange) {
+            'week' => $this->weeklyScheduleData($tentor->id),
+            'month' => $this->monthlyScheduleData($tentor->id),
+            default => $this->allScheduleData($tentor->id),
+        };
         $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
 
         return view('tutor.schedule', [
@@ -342,6 +340,47 @@ class TutorDashboardController extends Controller
                 6 => 'Sabtu',
                 7 => 'Minggu',
             ],
+        ];
+    }
+
+    private function monthlyScheduleData(int $tentorId): array
+    {
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+        $calendarStart = $monthStart->copy()->startOfWeek();
+        $calendarEnd = $monthEnd->copy()->endOfWeek();
+
+        return [
+            'monthSessions' => $this->sessionsFor($tentorId, includeTutorAttendance: false)
+                ->whereBetween('session_date', [$calendarStart->toDateString(), $calendarEnd->toDateString()])
+                ->get()
+                ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
+            'monthDates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
+            'monthStart' => $monthStart,
+        ];
+    }
+
+    private function allScheduleData(int $tentorId): array
+    {
+        $sessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)->get();
+
+        return [
+            'allMonths' => $sessions
+                ->groupBy(fn (ClassSession $session) => $session->start_at->format('Y-m'))
+                ->sortKeys()
+                ->map(function ($monthSessions, string $monthKey): array {
+                    $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
+                    $calendarStart = $monthStart->copy()->startOfWeek();
+                    $calendarEnd = $monthStart->copy()->endOfMonth()->endOfWeek();
+
+                    return [
+                        'label' => $monthStart->locale('id')->translatedFormat('F Y'),
+                        'month' => $monthStart->month,
+                        'dates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
+                        'sessions' => $monthSessions->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
+                    ];
+                })
+                ->values(),
         ];
     }
 

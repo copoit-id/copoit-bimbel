@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\ScheduleBookingRequest;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
+use App\Models\TutorLeaveRequest;
 use App\Models\User;
 use App\Models\UserPackageAcces;
 use App\Services\ScheduleBookingService;
@@ -289,6 +290,19 @@ class ScheduleBookingController extends Controller
             if (! $tutorAllowed) {
                 throw ValidationException::withMessages([
                     'tentor_id' => 'Tutor tidak tersedia untuk paket ini.',
+                ]);
+            }
+
+            $requestedEnd = $requestedStart->copy()->addMinutes($rule->duration_minutes);
+            $isTutorOnLeave = TutorLeaveRequest::query()
+                ->where('tentor_id', $validated['tentor_id'])
+                ->where('status', 'approved')
+                ->where('start_at', '<', $requestedEnd)
+                ->where('end_at', '>', $requestedStart)
+                ->exists();
+            if ($isTutorOnLeave) {
+                throw ValidationException::withMessages([
+                    'requested_start_at' => 'Tutor tidak tersedia pada waktu tersebut karena sedang cuti.',
                 ]);
             }
 

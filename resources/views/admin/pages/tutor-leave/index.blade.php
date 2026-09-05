@@ -1,0 +1,6 @@
+@extends('admin.layout.admin')
+@section('content')
+<div class="space-y-5"><div><h1 class="text-2xl font-bold text-gray-900">Pengajuan Cuti Tutor</h1><p class="mt-1 text-sm text-gray-500">Cuti yang disetujui memblokir jadwal custom.</p></div>
+@foreach($leaves as $leave)<article class="rounded-xl border border-gray-200 bg-white p-5"><div class="flex justify-between gap-4"><div><h2 class="font-bold text-gray-900">{{ $leave->tentor->name }}</h2><p class="text-sm text-gray-600">{{ $leave->start_at->format('d M Y H:i') }} – {{ $leave->end_at->format('d M Y H:i') }}</p><p class="mt-2 text-sm text-gray-700">{{ $leave->reason }}</p></div><div>@if($leave->status === 'pending')<form method="POST" action="{{ route('admin.tutor-leave.approve', $leave) }}" class="inline">@csrf<button class="rounded-lg bg-green-100 px-3 py-2 text-sm font-semibold text-green-700">Setujui</button></form><form method="POST" action="{{ route('admin.tutor-leave.reject', $leave) }}" class="mt-2">@csrf<input name="admin_notes" required placeholder="Alasan penolakan" class="mb-2 rounded border px-2 py-1 text-sm"><button class="rounded-lg bg-red-100 px-3 py-2 text-sm font-semibold text-red-700">Tolak</button></form>@else<span class="text-sm font-bold">{{ ucfirst($leave->status) }}</span>@endif</div></div></article>@endforeach
+{{ $leaves->links() }}</div>
+@endsection
