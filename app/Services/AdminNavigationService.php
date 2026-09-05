@@ -86,12 +86,13 @@ class AdminNavigationService
         $canShowTutorChatMenu = $isTutor && (bool) ($branding['tutor_chat_enabled'] ?? false)
             && $this->planModules->allows('discussion') && $routeExists('tutor.chat.index');
         $canShowTutorProfileMenu = $isTutor && $this->planModules->allows('profile') && $routeExists('tutor.profile.edit');
+        $canShowTutorLeaveMenu = ! $isTutor && $canAccessAdminPanel && $routeExists('admin.tutor-leave.index');
         $isMaterialManagementActive = $routeIs('admin.material.index', 'admin.material.create', 'admin.material.edit');
         $isClassScheduleActive = $canShowClassScheduleMenu && $routeIs('admin.class-schedules.*', 'admin.class-attendance.*');
         $canShowMasterMenu = $featureVisibility['package'] || $canShowClassScheduleMenu || $canShowLegacyClassMenu
             || $featureVisibility['tryout'] || $canShowStudyGroupMenu || $canShowMaterialMenu || $featureVisibility['tes_koran'];
         $canShowCategoryMenu = $canShowMaterialCategoryMenu || $canShowDestinationCategories;
-        $canShowUserMenu = $featureVisibility['user'] || $featureVisibility['akses'];
+        $canShowUserMenu = $featureVisibility['user'] || $featureVisibility['akses'] || $canShowTutorLeaveMenu;
         $canShowReportMenu = $featureVisibility['leaderboard'] || $featureVisibility['laporan']
             || $featureVisibility['essay_review'] || $featureVisibility['feedback'];
         $canShowFinanceSection = $canShowFinanceMenu || $canShowPaymentsMenu || $canShowRecurringBillMenu || $canShowTutorPayrollMenu;
@@ -132,6 +133,7 @@ class AdminNavigationService
             'canShowTutorDevelopmentMenu' => $canShowTutorDevelopmentMenu,
             'canShowTutorChatMenu' => $canShowTutorChatMenu,
             'canShowTutorProfileMenu' => $canShowTutorProfileMenu,
+            'canShowTutorLeaveMenu' => $canShowTutorLeaveMenu,
             'tutorChatUnreadCount' => $canShowTutorChatMenu ? $this->tutorChatService->unreadCountFor($user) : 0,
             'canShowMasterMenu' => $canShowMasterMenu,
             'canShowCategoryMenu' => $canShowCategoryMenu,
@@ -158,7 +160,7 @@ class AdminNavigationService
             'isTutorChatActive' => $isTutor && $routeIs('tutor.chat.*'),
             'isTutorProfileActive' => $isTutor && $routeIs('tutor.profile.*'),
             'isTesKoranActive' => $routeIs('admin.tes-koran.*'),
-            'isUserActive' => $routeIs('admin.user.*', 'admin.akses.*', 'admin.tentors.*'),
+            'isUserActive' => $routeIs('admin.user.*', 'admin.akses.*', 'admin.tentors.*', 'admin.tutor-leave.*'),
             'isReportActive' => $routeIs('admin.leaderboard.*', 'admin.laporan.*', 'admin.essay-review.*', 'admin.feedback.*'),
             'isFinanceActive' => $routeIs('admin.finance.*', 'admin.pembayaran.*')
                 || ($canShowRecurringBillMenu && $routeIs('admin.recurring-bills.*'))
