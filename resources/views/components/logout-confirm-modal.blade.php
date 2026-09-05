@@ -49,6 +49,11 @@
                         return;
                     }
 
+                    // This modal reuses the generic confirm button attributes.
+                    // Keep other layout-level confirm handlers from submitting
+                    // their fallback action ("#") instead of the logout form.
+                    event.stopImmediatePropagation();
+
                     if (event.target.closest('[data-confirm-cancel]') || event.target === modal) {
                         closeModal();
                         return;
