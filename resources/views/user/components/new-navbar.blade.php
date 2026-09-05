@@ -25,8 +25,7 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.booking', $currentRoute)
     || isActive('user.development', $currentRoute)
     || isActive('user.class-schedule', $currentRoute)
-    || $currentRoute === 'user.package.index'
-    || isActive('user.ai-gateway', $currentRoute);
+    || $currentRoute === 'user.package.index';
 
 function isActive($route, $current) {
     return str_starts_with((string) $current, $route);
@@ -185,8 +184,8 @@ function isActive($route, $current) {
                             @if($canShowTesKoran && \Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))<a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item">Tes Kecermatan</a>@endif
                         </div></div>
                         @endif
-                        @if($canShowPackage || $canShowAiLearning)
-                        <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        @if($canShowPackage)
+                        <a href="{{ route('user.package.index') }}" class="dropdown-item {{ $currentRoute === 'user.package.index' ? 'font-bold text-primary' : '' }}"><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</a>
                         @endif
                         @if($canShowSchedule)
                         <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item {{ isActive('user.class-schedule', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-2-line"></i>Jadwal Kelas</a>

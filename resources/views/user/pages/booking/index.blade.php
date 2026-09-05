@@ -27,6 +27,7 @@
 
 <div class="space-y-6" x-data="{
     options: {{ Illuminate\Support\Js::from($accessOptions) }},
+    showBookingModal: false,
     selectedAccess: @js($initialAccess),
     selectedTutor: @js((string) old('tentor_id', '')),
     selectedStudyGroup: @js((string) old('study_group_id', '')),
@@ -150,9 +151,10 @@
         </section>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-        <section class="h-fit rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-            <div class="flex items-start gap-3">
+    <div class="space-y-8">
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
                 <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xl text-primary">
                     <i class="ri-calendar-schedule-line"></i>
                 </span>
@@ -160,10 +162,17 @@
                     <h2 class="font-bold text-gray-900">Ajukan jadwal baru</h2>
                     <p class="mt-1 text-sm text-gray-500">Tutor masih dapat menawarkan waktu alternatif.</p>
                 </div>
+                </div>
+                @if($accesses->isNotEmpty())
+                    <button type="button" @click="showBookingModal = true" class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-add-line"></i><span class="hidden sm:inline">Atur jadwal</span><span class="sm:hidden">Booking</span></button>
+                @endif
             </div>
 
             @if($accesses->isNotEmpty())
-                <form method="POST" action="{{ route('user.booking.store') }}" class="mt-6 space-y-5">
+                <div x-show="showBookingModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="bookingModalTitle">
+                <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gray-200 bg-white">
+                <div class="flex items-start justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><h2 id="bookingModalTitle" class="font-bold text-gray-900">Atur jadwal belajar</h2><p class="mt-1 text-sm text-gray-500">Pilih paket, tutor, dan waktu yang kamu inginkan.</p></div><button type="button" @click="showBookingModal = false" class="text-xl text-gray-400 hover:text-gray-600" aria-label="Tutup"><i class="ri-close-line"></i></button></div>
+                <form method="POST" action="{{ route('user.booking.store') }}" class="space-y-5 p-5 sm:p-6">
                     @csrf
                     <label class="block">
                         <span class="text-sm font-semibold text-gray-700">Paket</span>
@@ -244,11 +253,8 @@
                         <textarea name="student_notes" rows="3" maxlength="1000" placeholder="Contoh: ingin membahas materi TPS Penalaran Umum" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary focus:ring-primary">{{ old('student_notes') }}</textarea>
                     </label>
 
-                    <button type="submit" :disabled="!selected || usedQuota >= selected.quota || selected.tutors.length === 0 || (selected.learning_mode === 'group' && !selectedGroup)" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
-                        <i class="ri-send-plane-line"></i>
-                        Kirim permintaan
-                    </button>
-                </form>
+                    <div class="flex justify-end gap-2 border-t border-gray-100 pt-4"><button type="button" @click="showBookingModal = false" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Batal</button><button type="submit" :disabled="!selected || usedQuota >= selected.quota || selected.tutors.length === 0 || (selected.learning_mode === 'group' && !selectedGroup)" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"><i class="ri-send-plane-line"></i>Kirim permintaan</button></div>
+                </form></div></div>
             @else
                 <div class="mt-6 rounded-xl border border-dashed border-gray-300 p-6 text-center">
                     <i class="ri-calendar-close-line text-3xl text-gray-300"></i>
