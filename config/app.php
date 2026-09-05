@@ -98,6 +98,20 @@ return [
 
     'key' => env('APP_KEY'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Temporary Deployment Migration
+    |--------------------------------------------------------------------------
+    |
+    | Enable only while deploying on hosting without terminal access. Disable
+    | it immediately after the migration has completed.
+    |
+    */
+
+    'deploy_migration_enabled' => env('DEPLOY_MIGRATION_ENABLED', false),
+
+    'deploy_migration_token' => env('DEPLOY_MIGRATION_TOKEN'),
+
     'previous_keys' => [
         ...array_filter(
             explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
