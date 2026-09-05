@@ -13,11 +13,6 @@
     @stack('styles')
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
-    @php
-        $currentRoute = request()->route()?->getName();
-        $selectedChildId = $child?->id;
-        $parentLink = fn (string $route) => route($route, $selectedChildId ? ['anak' => $selectedChildId] : []);
-    @endphp
     <header class="sticky top-0 z-30 border-b border-gray-200 bg-white">
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <a href="{{ route('parent.dashboard') }}" class="flex min-w-0 items-center gap-3">
@@ -29,7 +24,7 @@
                     <label class="sr-only" for="parent-child-selector">Pilih anak</label>
                     <select id="parent-child-selector" onchange="window.location=this.value" class="max-w-44 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 focus:border-primary focus:ring-primary sm:max-w-xs">
                         @foreach($children as $listedChild)
-                            <option value="{{ route($currentRoute, ['anak' => $listedChild->id]) }}" @selected((int) $selectedChildId === (int) $listedChild->id)>{{ $listedChild->name }}</option>
+                            <option value="{{ route(request()->route()?->getName(), ['anak' => $listedChild->id]) }}" @selected((int) ($child?->id) === (int) $listedChild->id)>{{ $listedChild->name }}</option>
                         @endforeach
                     </select>
                 @endif
@@ -47,17 +42,8 @@
     <div class="responsive-shell mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside class="h-fit rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-24">
             <nav class="space-y-1 text-sm font-semibold">
-                @php($canShowTutorChat = (bool) config('client.branding.tutor_chat_enabled', false) && app(\App\Services\PlanModuleService::class)->allows('discussion'))
-                @foreach([
-                    ['parent.dashboard', 'ri-home-5-line', 'Ringkasan'],
-                    ['parent.attendance', 'ri-calendar-check-line', 'Presensi'],
-                    ['parent.packages', 'ri-bank-card-line', 'Paket & Pembayaran'],
-                    ['parent.assessments', 'ri-bar-chart-box-line', 'Riwayat Ujian'],
-                    ['parent.development', 'ri-line-chart-line', 'Perkembangan'],
-                    ...($canShowTutorChat ? [['parent.chat.index', 'ri-chat-3-line', 'Chat Tutor']] : []),
-                    ['parent.report', 'ri-file-chart-line', 'Laporan Cetak'],
-                ] as [$route, $icon, $label])
-                    <a href="{{ $parentLink($route) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ $currentRoute === $route ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-primary' }}"><i class="{{ $icon }} text-lg"></i>{{ $label }}</a>
+                @foreach($parentNavigationItems as $item)
+                    <a href="{{ route($item['route'], $child?->id ? ['anak' => $child->id] : []) }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ $item['is_active'] ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-primary' }}"><i class="{{ $item['icon'] }} text-lg"></i>{{ $item['label'] }}</a>
                 @endforeach
             </nav>
         </aside>

@@ -7,6 +7,7 @@ use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\AdminLayoutContextService;
 use App\Services\AdminNavigationService;
+use App\Services\ParentNavigationService;
 use App\Services\UserNavigationService;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
@@ -31,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(PlanModuleService::class);
         $this->app->scoped(TutorContentVisibilityService::class);
         $this->app->scoped(UserNavigationService::class);
+        $this->app->scoped(ParentNavigationService::class);
     }
 
     /**
@@ -49,10 +51,7 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
         Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
         View::composer('admin.components.sidebar', function ($view): void {
-            $view->with(
-                'generalPublicVisibility',
-                app(AdminNavigationService::class)->publicPageVisibility(),
-            );
+            $view->with(app(AdminNavigationService::class)->context(auth()->user()));
         });
         View::composer('admin.layout.admin', function ($view): void {
             $isQuestionPickerRoute = request()->routeIs('admin.question-bank.*');
@@ -67,6 +66,9 @@ class AppServiceProvider extends ServiceProvider
         });
         View::composer(['user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
             $view->with(app(UserNavigationService::class)->context(auth()->user()));
+        });
+        View::composer('parent.layout', function ($view): void {
+            $view->with('parentNavigationItems', app(ParentNavigationService::class)->items());
         });
         $defaultAsset = 'img/logo/logo-copoit.png';
 
