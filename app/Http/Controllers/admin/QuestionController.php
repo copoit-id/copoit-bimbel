@@ -758,18 +758,10 @@ class QuestionController extends Controller
 
     private function buildShortAnswerMetadata(Request $request, string $questionType): array
     {
-        $expectedRaw = $request->input('short_answer_expected');
-        $expectedAnswers = [];
-
-        if ($expectedRaw !== null) {
-            $lines = preg_split("/\r\n|\r|\n/", $expectedRaw);
-            foreach ($lines as $line) {
-                $trimmed = trim($line);
-                if ($trimmed !== '') {
-                    $expectedAnswers[] = $trimmed;
-                }
-            }
-        }
+        $expectedRaw = trim((string) $request->input('short_answer_expected', ''));
+        $expectedAnswers = $questionType === 'essay'
+            ? ($expectedRaw === '' ? [] : [$expectedRaw])
+            : $this->plainTextExpectedAnswers($expectedRaw);
 
         // Evaluation mode: auto atau manual (untuk penentuan apakah butuh review)
         $evaluationMode = $questionType === 'essay'
@@ -806,6 +798,20 @@ class QuestionController extends Controller
             // Simpan correct_answer untuk AI matching
             'correct_answer' => $expectedAnswers[0] ?? null,
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function plainTextExpectedAnswers(string $expectedRaw): array
+    {
+        $plainText = preg_replace('/<(?:br\s*\/?>|\/p|\/div|\/li)>/i', "\n", $expectedRaw);
+        $plainText = html_entity_decode(strip_tags((string) $plainText), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return array_values(array_filter(array_map(
+            'trim',
+            preg_split("/\r\n|\r|\n/", $plainText) ?: []
+        ), static fn (string $answer): bool => $answer !== ''));
     }
 
     private function validateAudioAnswerQuestion(Request $request): void

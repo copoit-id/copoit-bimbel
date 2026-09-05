@@ -317,11 +317,12 @@
 
                 <div class="space-y-4 question-section hidden" data-type="essay">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Catatan Penilaian</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Daftar Jawaban Benar (Opsional)</label>
                         <textarea name="short_answer_expected" rows="4"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="220"
                             placeholder="Opsional: masukkan jawaban ideal atau panduan penilaian.">{{ old('short_answer_expected', $expectedAnswers) }}</textarea>
-                        <p class="text-xs text-gray-500 mt-1">Isi jawaban referensi jika memilih koreksi otomatis.</p>
+                        <p class="text-xs text-gray-500 mt-1">Mendukung format dan gambar untuk referensi koreksi otomatis.</p>
                     </div>
                     <div class="space-y-2">
                         <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>

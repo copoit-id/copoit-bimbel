@@ -453,11 +453,17 @@
                             @if(!empty($expectedAnswers))
                             <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Jawaban referensi</p>
-                                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                                @if($question->question_type === 'essay')
                                     @foreach($expectedAnswers as $answer)
-                                    <li>{{ $answer }}</li>
+                                        <div class="question-rich-text mt-2 text-sm text-gray-700 [&_img]:h-auto [&_img]:max-w-full">{!! $answer !!}</div>
                                     @endforeach
-                                </ul>
+                                @else
+                                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                                        @foreach($expectedAnswers as $answer)
+                                        <li>{{ $answer }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </div>
                             @endif
                             @elseif($question->question_type === 'audio' && !empty($audioMeta))

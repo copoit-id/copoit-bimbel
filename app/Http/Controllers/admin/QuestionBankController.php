@@ -1688,12 +1688,14 @@ class QuestionBankController extends Controller
 
     private function buildShortAnswerMetadata(Request $request, string $type): array
     {
-        $expectedRaw = $request->input('short_answer_expected', '');
-        $expectedAnswers = collect(preg_split("/\r\n|\r|\n/", $expectedRaw))
-            ->filter(fn ($line) => filled(trim($line)))
-            ->map(fn ($line) => trim($line))
-            ->values()
-            ->all();
+        $expectedRaw = trim((string) $request->input('short_answer_expected', ''));
+        $expectedAnswers = $type === 'essay'
+            ? ($expectedRaw === '' ? [] : [$expectedRaw])
+            : collect(preg_split("/\r\n|\r|\n/", $expectedRaw))
+                ->filter(fn ($line) => filled(trim($line)))
+                ->map(fn ($line) => trim($line))
+                ->values()
+                ->all();
 
         $evaluationMode = $type === 'essay'
             ? $request->input('essay_scoring_mode', 'manual')

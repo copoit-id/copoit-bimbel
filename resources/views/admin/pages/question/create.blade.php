@@ -412,7 +412,8 @@
                                             <input type="hidden" name="mtf_statements[{{ $index }}][id]" value="{{ $statement['id'] }}">
                                             <input type="hidden" name="mtf_statements[{{ $index }}][correct]" value="{{ $statement['correct'] === 'false' ? 'false' : 'true' }}" class="mtf-correct-input">
                                             <textarea name="mtf_statements[{{ $index }}][text]" rows="2"
-                                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                data-height="180"
                                                 placeholder="Tulis pernyataan...">{{ $statement['text'] }}</textarea>
                                         </td>
                                         <td class="px-5 py-3.5 text-center align-middle">
@@ -518,14 +519,12 @@
 
                         <div>
                             <label for="short_answer_expected"
-                                class="block text-sm font-medium text-gray-700 mb-2">Daftar
-                                Jawaban Benar (Opsional)</label>
+                                class="block text-sm font-medium text-gray-700 mb-2">Jawaban Benar</label>
                             <textarea id="short_answer_expected" name="short_answer_expected" rows="4"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Masukkan satu jawaban per baris">{{ $shortAnswerExpected }}</textarea>
-                            <p class="text-xs text-gray-500 mt-2">Pisahkan dengan baris baru untuk jawaban alternatif
-                                (contoh:
-                                &quot;Jakarta&quot; kemudian baris berikutnya &quot;DKI Jakarta&quot;).</p>
+                                class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                data-height="220"
+                                placeholder="Masukkan jawaban benar atau referensi koreksi.">{{ $shortAnswerExpected }}</textarea>
+                            <p class="text-xs text-gray-500 mt-2">Essay mendukung format dan gambar sebagai referensi koreksi otomatis.</p>
                         </div>
                         <div class="flex items-center gap-2" data-short-answer-case>
                             <input type="checkbox" id="short_answer_case_sensitive" name="short_answer_case_sensitive"
@@ -824,6 +823,7 @@
             addMtfRowBtn.addEventListener('click', function() {
                 const row = createMtfRow(mtfIndex);
                 mtfContainer.appendChild(row);
+                window.initSummernoteFields?.();
                 mtfIndex += 1;
             });
 
@@ -869,7 +869,8 @@
                         <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
                         <input type="hidden" name="mtf_statements[${index}][correct]" value="${normalizedCorrect}" class="mtf-correct-input">
                         <textarea name="mtf_statements[${index}][text]" rows="2"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="180"
                             placeholder="Tulis pernyataan...">${textValue}</textarea>
                     </td>
                     <td class="px-5 py-3.5 text-center align-middle">
