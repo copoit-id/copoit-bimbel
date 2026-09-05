@@ -94,12 +94,15 @@ class User extends Authenticatable
 
     public function getLeaderboardMajorChoicesDisplayAttribute(): ?string
     {
-        $choices = array_values(array_filter([
-            trim((string) ($this->attributes['major_choice_1'] ?? '')),
-            trim((string) ($this->attributes['major_choice_2'] ?? '')),
-        ]));
+        $primaryDestination = $this->participant_destination_display_name;
+        $secondDestination = $this->second_participant_destination_display_name;
 
-        return $choices === [] ? null : implode(' / ', $choices);
+        $choices = array_values(array_filter([
+            $primaryDestination ?: trim((string) ($this->attributes['major_choice_1'] ?? '')),
+            $secondDestination ?: trim((string) ($this->attributes['major_choice_2'] ?? '')),
+        ], static fn (mixed $choice): bool => $choice !== ''));
+
+        return $choices === [] ? null : implode(' / ', array_values(array_unique($choices)));
     }
 
     public function setNameAttribute($value): void

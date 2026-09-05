@@ -13,10 +13,11 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <form method="POST" action="{{ route('logout') }}">
+                <form id="super-admin-logout-form" method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit"
-                        class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                        class="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+                        data-logout-confirm data-logout-form="super-admin-logout-form">
                         <i class="ri-logout-circle-line mr-1"></i>Logout
                     </button>
                 </form>

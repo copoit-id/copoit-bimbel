@@ -87,10 +87,10 @@
                 @endif
 
                 <!-- Logout Button -->
-                <form action="{{ route('logout') }}" method="POST" class="inline">
+                <form id="admin-logout-form" action="{{ route('logout') }}" method="POST" class="inline">
                     @csrf
                     <button type="submit" class="{{ $logoutButtonClasses }} px-2 sm:px-3"
-                        onclick="return confirm('Yakin ingin logout?')">
+                        data-logout-confirm data-logout-form="admin-logout-form">
                         <i class="ri-logout-circle-r-line"></i>
                         <span class="hidden sm:inline">Logout</span>
                     </button>

@@ -83,9 +83,9 @@
                             </li>
                             @endif
                             <li>
-                                <form action="{{ route('logout') }}" method="POST">
+                                <form id="user-logout-form" action="{{ route('logout') }}" method="POST">
                                     @csrf
-                                    <button type="submit" class="{{ $dropdownLinkClasses }}">Logout</button>
+                                    <button type="submit" class="{{ $dropdownLinkClasses }}" data-logout-confirm data-logout-form="user-logout-form">Logout</button>
                                 </form>
                             </li>
                         </ul>

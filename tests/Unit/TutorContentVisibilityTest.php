@@ -10,6 +10,7 @@ use App\Models\QuestionBankQuestion;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\User;
+use App\Services\TutorContentVisibilityService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
@@ -207,5 +208,19 @@ class TutorContentVisibilityTest extends TestCase
         $response = app(EnsureTutorContentOwnership::class)->handle($request, fn () => response()->noContent());
 
         $this->assertSame(204, $response->getStatusCode());
+    }
+
+    public function test_tutor_cannot_delete_an_admin_owned_question_bank_in_tutor_isolation_mode(): void
+    {
+        DB::table('client_profile')->insert(['tutor_content_enabled' => true, 'tutor_content_visibility' => 'tutor_isolated']);
+        DB::table('users')->insert([
+            ['id' => 101, 'name' => 'Tutor Satu', 'role' => 'tutor'],
+            ['id' => 103, 'name' => 'Admin', 'role' => 'admin'],
+        ]);
+
+        $visibility = app(TutorContentVisibilityService::class);
+
+        $this->assertTrue($visibility->canDeleteContentOwnedBy(101, User::findOrFail(101)));
+        $this->assertFalse($visibility->canDeleteContentOwnedBy(103, User::findOrFail(101)));
     }
 }

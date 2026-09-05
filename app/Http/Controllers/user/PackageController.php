@@ -3658,6 +3658,8 @@ class PackageController extends Controller
                 ])
                 ->with([
                     'user:id,name,email,origin_institution,major_choice_1,major_choice_2,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
+                    'user.participantDestinationCategory.parent',
+                    'user.secondParticipantDestinationCategory.parent',
                     'tryoutDetail' => fn ($query) => $query->withCount('questions'),
                 ])
                 ->get()

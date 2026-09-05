@@ -10,7 +10,10 @@
 @php
     $reviewTotal = (int) $tentor->visible_reviews_count;
     $averageRating = (float) ($tentor->visible_reviews_avg_rating ?? 0);
-    $initialTab = $errors->any() ? 'identity' : (request()->has('reviews_page') ? 'reviews' : 'identity');
+    $requestedTab = old('profile_tab', request('tab'));
+    $initialTab = in_array($requestedTab, ['identity', 'professional'], true)
+        ? $requestedTab
+        : (request()->has('reviews_page') ? 'reviews' : 'identity');
 @endphp
 
 <div class="w-full space-y-6" x-data="{ tab: @js($initialTab) }">
@@ -57,11 +60,12 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('tutor.profile.update') }}" enctype="multipart/form-data" x-show="tab !== 'reviews'" x-cloak>
+    <form method="POST" action="{{ route('tutor.profile.update') }}" enctype="multipart/form-data" x-show="tab !== 'reviews'">
         @csrf
         @method('PUT')
+        <input type="hidden" name="profile_tab" x-model="tab">
 
-        <div x-show="tab === 'identity'" x-cloak class="grid gap-6 xl:grid-cols-[minmax(340px,0.7fr)_minmax(0,1.3fr)]">
+        <div x-show="tab === 'identity'" class="grid gap-6 xl:grid-cols-[minmax(340px,0.7fr)_minmax(0,1.3fr)]">
             <section class="h-fit rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                 <div class="flex flex-col items-start gap-5 sm:flex-row xl:flex-col">
                     @if($tentor->profile_photo_path)
@@ -111,7 +115,7 @@
             </section>
         </div>
 
-        <section x-show="tab === 'professional'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <section x-show="tab === 'professional'" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 class="text-lg font-bold text-gray-900">Profil profesional</h2>

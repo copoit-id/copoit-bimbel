@@ -313,9 +313,9 @@ function isActive($route, $current) {
                             <i class="ri-share-forward-line mr-2"></i>Affiliate
                         </a>
                         @endif
-                        <form action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
+                        <form id="user-logout-form" action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
                             @csrf
-                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-logout-confirm data-logout-form="user-logout-form">
                                 <i class="ri-logout-box-line mr-2"></i>Keluar
                             </button>
                         </form>

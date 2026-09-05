@@ -48,6 +48,7 @@
     @endif
     @include('admin.components.navbar')
     @include('components.confirm-modal')
+    <x-logout-confirm-modal />
     @include('admin.components.sidebar')
     @include('components.flash-alert')
 

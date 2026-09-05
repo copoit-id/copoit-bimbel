@@ -57,6 +57,13 @@ class QuestionBankController extends Controller
         ];
 
         $bankOptions = QuestionBank::orderBy('name')->get();
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        $deletableBankIds = $rootBanks
+            ->flatMap(fn (QuestionBank $bank) => collect([$bank])->merge($bank->children))
+            ->filter(fn (QuestionBank $bank): bool => $visibility->canDeleteContentOwnedBy($bank->created_by, $request->user()))
+            ->pluck('id')
+            ->flip()
+            ->all();
 
         return view('admin.pages.question-bank.index', compact(
             'rootBanks',
@@ -65,7 +72,8 @@ class QuestionBankController extends Controller
             'tryoutDetail',
             'importTarget',
             'bankSort',
-            'recursiveQuestionCounts'
+            'recursiveQuestionCounts',
+            'deletableBankIds'
         ));
     }
 
@@ -197,6 +205,12 @@ class QuestionBankController extends Controller
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
         $bankOptions = $this->buildBankOptions();
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        $deletableBankIds = $questionBank->children
+            ->filter(fn (QuestionBank $child): bool => $visibility->canDeleteContentOwnedBy($child->created_by, $request->user()))
+            ->pluck('id')
+            ->flip()
+            ->all();
 
         return view('admin.pages.question-bank.show', [
             'bank' => $questionBank,
@@ -210,8 +224,8 @@ class QuestionBankController extends Controller
             'perPage' => $perPage,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
-            'canDeleteBank' => app(\App\Services\TutorContentVisibilityService::class)
-                ->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
+            'canDeleteBank' => $visibility->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
+            'deletableBankIds' => $deletableBankIds,
             'pptImportPreview' => $pptImportPreview,
             'recursiveQuestionCounts' => $recursiveQuestionCounts,
             'bankTotalQuestions' => $bankTotalQuestions,
