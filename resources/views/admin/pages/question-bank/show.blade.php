@@ -187,11 +187,9 @@
                             class="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-64">
                         <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                     </div>
-                    <select name="sort" onchange="this.form.submit()"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                        <option value="newest" @selected(($questionSort ?? 'newest') === 'newest')>Terbaru</option>
-                        <option value="oldest" @selected(($questionSort ?? 'newest') === 'oldest')>Terlama</option>
-                    </select>
+                    <span class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                        Urutan: pertama ditambahkan
+                    </span>
                     <select name="question_type" onchange="this.form.submit()"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                         <option value="all" @selected(($questionType ?? 'all') === 'all')>Semua Tipe</option>
@@ -213,7 +211,6 @@
                     <a href="{{ route('admin.question-bank.show', array_filter([
                         'questionBank' => $bank->id,
                         'import_for' => request()->has('import_for') ? $importTarget : null,
-                        'sort' => $questionSort ?? 'newest',
                         'question_type' => $questionType ?? 'all',
                         'per_page' => $perPage ?? 5,
                     ], fn($value) => $value !== null)) }}"

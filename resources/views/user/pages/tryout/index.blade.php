@@ -176,7 +176,7 @@
                                                             @foreach ($mtfStatements as $stmtIndex => $statement)
                                                                 @php $stmtId = trim((string) ($statement['id'] ?? 'stmt_' . ($stmtIndex + 1))); @endphp
                                                                 <tr class="border-t border-gray-200">
-                                                                    <td class="px-5 py-3.5 text-gray-800">
+                                                                    <td class="question-rich-text px-5 py-3.5 text-gray-800 [&_img]:h-auto [&_img]:max-w-full">
                                                                         {!! $statement['text'] ?? '' !!}</td>
                                                                     <td class="px-5 py-3.5 text-center">
                                                                         <input type="radio"

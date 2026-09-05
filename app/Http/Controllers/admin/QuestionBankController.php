@@ -160,14 +160,13 @@ class QuestionBankController extends Controller
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
-        $questionSort = $request->input('sort', 'newest');
-        $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
+        // Nomor soal mengikuti urutan pertama kali ditambahkan ke bank.
         $questionType = $request->input('question_type', 'all');
         $questionSearch = trim((string) $request->input('search', ''));
         $perPage = \App\Support\Pagination::perPage(5);
 
-        $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
-            $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
+        $questionBank->load(['children' => function ($query) {
+            $query->withCount('questions')->latest('created_at')->latest('id');
         }]);
         $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
             QuestionBank::withCount('questions')->get(['id', 'parent_id'])
@@ -200,7 +199,8 @@ class QuestionBankController extends Controller
         }
 
         $questions = $questionsQuery
-            ->orderBy('created_at', $questionSortDirection)
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->paginate($perPage);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
@@ -218,7 +218,6 @@ class QuestionBankController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'tryoutDetail' => $tryoutDetail,
             'importTarget' => $importTarget,
-            'questionSort' => $questionSort,
             'questionType' => $questionType,
             'questionSearch' => $questionSearch,
             'perPage' => $perPage,

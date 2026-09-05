@@ -661,7 +661,7 @@
                                     : ($mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah');
                             @endphp
                             <tr class="border-t border-gray-200">
-                                <td class="px-5 py-3.5 text-gray-800 align-top">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="question-rich-text px-5 py-3.5 text-gray-800 align-top [&_img]:h-auto [&_img]:max-w-full">{!! $stmt['text'] ?? '-' !!}</td>
                                 <td class="px-5 py-3.5 text-center align-middle">
                                     @if($userAnswer === 'true')
                                     <i class="ri-checkbox-circle-fill {{ $isStmtCorrect ? 'text-green' : 'text-red' }} text-lg"></i>

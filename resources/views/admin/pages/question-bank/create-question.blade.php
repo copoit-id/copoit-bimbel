@@ -249,7 +249,8 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                         <div class="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mtf-row">
                             <input type="hidden" name="mtf_statements[{{ $idx }}][id]" value="{{ $stmt['id'] ?? ('stmt_' . ($idx + 1)) }}">
                             <textarea name="mtf_statements[{{ $idx }}][text]" rows="2"
-                                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                data-height="180"
                                 placeholder="Pernyataan">{{ $stmt['text'] ?? '' }}</textarea>
                             <select name="mtf_statements[{{ $idx }}][correct]"
                                 class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -492,7 +493,8 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
             row.innerHTML = `
                 <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
                 <textarea name="mtf_statements[${index}][text]" rows="2"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    data-height="180"
                     placeholder="Pernyataan"></textarea>
                 <select name="mtf_statements[${index}][correct]"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
@@ -501,6 +503,7 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                 </select>
             `;
             mtfContainer.appendChild(row);
+            window.initSummernoteFields?.();
         });
 
         typeSelect?.addEventListener('change', toggleSections);
