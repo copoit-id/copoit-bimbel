@@ -66,6 +66,7 @@ use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
+use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\tutor\TutorProfileController;
@@ -420,6 +421,14 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     // Legacy URL retained for existing links/bookmarks.
     Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
     Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
+    Route::middleware('module:schedule')->group(function (): void {
+        Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
+        Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
+        Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+    });
+    Route::get('penghasilan', [TutorDashboardController::class, 'earnings'])
+        ->middleware('module:tutor_payroll')
+        ->name('earnings.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {

@@ -9,6 +9,7 @@ use App\Models\ClassSession;
 use App\Models\ScheduleBookingRequest;
 use App\Models\TutorAttendance;
 use App\Models\TutorPayroll;
+use App\Models\TutorPayrollItem;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\PlanModuleService;
 use Illuminate\Http\RedirectResponse;
@@ -112,11 +113,31 @@ class TutorDashboardController extends Controller
     {
         $tentor = $request->user()->tentorProfile;
         $schedule = $this->weeklyScheduleData($tentor->id);
+        $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
+            'canManageSchedule' => $canManageSchedule,
             ...$schedule,
         ]);
+    }
+
+    public function earnings(Request $request): View
+    {
+        $tentor = $request->user()->tentorProfile;
+        $items = TutorPayrollItem::query()
+            ->with(['payroll:id,tentor_id,status,paid_at', 'session:id,class_schedule_id,start_at', 'session.schedule:id,title'])
+            ->whereHas('payroll', fn ($query) => $query->where('tentor_id', $tentor->id))
+            ->latest('session_date')
+            ->paginate(20);
+
+        $summary = TutorPayroll::query()
+            ->where('tentor_id', $tentor->id)
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END) as paid_amount")
+            ->selectRaw("SUM(CASE WHEN status != 'paid' THEN net_amount ELSE 0 END) as pending_amount")
+            ->first();
+
+        return view('tutor.earnings', compact('items', 'summary'));
     }
 
     public function attendanceIndex(Request $request): View

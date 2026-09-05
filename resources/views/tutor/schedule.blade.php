@@ -4,10 +4,15 @@
 
 @section('content')
 <div class="space-y-6">
-    <div>
+    <div class="flex items-start justify-between gap-4">
+        <div>
         <p class="text-sm text-gray-500">Jadwal mengajar</p>
         <h1 class="text-2xl font-bold text-gray-900">{{ $tentor->name }}</h1>
         <p class="text-sm text-gray-500">{{ $weekDates->first()->locale('id')->translatedFormat('d M') }} - {{ $weekDates->last()->locale('id')->translatedFormat('d M Y') }}</p>
+        </div>
+        @if($canManageSchedule)
+            <a href="{{ route('tutor.schedule.create') }}" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-add-line mr-1"></i>Tambah sesi</a>
+        @endif
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
@@ -27,6 +32,15 @@
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>
                             @elseif($session->meeting_url)
                                 <a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-1 flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"><i class="ri-video-chat-line"></i>Online meeting</a>
+                            @endif
+                            @if($canManageSchedule && $session->status === 'scheduled' && $session->start_at->isFuture())
+                                <form method="POST" action="{{ route('tutor.schedule.cancel', $session) }}" class="mt-3" onsubmit="return confirm('Batalkan sesi ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="text-[11px] font-semibold text-red-600 hover:underline">Batalkan sesi</button>
+                                </form>
+                            @elseif($session->status === 'cancelled')
+                                <p class="mt-2 text-[11px] font-semibold text-red-600">Dibatalkan</p>
                             @endif
                         </article>
                     @empty

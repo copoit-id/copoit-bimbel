@@ -25,6 +25,8 @@
             && \Illuminate\Support\Facades\Route::has('tutor.development.index');
         $canShowAttendance = $planModules->allows('attendance')
             && \Illuminate\Support\Facades\Route::has('tutor.attendance.index');
+        $canShowEarnings = $planModules->allows('tutor_payroll')
+            && \Illuminate\Support\Facades\Route::has('tutor.earnings.index');
         $canShowQuestionBank = $planModules->allows('question_bank')
             && (auth()->user()?->hasPermission('question_bank', 'view') ?? false)
             && \Illuminate\Support\Facades\Route::has('admin.question-bank.index');
@@ -47,6 +49,7 @@
             <a href="{{ route('tutor.schedule.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-2-line text-lg"></i>Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-calendar-schedule-line text-lg"></i>Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-checkbox-circle-line text-lg"></i>Absensi</a>@endif
+            @if($canShowEarnings)<a href="{{ route('tutor.earnings.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.earnings.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-money-dollar-circle-line text-lg"></i>Penghasilan</a>@endif
             @if($canShowLearningProgress)<a href="{{ route('tutor.development.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.development.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-line-chart-line text-lg"></i>Perkembangan</a>@endif
             @if($clientBranding['tutor_chat_enabled'] ?? false)<a href="{{ route('tutor.chat.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.chat.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-chat-3-line text-lg"></i>Chat Siswa</a>@endif
             @if($canShowTutorProfile)<a href="{{ route('tutor.profile.edit') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ request()->routeIs('tutor.profile.*') ? $activeLinkClass : $inactiveLinkClass }}"><i class="ri-user-settings-line text-lg"></i>Profil Saya</a>@endif
@@ -71,6 +74,7 @@
             <a href="{{ route('tutor.schedule.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.schedule.*') ? $activeLinkClass : $inactiveLinkClass }}">Jadwal Mengajar</a>
             @if($canShowBooking)<a href="{{ route('tutor.booking.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.booking.*') ? $activeLinkClass : $inactiveLinkClass }}">Booking</a>@endif
             @if($canShowAttendance)<a href="{{ route('tutor.attendance.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.attendance.*') ? $activeLinkClass : $inactiveLinkClass }}">Absensi</a>@endif
+            @if($canShowEarnings)<a href="{{ route('tutor.earnings.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.earnings.*') ? $activeLinkClass : $inactiveLinkClass }}">Penghasilan</a>@endif
             @if($canShowLearningProgress)<a href="{{ route('tutor.development.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.development.*') ? $activeLinkClass : $inactiveLinkClass }}">Perkembangan</a>@endif
             @if($clientBranding['tutor_chat_enabled'] ?? false)<a href="{{ route('tutor.chat.index') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.chat.*') ? $activeLinkClass : $inactiveLinkClass }}">Chat Siswa</a>@endif
             @if($canShowTutorProfile)<a href="{{ route('tutor.profile.edit') }}" class="block rounded-lg px-3 py-2 {{ request()->routeIs('tutor.profile.*') ? $activeLinkClass : $inactiveLinkClass }}">Profil Saya</a>@endif
