@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DemoRequestController;
+use App\Http\Controllers\DeploymentMigrationController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
@@ -88,6 +89,10 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Models\Tentor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/_deploy/migrate/{token}', DeploymentMigrationController::class)
+    ->middleware('throttle:3,1')
+    ->name('deployment.migrate');
 
 Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
 Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
