@@ -14,6 +14,10 @@ class Package extends Model
 {
     use HasFactory;
 
+    public const ENROLLMENT_DIRECT_PURCHASE = 'direct_purchase';
+
+    public const ENROLLMENT_PROGRAM = 'program';
+
     protected $guarded = ['package_id'];
 
     protected $primaryKey = 'package_id';

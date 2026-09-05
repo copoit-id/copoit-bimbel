@@ -35,6 +35,7 @@ $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
 $hasUnpaid = $showBillingDashboard && $canShowPayments && $unpaidInvoices->isNotEmpty();
 $hasSessions = $canShowSchedule && $upcomingClassSessions->isNotEmpty();
+$canRequestScheduleBooking = $canRequestScheduleBooking ?? false;
 $whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? '')) ?: '628561078411';
 $communityWhatsappHref = "https://wa.me/{$whatsappNumber}?text=Halo%20Admin%2C%20saya%20ingin%20konsultasi%20program%20persiapan%20PKN%20STAN.";
 
@@ -221,11 +222,12 @@ $primaryRgb = "$r, $g, $b";
     $quickAccessCount = ($canShowMaterial ? 1 : 0)
         + ($canShowTryout ? 1 : 0)
         + ($canShowSchedule ? 1 : 0)
+        + ($canRequestScheduleBooking ? 1 : 0)
         + ($canShowMaterial && $liveSessionAvailable ? 1 : 0)
         + ($canShowPackage ? 2 : 0);
     $usesQuickAccessCarousel = $quickAccessCount > 6;
 @endphp
-@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
+@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule || $canRequestScheduleBooking)
 <section x-data class="mb-6">
     <div class="mb-3 flex items-center justify-between">
         <h2 class="text-base font-bold text-gray-800">Akses Cepat</h2>
@@ -272,6 +274,16 @@ $primaryRgb = "$r, $g, $b";
             <i class="ri-calendar-check-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
+    </a>
+    @endif
+
+    @if($canRequestScheduleBooking)
+    <a href="{{ route('user.booking.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-primary/20 bg-primary/5 p-4 transition-all hover:border-primary/40 hover:bg-primary/10">
+        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white">
+            <i class="ri-calendar-schedule-line text-xl"></i>
+        </div>
+        <h3 class="text-sm font-semibold text-gray-800">Pilih Tutor & Jadwal</h3>
+        <p class="mt-1 text-xs text-gray-500">Ajukan sesi personal atau rombel</p>
     </a>
     @endif
 

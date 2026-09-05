@@ -27,7 +27,6 @@ use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
-use App\Http\Controllers\admin\PackageBookingRuleController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
@@ -615,10 +614,6 @@ Route::prefix('{portal}')
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
         Route::middleware('client-feature:schedule-booking')->group(function (): void {
-            Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
-                ->name('package-booking.edit');
-            Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
-                ->name('package-booking.update');
             Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
                 ->name('package-booking.cohorts.index');
             Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])

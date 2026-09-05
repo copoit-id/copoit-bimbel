@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\PlanModuleService;
 
 class DashboardController extends Controller
 {
@@ -31,7 +32,7 @@ class DashboardController extends Controller
      */
     private array $maxPossibleScoreCache = [];
 
-    public function index()
+    public function index(PlanModuleService $planModules)
     {
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
@@ -75,6 +76,16 @@ class DashboardController extends Controller
             ->orderBy('end_date', 'asc')
             ->limit(5)
             ->get();
+
+        $canRequestScheduleBooking = (bool) config('client.branding.booking_schedule_enabled', false)
+            && $planModules->allows('booking')
+            && UserPackageAcces::query()
+                ->where('user_id', $user->id)
+                ->active()
+                ->whereHas('package.bookingRule', fn ($query) => $query
+                    ->where('is_enabled', true)
+                    ->whereIn('learning_mode', ['personal', 'both']))
+                ->exists();
 
         // The active dashboard layout does not render grouped attempt data. Avoid
         // loading up to 50 attempts and their questions on every dashboard visit.
@@ -258,7 +269,8 @@ class DashboardController extends Controller
             'targetChoices',
             'showStatisticsDashboard',
             'showLandingDashboard',
-            'showBillingDashboard'
+            'showBillingDashboard',
+            'canRequestScheduleBooking',
         ));
     }
 

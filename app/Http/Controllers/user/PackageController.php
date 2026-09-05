@@ -52,6 +52,7 @@ class PackageController extends Controller
         $tab = 'all';
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
+        $requestedEnrollmentMode = $request->string('mode')->toString();
         
         // Get user's owned package IDs (cast to int for consistent comparison)
         $userOwnedPackageIds = [];
@@ -76,7 +77,11 @@ class PackageController extends Controller
         
         $packagesQuery = Package::where('status', 'active')
             ->where('is_displayed', true)
-            ->with(['detailPackages', 'freeClaimTryout:tryout_id,name'])
+            ->with([
+                'detailPackages',
+                'freeClaimTryout:tryout_id,name',
+                'bookingRule:id,package_id,is_enabled,learning_mode',
+            ])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
         if ($search !== '') {
@@ -92,6 +97,26 @@ class PackageController extends Controller
             'name_desc' => $packagesQuery->orderBy('name', 'desc'),
             default => $packagesQuery->orderBy('created_at', 'desc'),
         };
+
+        $hasProductPackages = (clone $packagesQuery)
+            ->where('enrollment_mode', Package::ENROLLMENT_DIRECT_PURCHASE)
+            ->exists();
+        $hasProgramPackages = (clone $packagesQuery)
+            ->where('enrollment_mode', Package::ENROLLMENT_PROGRAM)
+            ->exists();
+        $showEnrollmentTabs = $hasProductPackages && $hasProgramPackages;
+        $selectedEnrollmentMode = $requestedEnrollmentMode === 'program' && $hasProgramPackages
+            ? 'program'
+            : 'product';
+
+        if ($showEnrollmentTabs) {
+            $packagesQuery->where(
+                'enrollment_mode',
+                $selectedEnrollmentMode === 'program'
+                    ? Package::ENROLLMENT_PROGRAM
+                    : Package::ENROLLMENT_DIRECT_PURCHASE
+            );
+        }
 
         $packages = $packagesQuery->get();
 
@@ -146,7 +171,9 @@ class PackageController extends Controller
             'aiGatewayPlans',
             'combinedAiPayment',
             'search',
-            'sort'
+            'sort',
+            'showEnrollmentTabs',
+            'selectedEnrollmentMode',
         ));
     }
 
@@ -189,7 +216,36 @@ class PackageController extends Controller
         try {
             $package = Package::where('status', 'active')
                 ->where('is_displayed', true)
+                ->with('bookingRule:id,package_id,is_enabled,learning_mode')
                 ->findOrFail($package_id);
+
+            if ($package->enrollment_mode === Package::ENROLLMENT_PROGRAM) {
+                $message = 'Program ini tidak dapat dibeli langsung. Tagihan dan akses dikelola terpisah oleh admin.';
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $message,
+                    ], 422);
+                }
+
+                return redirect()->back()->with('info', $message);
+            }
+
+            if ($package->bookingRule?->is_enabled
+                && $package->bookingRule->learning_mode === 'group') {
+                $message = 'Paket ini didapatkan melalui rombel. Buat atau gabung rombel terlebih dahulu.';
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $message,
+                        'redirect_url' => route('user.booking.index'),
+                    ]);
+                }
+
+                return redirect()->route('user.booking.index')->with('info', $message);
+            }
 
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
@@ -215,7 +271,8 @@ class PackageController extends Controller
 
                     return response()->json([
                         'success' => true,
-                        'message' => 'Paket gratis berhasil diaktifkan!'
+                        'message' => 'Paket gratis berhasil diaktifkan!',
+                        'redirect_url' => $this->activatedPackageRedirectUrl($package),
                     ]);
 
                 case 'free_conditional':
@@ -244,6 +301,7 @@ class PackageController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => 'Syarat Tryout sudah terpenuhi. Paket gratis berhasil diaktifkan!',
+                            'redirect_url' => $this->activatedPackageRedirectUrl($package),
                         ]);
                     }
 
@@ -323,7 +381,7 @@ class PackageController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => ($discountData['source'] === 'voucher' ? 'Kode diskon berhasil digunakan.' : 'Diskon berhasil diterapkan.') . ' Paket sudah aktif.',
-                            'redirect_url' => route('user.package.my'),
+                            'redirect_url' => $this->activatedPackageRedirectUrl($package),
                         ]);
                     }
 
@@ -420,13 +478,14 @@ class PackageController extends Controller
                                 return response()->json([
                                     'success' => true,
                                     'message' => 'Pembayaran sudah berhasil. Akses paket sudah aktif.',
-                                    'redirect_url' => route('user.package.my'),
+                                    'redirect_url' => $this->activatedPackageRedirectUrl($package),
                                 ]);
                             }
 
                             return $this->redirectAfterSuccessfulProductPayment(
                                 $request,
-                                'Pembayaran sudah berhasil. Akses paket sudah aktif.'
+                                'Pembayaran sudah berhasil. Akses paket sudah aktif.',
+                                $pendingGatewayPayment,
                             );
                         }
 
@@ -2593,7 +2652,8 @@ class PackageController extends Controller
 
                     return $this->redirectAfterSuccessfulProductPayment(
                         $request,
-                        'Pembayaran berhasil. Paket sudah aktif.'
+                        'Pembayaran berhasil. Paket sudah aktif.',
+                        $payment,
                     );
                 }
             } catch (\Throwable $e) {
@@ -2658,10 +2718,27 @@ class PackageController extends Controller
         $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
     }
 
-    private function redirectAfterSuccessfulProductPayment(Request $request, string $message): \Illuminate\Http\RedirectResponse
+    private function redirectAfterSuccessfulProductPayment(
+        Request $request,
+        string $message,
+        ?Payment $payment = null
+    ): \Illuminate\Http\RedirectResponse
     {
         return $this->redirectAfterCombinedProductPaymentReturn($request)
-            ?? redirect()->route('user.package.my')->with('success', $message);
+            ?? redirect()->to(
+                $payment?->package
+                    ? $this->activatedPackageRedirectUrl($payment->package)
+                    : route('user.package.my')
+            )->with('success', $message);
+    }
+
+    private function activatedPackageRedirectUrl(Package $package): string
+    {
+        $package->loadMissing('bookingRule:id,package_id,is_enabled');
+
+        return $package->type_package === 'bimbel' && $package->bookingRule?->is_enabled
+            ? route('user.booking.index')
+            : route('user.package.my');
     }
 
     private function redirectAfterCombinedProductPaymentReturn(Request $request): ?\Illuminate\Http\RedirectResponse

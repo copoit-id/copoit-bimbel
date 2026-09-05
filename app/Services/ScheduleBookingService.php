@@ -22,7 +22,7 @@ class ScheduleBookingService
     ) {}
 
     /**
-     * @param  array{location?: string|null, meeting_url?: string|null}  $sessionDetails
+     * @param  array{location?: string|null, meeting_url?: string|null, session_price?: int|null}  $sessionDetails
      */
     public function approve(
         ScheduleBookingRequest $booking,
@@ -127,6 +127,17 @@ class ScheduleBookingService
                 ]);
             }
 
+            $sessionPrice = null;
+            if ($rule->payment_model === 'per_session') {
+                if (! array_key_exists('session_price', $sessionDetails) || $sessionDetails['session_price'] === null) {
+                    throw ValidationException::withMessages([
+                        'session_price' => 'Nominal pembayaran per pertemuan wajib diisi.',
+                    ]);
+                }
+
+                $sessionPrice = (int) $sessionDetails['session_price'];
+            }
+
             $lockedBooking->update([
                 'status' => ScheduleBookingRequest::STATUS_APPROVED,
                 'scheduled_start_at' => $scheduledStart,
@@ -140,6 +151,10 @@ class ScheduleBookingService
                     $scheduledStart,
                     $scheduledEnd
                 ),
+                'session_price' => $sessionPrice,
+                'tutor_payment_status' => $rule->payment_model === 'per_session'
+                    ? 'awaiting_tutor_payment'
+                    : 'not_required',
             ]);
 
             return $lockedBooking->fresh([

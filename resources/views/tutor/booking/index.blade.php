@@ -120,6 +120,12 @@
                                     <span class="text-xs font-semibold text-gray-600">Waktu final</span>
                                     <input type="datetime-local" name="scheduled_start_at" value="{{ $booking->requested_start_at->format('Y-m-d\TH:i') }}" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
                                 </label>
+                                @if($booking->package?->bookingRule?->payment_model === 'per_session')
+                                    <label class="block">
+                                        <span class="text-xs font-semibold text-gray-600">Nominal pertemuan</span>
+                                        <input type="number" name="session_price" min="0" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">
+                                    </label>
+                                @endif
                                 <label class="block">
                                     <span class="text-xs font-semibold text-gray-600">Lokasi <span class="font-normal text-gray-400">(opsional)</span></span>
                                     <input type="text" name="location" maxlength="255" placeholder="Ruang 2 / Online" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-primary">

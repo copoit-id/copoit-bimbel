@@ -20,7 +20,7 @@ class ClassScheduleBookingConfiguratorTest extends TestCase
         $this->createTables();
     }
 
-    public function test_custom_class_schedule_generates_simple_internal_booking_rule(): void
+    public function test_class_schedule_does_not_override_package_booking_rule(): void
     {
         $package = Package::query()->create(['name' => 'Paket Offline']);
         $schedule = ClassSchedule::query()->create([
@@ -41,15 +41,9 @@ class ClassScheduleBookingConfiguratorTest extends TestCase
         ]);
 
         app(ClassScheduleBookingConfigurator::class)->sync($schedule);
-        $rule = PackageBookingRule::query()
-            ->where('package_id', $package->package_id)
-            ->firstOrFail();
-
-        $this->assertTrue($rule->is_enabled);
-        $this->assertSame(8, $rule->session_quota);
-        $this->assertSame(90, $rule->duration_minutes);
-        $this->assertSame('Ruang 1', $rule->default_location);
-        $this->assertSame([1], $rule->tutors()->pluck('tentors.id')->all());
+        $this->assertDatabaseMissing('package_booking_rules', [
+            'package_id' => $package->package_id,
+        ]);
     }
 
     public function test_package_cannot_have_two_custom_booking_schedules(): void

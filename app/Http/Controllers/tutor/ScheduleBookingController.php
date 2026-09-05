@@ -28,6 +28,7 @@ class ScheduleBookingController extends Controller
             ->with([
                 'user:id,name,email,phone',
                 'package:package_id,name',
+                'package.bookingRule:package_id,payment_model',
                 'session:id,start_at,end_at,location,meeting_url',
                 'studyGroup:id,name,target_participants',
                 'studyGroup.members.user:id,name',
@@ -61,10 +62,13 @@ class ScheduleBookingController extends Controller
         ScheduleBookingService $bookingService
     ): RedirectResponse {
         $this->ensureAssignedTutor($request, $booking);
+        $booking->loadMissing('package.bookingRule:package_id,payment_model');
+        $requiresSessionPrice = $booking->package?->bookingRule?->payment_model === 'per_session';
         $validated = $request->validate([
             'scheduled_start_at' => ['nullable', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'meeting_url' => ['nullable', 'url', 'max:1000'],
+            'session_price' => [$requiresSessionPrice ? 'required' : 'nullable', 'integer', 'min:0'],
         ]);
         $startAt = filled($validated['scheduled_start_at'] ?? null)
             ? Carbon::parse($validated['scheduled_start_at'])
@@ -73,6 +77,7 @@ class ScheduleBookingController extends Controller
         $bookingService->approve($booking, $request->user(), $startAt, [
             'location' => $validated['location'] ?? null,
             'meeting_url' => $validated['meeting_url'] ?? null,
+            'session_price' => $validated['session_price'] ?? null,
         ]);
 
         return redirect()
