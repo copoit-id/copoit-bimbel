@@ -147,7 +147,7 @@ class LeaderboardController extends Controller
                     'rank' => $index + 1,
                     'name' => $ranking->user->name ?? 'Peserta',
                     'origin_institution' => $ranking->user?->origin_institution,
-                    'major_choices' => $ranking->user?->leaderboard_major_choices_display,
+                    'major_choices' => $ranking->user?->leaderboard_major_choices ?? [],
                     'score' => $displayScore['formatted'],
                     'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
                         ? $displayScore['formatted_maximum']

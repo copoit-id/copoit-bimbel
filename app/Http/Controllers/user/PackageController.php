@@ -3909,7 +3909,7 @@ class PackageController extends Controller
                     'rank' => $index + 1,
                     'name' => $ranking['user']->name,
                     'origin_institution' => $ranking['user']->origin_institution,
-                    'major_choices' => $ranking['user']->leaderboard_major_choices_display,
+                    'major_choices' => $ranking['user']->leaderboard_major_choices,
                     'score' => $ranking['display_score']['formatted'],
                     'maximum' => $showScoreMaximum
                         ? $ranking['display_score']['formatted_maximum']

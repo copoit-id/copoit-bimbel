@@ -87,9 +87,9 @@
                                     @if($podium['origin_institution'])
                                         <p title="{{ $podium['origin_institution'] }}">{{ $podium['origin_institution'] }}</p>
                                     @endif
-                                    @if($podium['major_choices'])
-                                        <p title="{{ $podium['major_choices'] }}">{{ $podium['major_choices'] }}</p>
-                                    @endif
+                                        @foreach($podium['major_choices'] as $majorChoice)
+                                            <p title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}</p>
+                                        @endforeach
                                 </div>
                             @endif
                             <p class="leaderboard-podium__score">{{ $podium['score'] }}@if($podium['maximum'])<span>/ {{ $podium['maximum'] }}</span>@endif</p>
@@ -162,21 +162,24 @@
                 </form>
             @endif
 
-            <div class="flex items-center gap-2">
-                <div class="relative">
-                    <input type="text" placeholder="Cari peserta..."
-                        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div class="relative w-full sm:max-w-xs">
+                    <label for="leaderboard-search" class="mb-1 block text-xs font-medium text-gray-500">Cari Peserta</label>
+                    <input id="leaderboard-search" type="text" placeholder="Nama atau email..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <i class="ri-search-line absolute left-3 top-8 text-gray-400"></i>
                 </div>
-                <select
-                    class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Skor</option>
-                    <option value="90-100">90-100</option>
-                    <option value="80-89">80-89</option>
-                    <option value="70-79">70-79</option>
-                    <option value="<70">
-                        < 70</option>
-                </select>
+                <div class="w-full sm:w-44">
+                    <label for="leaderboard-score-option" class="mb-1 block text-xs font-medium text-gray-500">Opsi Skor</label>
+                    <select id="leaderboard-score-option"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="">Semua Skor</option>
+                        <option value="90-100">90–100</option>
+                        <option value="80-89">80–89</option>
+                        <option value="70-79">70–79</option>
+                        <option value="<70">Di bawah 70</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -290,7 +293,16 @@
                             </td>
 
                             <td class="px-6 py-4">
-                                <p class="min-w-[180px] text-sm font-medium text-gray-700">{{ $ranking->user?->leaderboard_major_choices_display ?: '—' }}</p>
+                                <div class="min-w-[220px] space-y-1 text-sm font-medium text-gray-700">
+                                    @forelse($ranking->user?->leaderboard_major_choices ?? [] as $majorChoice)
+                                        <p class="flex gap-1.5" title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">
+                                            <span class="shrink-0 text-gray-500">{{ $majorChoice['label'] }}:</span>
+                                            <span>{{ $majorChoice['value'] }}</span>
+                                        </p>
+                                    @empty
+                                        <p>—</p>
+                                    @endforelse
+                                </div>
                             </td>
 
                             @if($hasMultipleSubtests)

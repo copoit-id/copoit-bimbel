@@ -179,9 +179,9 @@
                                         @if($podium['origin_institution'])
                                             <p title="{{ $podium['origin_institution'] }}">{{ $podium['origin_institution'] }}</p>
                                         @endif
-                                        @if($podium['major_choices'])
-                                            <p title="{{ $podium['major_choices'] }}">{{ $podium['major_choices'] }}</p>
-                                        @endif
+                                        @foreach($podium['major_choices'] as $majorChoice)
+                                            <p title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}</p>
+                                        @endforeach
                                     </div>
                                 @endif
                                 <p class="leaderboard-podium__score">{{ $podium['score'] }}@if($podium['maximum'])<span>/ {{ $podium['maximum'] }}</span>@endif</p>
@@ -291,7 +291,16 @@
                                     </td>
 
                                     <td class="px-3 py-2.5">
-                                        <p class="min-w-[180px] text-xs font-medium text-gray-700">{{ $ranking['user']->leaderboard_major_choices_display ?: '—' }}</p>
+                                        <div class="min-w-[220px] space-y-1 text-xs font-medium text-gray-700">
+                                            @forelse($ranking['user']->leaderboard_major_choices as $majorChoice)
+                                                <p class="flex gap-1.5" title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">
+                                                    <span class="shrink-0 text-gray-500">{{ $majorChoice['label'] }}:</span>
+                                                    <span>{{ $majorChoice['value'] }}</span>
+                                                </p>
+                                            @empty
+                                                <p>—</p>
+                                            @endforelse
+                                        </div>
                                     </td>
 
                                     @if($hasMultipleSubtests)

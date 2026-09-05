@@ -40,4 +40,19 @@ class UserLeaderboardMajorChoicesTest extends TestCase
 
         $this->assertSame('Psikologi / Manajemen', $user->leaderboard_major_choices_display);
     }
+
+    public function test_leaderboard_major_choices_keep_each_selection_on_a_separate_row(): void
+    {
+        $user = new User([
+            'major_choice_1' => 'Psikologi',
+            'major_choice_2' => 'Manajemen',
+        ]);
+        $user->setRelation('participantDestinationCategory', null);
+        $user->setRelation('secondParticipantDestinationCategory', null);
+
+        $this->assertSame([
+            ['label' => 'Pilihan 1', 'value' => 'Psikologi'],
+            ['label' => 'Pilihan 2', 'value' => 'Manajemen'],
+        ], $user->leaderboard_major_choices);
+    }
 }

@@ -94,15 +94,33 @@ class User extends Authenticatable
 
     public function getLeaderboardMajorChoicesDisplayAttribute(): ?string
     {
-        $primaryDestination = $this->participant_destination_display_name;
-        $secondDestination = $this->second_participant_destination_display_name;
-
-        $choices = array_values(array_filter([
-            $primaryDestination ?: trim((string) ($this->attributes['major_choice_1'] ?? '')),
-            $secondDestination ?: trim((string) ($this->attributes['major_choice_2'] ?? '')),
-        ], static fn (mixed $choice): bool => $choice !== ''));
+        $choices = array_column($this->leaderboard_major_choices, 'value');
 
         return $choices === [] ? null : implode(' / ', array_values(array_unique($choices)));
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function getLeaderboardMajorChoicesAttribute(): array
+    {
+        $choices = [
+            [
+                'label' => 'Pilihan 1',
+                'value' => $this->participant_destination_display_name
+                    ?: trim((string) ($this->attributes['major_choice_1'] ?? '')),
+            ],
+            [
+                'label' => 'Pilihan 2',
+                'value' => $this->second_participant_destination_display_name
+                    ?: trim((string) ($this->attributes['major_choice_2'] ?? '')),
+            ],
+        ];
+
+        return array_values(array_filter(
+            $choices,
+            static fn (array $choice): bool => $choice['value'] !== ''
+        ));
     }
 
     public function setNameAttribute($value): void
