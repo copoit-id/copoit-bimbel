@@ -23,14 +23,14 @@ class SettingController extends Controller
         $email = MailSafety::email($profile?->smtp_email);
         $recipient = MailSafety::email($request->input('recipient'));
         $password = $profile?->smtp_app_password;
-        if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.');
-        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com', 'mail.mailers.smtp.port' => $profile->smtp_port ?: 587, 'mail.mailers.smtp.username' => $email, 'mail.mailers.smtp.password' => $password, 'mail.mailers.smtp.scheme' => $profile->smtp_encryption ?: 'tls', 'mail.from.address' => $email]);
+        if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.')->with('active_tab', 'smtp');
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com', 'mail.mailers.smtp.port' => $profile->smtp_port ?: 587, 'mail.mailers.smtp.username' => $email, 'mail.mailers.smtp.password' => $password, 'mail.mailers.smtp.scheme' => null, 'mail.from.address' => $email, 'mail.from.name' => config('app.name')]);
         try {
             Mail::raw('Tes SMTP berhasil. Konfigurasi email Epycentrum aktif.', fn ($message) => $message->to($recipient)->subject('Tes SMTP Epycentrum'));
-            return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.');
+            return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.')->with('active_tab', 'smtp');
         } catch (\Throwable $exception) {
             report($exception);
-            return back()->with('error', 'Email tes gagal dikirim. Periksa email SMTP dan sandi aplikasi.');
+            return back()->with('error', 'Email tes gagal dikirim. Periksa email SMTP dan sandi aplikasi.')->with('active_tab', 'smtp');
         }
     }
     public function index()

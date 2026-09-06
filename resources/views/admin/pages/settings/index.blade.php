@@ -101,6 +101,8 @@
             <p>{{ $errors->first('admin_password') ?: ($errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.') }}</p>
         </div>
         @endif
+        @if (session('success'))<div class="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{{ session('success') }}</div>@endif
+        @if (session('error'))<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ session('error') }}</div>@endif
 
         <div class="bg-white border border-border rounded-2xl shadow-sm p-3 md:p-4">
             <div class="flex flex-wrap gap-2">
@@ -911,7 +913,6 @@
             </div>
             <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4"><button form="smtp-test-form" type="submit" class="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-send-plane-line"></i>Kirim Email Tes</button><p class="text-xs text-gray-500">Simpan SMTP terlebih dahulu, lalu cek inbox tujuan.</p></div>
         </div>
-        <form id="smtp-test-form" method="POST" action="{{ route('admin.settings.smtp.test') }}">@csrf</form>
 
         <div data-settings-panel="contact"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'contact' ? 'hidden' : '' }}">
@@ -1383,6 +1384,8 @@
         </div>
         </fieldset>
     </form>
+
+    <form id="smtp-test-form" method="POST" action="{{ route('admin.settings.smtp.test') }}">@csrf</form>
 
     <div id="settings-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Konfirmasi Password Admin</h2><p class="mt-1 text-sm text-gray-500">Masukkan password untuk menyimpan perubahan.</p><input id="settings-modal-password" type="password" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="Password Admin"><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-settings-modal class="rounded-xl border px-4 py-2">Batal</button><button id="settings-confirm-save" type="button" class="rounded-xl bg-primary px-4 py-2 text-white">Simpan</button></div></div></div>
     <div id="smtp-test-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Kirim Email Tes</h2><p class="mt-1 text-sm text-gray-500">Email ini hanya dipakai untuk pengujian dan tidak disimpan.</p><input form="smtp-test-form" name="recipient" type="email" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="email@penerima.com" required><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-smtp-modal class="rounded-xl border px-4 py-2">Batal</button><button form="smtp-test-form" type="submit" class="rounded-xl bg-primary px-4 py-2 text-white">Kirim</button></div></div></div>
