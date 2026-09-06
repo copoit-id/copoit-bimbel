@@ -12,6 +12,10 @@ return [
             'label' => 'Dashboard',
             'routes' => ['admin.dashboard'],
         ],
+        'school_admin' => [
+            'label' => 'Pemantauan Admin Sekolah',
+            'routes' => ['admin.school.'],
+        ],
         'interactive_tour' => [
             'label' => 'Tutor Navigasi',
             'routes' => ['admin.tours.'],

@@ -44,7 +44,7 @@
             </span>
         </div>
         <div class="flex gap-2 font-light">
-            <a href="{{ route('admin.leaderboard.show', ['package_id' => $tryout['package_id'], 'tryout_id' => $tryout['tryout_id']]) }}"
+            <a href="{{ route(($schoolLeaderboard ?? false) ? 'admin.school.leaderboard.show' : 'admin.leaderboard.show', ['package_id' => $tryout['package_id'], 'tryout_id' => $tryout['tryout_id']]) }}"
                 class="flex w-full justify-center bg-primary text-white px-4 py-2 rounded-lg mt-4 hover:bg-primary/90 transition-colors">
                 <i class="ri-trophy-fill me-2"></i>Lihat Peringkat
             </a>

@@ -70,6 +70,35 @@
                         <p class="mt-3 text-sm text-gray-500">Pilih role terlebih dahulu. Field data akademik hanya ditampilkan untuk peserta/siswa.</p>
                     </div>
 
+                    <div id="school-admin-study-groups" class="hidden rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <p class="text-sm font-semibold text-gray-800">Rombel yang dipantau</p>
+                        <p class="mt-1 text-xs text-gray-500">Admin Sekolah hanya dapat melihat data siswa dari rombel yang dipilih.</p>
+                        <div class="relative mt-3" data-school-admin-study-group-picker>
+                            <button type="button" data-school-admin-study-group-toggle
+                                class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-left text-sm text-gray-700 transition hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                aria-expanded="false">
+                                <span data-school-admin-study-group-summary>Pilih rombel yang dipantau</span>
+                                <i class="ri-arrow-down-s-line text-lg text-gray-400"></i>
+                            </button>
+                            <div data-school-admin-study-group-menu class="absolute z-20 mt-2 hidden w-full rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                                <div class="relative">
+                                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="search" data-school-admin-study-group-search placeholder="Cari rombel..."
+                                        class="w-full rounded-lg border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-primary focus:ring-primary">
+                                </div>
+                                <div class="mt-2 max-h-56 space-y-1 overflow-y-auto" data-school-admin-study-group-options>
+                            @foreach($schoolAdminStudyGroups as $studyGroup)
+                                    <label data-school-admin-study-group-option data-search-value="{{ strtolower($studyGroup->name) }}" class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <input type="checkbox" name="school_admin_study_group_ids[]" value="{{ $studyGroup->id }}" @checked(in_array($studyGroup->id, $selectedSchoolAdminStudyGroupIds, true))>
+                                    {{ $studyGroup->name }}
+                                </label>
+                            @endforeach
+                                    <p data-school-admin-study-group-empty class="hidden px-3 py-2 text-sm text-gray-500">Rombel tidak ditemukan.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="name" label="Nama" :value="old('name', $user->name ?? '')" required />
                         <x-form.input name="username" label="Username" :value="old('username', $user->username ?? '')"
@@ -279,6 +308,14 @@
         const studentFields = document.querySelectorAll('[data-student-field]');
         const parentChildSection = document.getElementById('parent-child-section');
         const studentParentSection = document.getElementById('student-parent-section');
+        const schoolAdminStudyGroups = document.getElementById('school-admin-study-groups');
+        const schoolAdminStudyGroupPicker = document.querySelector('[data-school-admin-study-group-picker]');
+        const schoolAdminStudyGroupToggle = document.querySelector('[data-school-admin-study-group-toggle]');
+        const schoolAdminStudyGroupMenu = document.querySelector('[data-school-admin-study-group-menu]');
+        const schoolAdminStudyGroupSearch = document.querySelector('[data-school-admin-study-group-search]');
+        const schoolAdminStudyGroupSummary = document.querySelector('[data-school-admin-study-group-summary]');
+        const schoolAdminStudyGroupOptions = [...document.querySelectorAll('[data-school-admin-study-group-option]')];
+        const schoolAdminStudyGroupEmpty = document.querySelector('[data-school-admin-study-group-empty]');
         const childSearch = document.getElementById('child-search');
         const childSearchResults = document.getElementById('child-search-results');
         const selectedChildren = document.getElementById('selected-children');
@@ -303,7 +340,51 @@
             });
             parentChildSection?.classList.toggle('hidden', role !== 'parent');
             studentParentSection?.classList.toggle('hidden', role !== 'user');
+            schoolAdminStudyGroups?.classList.toggle('hidden', role !== 'admin_sekolah');
+            schoolAdminStudyGroups?.querySelectorAll('input').forEach((input) => {
+                input.disabled = role !== 'admin_sekolah';
+            });
+            if (role !== 'admin_sekolah') closeSchoolAdminStudyGroupPicker();
         };
+
+        const closeSchoolAdminStudyGroupPicker = () => {
+            schoolAdminStudyGroupMenu?.classList.add('hidden');
+            schoolAdminStudyGroupToggle?.setAttribute('aria-expanded', 'false');
+        };
+
+        const syncSchoolAdminStudyGroupSummary = () => {
+            const selected = schoolAdminStudyGroupOptions.filter((option) => option.querySelector('input')?.checked);
+            const labels = selected.map((option) => option.textContent.trim());
+            schoolAdminStudyGroupSummary.textContent = labels.length === 0
+                ? 'Pilih rombel yang dipantau'
+                : labels.length <= 2 ? labels.join(', ') : `${labels.length} rombel dipilih`;
+        };
+
+        schoolAdminStudyGroupToggle?.addEventListener('click', () => {
+            const isOpen = !schoolAdminStudyGroupMenu?.classList.contains('hidden');
+            schoolAdminStudyGroupMenu?.classList.toggle('hidden', isOpen);
+            schoolAdminStudyGroupToggle.setAttribute('aria-expanded', (!isOpen).toString());
+            if (!isOpen) schoolAdminStudyGroupSearch?.focus();
+        });
+
+        schoolAdminStudyGroupSearch?.addEventListener('input', () => {
+            const keyword = schoolAdminStudyGroupSearch.value.trim().toLowerCase();
+            let visibleCount = 0;
+            schoolAdminStudyGroupOptions.forEach((option) => {
+                const visible = option.dataset.searchValue.includes(keyword);
+                option.classList.toggle('hidden', !visible);
+                if (visible) visibleCount += 1;
+            });
+            schoolAdminStudyGroupEmpty?.classList.toggle('hidden', visibleCount > 0);
+        });
+
+        schoolAdminStudyGroupOptions.forEach((option) => {
+            option.querySelector('input')?.addEventListener('change', syncSchoolAdminStudyGroupSummary);
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!schoolAdminStudyGroupPicker?.contains(event.target)) closeSchoolAdminStudyGroupPicker();
+        });
 
         const syncNewParentFields = () => {
             const wantsParentLink = Boolean(linkParentAccount?.checked);
@@ -473,6 +554,7 @@
         linkParentAccount?.addEventListener('change', syncNewParentFields);
         addParentAccount?.addEventListener('change', syncNewParentFields);
         syncRelationshipSections();
+        syncSchoolAdminStudyGroupSummary();
         syncNewParentFields();
 
         const institution = document.getElementById('destination_institution');

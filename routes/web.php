@@ -36,6 +36,7 @@ use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\SchoolAdminDashboardController;
 use App\Http\Controllers\admin\StudyGroupController;
 use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
@@ -539,6 +540,14 @@ Route::prefix('{portal}')
     ->name('admin.')
     ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
     ->group(function () {
+        Route::prefix('sekolah')->name('school.')->group(function () {
+            Route::get('/', [SchoolAdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/siswa', [SchoolAdminDashboardController::class, 'students'])->name('students');
+            Route::get('/siswa/{user}', [SchoolAdminDashboardController::class, 'showStudent'])->name('students.show');
+            Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
+            Route::get('/leaderboard/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('leaderboard.show');
+            Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+        });
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');

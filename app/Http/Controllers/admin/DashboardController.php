@@ -20,6 +20,10 @@ class DashboardController extends Controller
 {
     public function index(Request $request): View|RedirectResponse
     {
+        if ($request->user()?->role === 'admin_sekolah') {
+            return redirect()->route('admin.school.dashboard', $request->query());
+        }
+
         // Redirect super admin to super admin dashboard
         if (auth()->user()->isSuperAdmin()) {
             return redirect()->route('super-admin.admins.index');

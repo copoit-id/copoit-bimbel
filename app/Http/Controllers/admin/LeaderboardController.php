@@ -39,18 +39,20 @@ class LeaderboardController extends Controller
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
+        $schoolStudentIds = $this->schoolStudentIds();
         $tryouts = Tryout::with([
             'tryoutDetails' => fn ($query) => $query->withCount('questions'),
             'packages',
         ])
             ->get()
-            ->map(function ($tryout) {
+            ->map(function ($tryout) use ($schoolStudentIds) {
                 $totalQuestions = (int) $tryout->tryoutDetails->sum('questions_count');
                 $totalDuration = (int) $tryout->tryoutDetails->sum('duration');
 
                 // Count total participants across all packages for this tryout
                 $participantCount = UserAnswer::where('tryout_id', $tryout->tryout_id)
                     ->where('status', 'completed')
+                    ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
                     ->distinct('user_id')
                     ->count();
 
@@ -89,7 +91,8 @@ class LeaderboardController extends Controller
             ->filter() // Remove null values
             ->values(); // Reset array keys
 
-        return view('admin.pages.leaderboard.index', compact('tryouts'));
+        $schoolLeaderboard = $schoolStudentIds !== null;
+        return view('admin.pages.leaderboard.index', compact('tryouts', 'schoolLeaderboard'));
     }
 
     public function show($package_id, $tryout_id)
@@ -104,7 +107,7 @@ class LeaderboardController extends Controller
         // Get tryout details
         $tryoutDetail = $tryout->tryoutDetails->first();
         if (!$tryoutDetail) {
-            return redirect()->route('admin.leaderboard.index')
+            return redirect()->route($this->schoolStudentIds() !== null ? 'admin.school.leaderboard' : 'admin.leaderboard.index')
                 ->with('error', 'Tryout belum memiliki detail soal');
         }
 
@@ -156,6 +159,7 @@ class LeaderboardController extends Controller
             })
             ->keyBy('rank');
 
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
         return view('admin.pages.leaderboard.show', compact(
             'package',
             'tryout',
@@ -164,7 +168,7 @@ class LeaderboardController extends Controller
             'statistics',
             'podiumRankings',
             'destinationCategories',
-            'destinationFilter'
+            'destinationFilter', 'schoolLeaderboard'
         ));
     }
 
@@ -335,6 +339,7 @@ class LeaderboardController extends Controller
         return UserAnswer::where('tryout_id', $tryoutId)
             ->where('status', 'completed')
             ->whereNotNull('score')
+            ->when($this->schoolStudentIds() !== null, fn ($query) => $query->whereIn('user_id', $this->schoolStudentIds()))
             ->when(!empty($destinationCategoryIds), function ($query) use ($destinationCategoryIds) {
                 $query->whereHas('user', function ($userQuery) use ($destinationCategoryIds) {
                     $userQuery->whereIn('participant_destination_category_id', $destinationCategoryIds);
@@ -350,6 +355,14 @@ class LeaderboardController extends Controller
             ])
             ->orderBy('score', 'desc')
             ->orderBy('finished_at', 'asc');
+    }
+
+    private function schoolStudentIds(): ?Collection
+    {
+        $user = auth()->user();
+        if ($user?->role !== 'admin_sekolah') return null;
+        $groupIds = $user->schoolAdminStudyGroups()->pluck('study_groups.id');
+        return \App\Models\User::where('role', 'user')->whereHas('studyGroups', fn ($query) => $query->whereIn('study_groups.id', $groupIds))->pluck('id');
     }
 
     private function buildLeaderboardPaginator($tryoutId, int $perPage = 15)

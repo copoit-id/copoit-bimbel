@@ -278,12 +278,11 @@ $primaryRgb = "$r, $g, $b";
     @endif
 
     @if($canRequestScheduleBooking)
-    <a href="{{ route('user.booking.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-primary/20 bg-primary/5 p-4 transition-all hover:border-primary/40 hover:bg-primary/10">
-        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white">
+    <a href="{{ route('user.booking.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
             <i class="ri-calendar-schedule-line text-xl"></i>
         </div>
-        <h3 class="text-sm font-semibold text-gray-800">Pilih Tutor & Jadwal</h3>
-        <p class="mt-1 text-xs text-gray-500">Ajukan sesi personal atau rombel</p>
+        <h3 class="font-semibold text-gray-800 text-sm">Pilih Tutor & Jadwal</h3>
     </a>
     @endif
 

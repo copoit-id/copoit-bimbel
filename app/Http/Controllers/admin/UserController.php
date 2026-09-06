@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ParticipantDestinationCategory;
 use App\Models\Payment;
 use App\Models\Role;
+use App\Models\StudyGroup;
 use App\Models\User;
 use App\Rules\SafeName;
 use App\Services\ParticipantDestinationSelectionService;
@@ -158,6 +159,8 @@ class UserController extends Controller
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
             'parentPortalEnabled' => $parentPortalEnabled,
+            'schoolAdminStudyGroups' => $this->schoolAdminStudyGroups(),
+            'selectedSchoolAdminStudyGroupIds' => $this->oldInputIds('school_admin_study_group_ids'),
         ]);
     }
 
@@ -188,6 +191,8 @@ class UserController extends Controller
             'parent_name' => ['nullable', 'required_if:add_parent_account,1', 'string', 'max:255', new SafeName],
             'parent_email' => ['nullable', 'required_if:add_parent_account,1', 'email', 'max:255', 'unique:users,email'],
             'parent_password' => ['nullable', 'required_if:add_parent_account,1', 'string', 'min:8'],
+            'school_admin_study_group_ids' => ['nullable', Rule::requiredIf($request->input('role') === 'admin_sekolah'), 'array', 'min:1'],
+            'school_admin_study_group_ids.*' => ['integer', 'exists:study_groups,id'],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -235,6 +240,7 @@ class UserController extends Controller
             $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $this->syncStudentParent($user, $validated);
             $tutorProfileService->sync($user);
+            $user->schoolAdminStudyGroups()->sync($user->role === 'admin_sekolah' ? ($validated['school_admin_study_group_ids'] ?? []) : []);
 
             return $user;
         });
@@ -242,7 +248,7 @@ class UserController extends Controller
         return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
 
-    public function show(User $user): View
+    public function show(User $user, bool $schoolAdminView = false): View
     {
         $this->ensureParentPortalUserIsAvailable($user);
 
@@ -308,7 +314,7 @@ class UserController extends Controller
                 ->sum(fn ($invoice) => $invoice->remaining_amount),
         ];
 
-        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary'));
+        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary', 'schoolAdminView'));
     }
 
     public function edit($id)
@@ -339,6 +345,8 @@ class UserController extends Controller
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
             'parentPortalEnabled' => $parentPortalEnabled,
+            'schoolAdminStudyGroups' => $this->schoolAdminStudyGroups(),
+            'selectedSchoolAdminStudyGroupIds' => $user->schoolAdminStudyGroups()->pluck('study_groups.id')->all(),
         ]);
     }
 
@@ -371,6 +379,8 @@ class UserController extends Controller
             'parent_name' => ['nullable', 'required_if:add_parent_account,1', 'string', 'max:255', new SafeName],
             'parent_email' => ['nullable', 'required_if:add_parent_account,1', 'email', 'max:255', 'unique:users,email'],
             'parent_password' => ['nullable', 'required_if:add_parent_account,1', 'string', 'min:8'],
+            'school_admin_study_group_ids' => ['nullable', Rule::requiredIf($request->input('role') === 'admin_sekolah'), 'array', 'min:1'],
+            'school_admin_study_group_ids.*' => ['integer', 'exists:study_groups,id'],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -415,6 +425,7 @@ class UserController extends Controller
             $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $this->syncStudentParent($user, $validated);
             $tutorProfileService->sync($user);
+            $user->schoolAdminStudyGroups()->sync($user->role === 'admin_sekolah' ? ($validated['school_admin_study_group_ids'] ?? []) : []);
 
             return $user;
         });
@@ -706,6 +717,11 @@ class UserController extends Controller
             ->orderBy('name')
             ->pluck('name', 'slug')
             ->toArray();
+    }
+
+    private function schoolAdminStudyGroups()
+    {
+        return StudyGroup::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
     }
 
     private function parentPortalEnabled(): bool

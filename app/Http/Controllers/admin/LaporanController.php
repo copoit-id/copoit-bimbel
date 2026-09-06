@@ -923,6 +923,7 @@ class LaporanController extends Controller
 
     private function buildTryoutReportQuery()
     {
+        $schoolStudentIds = $this->schoolStudentIds();
         return Tryout::with([
             'tryoutDetails' => function ($query) {
                 $query->withCount('questions');
@@ -933,14 +934,16 @@ class LaporanController extends Controller
             ->selectSub(
                 UserAnswer::query()
                     ->selectRaw('COUNT(DISTINCT user_id)')
-                    ->whereColumn('tryout_id', 'tryouts.tryout_id'),
+                    ->whereColumn('tryout_id', 'tryouts.tryout_id')
+                    ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds)),
                 'total_participants'
             )
             ->selectSub(
                 UserAnswer::query()
                     ->selectRaw('COUNT(DISTINCT user_id)')
                     ->whereColumn('tryout_id', 'tryouts.tryout_id')
-                    ->whereIn('status', ['completed', 'pending_release']),
+                    ->whereIn('status', ['completed', 'pending_release'])
+                    ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds)),
                 'completed_participants'
             )
             ->latest();
@@ -954,6 +957,7 @@ class LaporanController extends Controller
             ->selectRaw('tryout_id, AVG(COALESCE(utbk_total_score, score)) as average_score, SUM(correct_answers) as total_correct, SUM(correct_answers + wrong_answers + unanswered) as total_questions')
             ->whereIn('tryout_id', $tryoutIds)
             ->where('status', 'completed')
+            ->when($this->schoolStudentIds() !== null, fn ($query) => $query->whereIn('user_id', $this->schoolStudentIds()))
             ->groupBy('tryout_id')
             ->get()
             ->keyBy('tryout_id');
@@ -1005,10 +1009,26 @@ class LaporanController extends Controller
                 UserAnswer::query()
                     ->select('tryout_id', 'user_id')
                     ->when($statuses !== null, fn ($query) => $query->whereIn('status', $statuses))
+                    ->when($this->schoolStudentIds() !== null, fn ($query) => $query->whereIn('user_id', $this->schoolStudentIds()))
                     ->groupBy('tryout_id', 'user_id'),
                 'tryout_participants'
             )
             ->count();
+    }
+
+    private function schoolStudentIds(): ?\Illuminate\Support\Collection
+    {
+        $user = auth()->user();
+        if ($user?->role !== 'admin_sekolah') {
+            return null;
+        }
+
+        $groupIds = $user->schoolAdminStudyGroups()->pluck('study_groups.id');
+
+        return \App\Models\User::query()
+            ->where('role', 'user')
+            ->whereHas('studyGroups', fn ($query) => $query->whereIn('study_groups.id', $groupIds))
+            ->pluck('id');
     }
 
     private function scoreDisplayMode(Request $request): string

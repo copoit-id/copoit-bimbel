@@ -31,19 +31,19 @@
 <div class="space-y-6" x-data="{ activeTab: 'profile' }">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <nav class="flex items-center gap-2 text-sm text-gray-500" aria-label="Breadcrumb">
-            <a href="{{ route('admin.user.index') }}" class="hover:text-primary">Manajemen User</a>
+            <a href="{{ ($schoolAdminView ?? false) ? route('admin.school.students') : route('admin.user.index') }}" class="hover:text-primary">{{ ($schoolAdminView ?? false) ? 'Data Siswa' : 'Manajemen User' }}</a>
             <i class="ri-arrow-right-s-line text-gray-300"></i>
             <span class="font-medium text-gray-700">Detail {{ $user->role === 'user' ? 'Siswa' : 'User' }}</span>
         </nav>
 
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('admin.user.report', $user) }}" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50">
+            @unless($schoolAdminView ?? false)<a href="{{ route('admin.user.report', $user) }}" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50">
                 <i class="ri-bar-chart-line"></i>Laporan Belajar
             </a>
             <a href="{{ route('admin.user.edit', $user) }}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">
                 <i class="ri-edit-line"></i>Edit Data
-            </a>
-            <a href="{{ route('admin.user.index') }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            </a>@endunless
+            <a href="{{ ($schoolAdminView ?? false) ? route('admin.school.students') : route('admin.user.index') }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 <i class="ri-arrow-left-line"></i>Kembali
             </a>
         </div>

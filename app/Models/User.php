@@ -247,6 +247,12 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function schoolAdminStudyGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(StudyGroup::class, 'school_admin_study_group')
+            ->withTimestamps();
+    }
+
     public function studyGroupMembers(): HasMany
     {
         return $this->hasMany(StudyGroupMember::class);

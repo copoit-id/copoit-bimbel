@@ -29,6 +29,7 @@ class AdminNavigationService
     {
         $branding = (array) config('client.branding', []);
         $isTutor = $user?->isTutor() ?? false;
+        $isSchoolAdmin = $user?->role === 'admin_sekolah';
         $canAccessAdminPanel = $user?->canAccessAdminPanel() ?? false;
         $featureVisibility = [];
 
@@ -86,14 +87,14 @@ class AdminNavigationService
         $canShowTutorChatMenu = $isTutor && (bool) ($branding['tutor_chat_enabled'] ?? false)
             && $this->planModules->allows('discussion') && $routeExists('tutor.chat.index');
         $canShowTutorProfileMenu = $isTutor && $this->planModules->allows('profile') && $routeExists('tutor.profile.edit');
-        $canShowTutorLeaveMenu = ! $isTutor && $canAccessAdminPanel && $routeExists('admin.tutor-leave.index');
+        $canShowTutorLeaveMenu = ! $isTutor && ! $isSchoolAdmin && $canAccessAdminPanel && $routeExists('admin.tutor-leave.index');
         $isMaterialManagementActive = $routeIs('admin.material.index', 'admin.material.create', 'admin.material.edit');
         $isClassScheduleActive = $canShowClassScheduleMenu && $routeIs('admin.class-schedules.*', 'admin.class-attendance.*');
         $canShowMasterMenu = $featureVisibility['package'] || $canShowClassScheduleMenu || $canShowLegacyClassMenu
             || $featureVisibility['tryout'] || $canShowStudyGroupMenu || $canShowMaterialMenu || $featureVisibility['tes_koran'];
         $canShowCategoryMenu = $canShowMaterialCategoryMenu || $canShowDestinationCategories;
         $canShowUserMenu = $featureVisibility['user'] || $featureVisibility['akses'] || $canShowTutorLeaveMenu;
-        $canShowReportMenu = $featureVisibility['leaderboard'] || $featureVisibility['laporan']
+        $canShowReportMenu = ! $isSchoolAdmin && ($featureVisibility['leaderboard'] || $featureVisibility['laporan'])
             || $featureVisibility['essay_review'] || $featureVisibility['feedback'];
         $canShowFinanceSection = $canShowFinanceMenu || $canShowPaymentsMenu || $canShowRecurringBillMenu || $canShowTutorPayrollMenu;
         $canShowAdminLanding = $featureVisibility['general_page'] && (bool) ($generalPublicVisibility['landing'] ?? false);
@@ -109,6 +110,7 @@ class AdminNavigationService
             'iconActiveClass' => 'text-white',
             'iconInactiveClass' => (bool) ($branding['sidebar_primary_color'] ?? false) ? 'text-white/80' : 'text-black',
             'isTutor' => $isTutor,
+            'isSchoolAdmin' => $isSchoolAdmin,
             'isTutorContentIsolated' => $isTutor && $this->tutorContentVisibility->isIsolated(),
             'featureVisibility' => $featureVisibility,
             'canShowDestinationCategories' => $canShowDestinationCategories,
