@@ -82,7 +82,7 @@
     $tutorContentEnabled = (bool) ($profile->tutor_content_enabled ?? ($branding['tutor_content_enabled'] ?? false));
     @endphp
 
-    <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <form id="settings-form" action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
@@ -97,8 +97,8 @@
 
         @if ($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
-            <p class="font-semibold">Pengaturan belum tersimpan</p>
-            <p>{{ $errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.' }}</p>
+            <p class="font-semibold">{{ $errors->has('admin_password') ? 'Password Admin salah' : 'Pengaturan belum tersimpan' }}</p>
+            <p>{{ $errors->first('admin_password') ?: ($errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.') }}</p>
         </div>
         @endif
 
@@ -908,7 +908,6 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
-                <div><label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label><input type="password" name="admin_password" class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5" placeholder="Wajib untuk menyimpan SMTP">@error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror</div>
             </div>
             <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4"><button form="smtp-test-form" type="submit" class="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-send-plane-line"></i>Kirim Email Tes</button><p class="text-xs text-gray-500">Simpan SMTP terlebih dahulu, lalu cek inbox tujuan.</p></div>
         </div>
@@ -1384,6 +1383,9 @@
         </div>
         </fieldset>
     </form>
+
+    <div id="settings-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Konfirmasi Password Admin</h2><p class="mt-1 text-sm text-gray-500">Masukkan password untuk menyimpan perubahan.</p><input id="settings-modal-password" type="password" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="Password Admin"><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-settings-modal class="rounded-xl border px-4 py-2">Batal</button><button id="settings-confirm-save" type="button" class="rounded-xl bg-primary px-4 py-2 text-white">Simpan</button></div></div></div>
+    <div id="smtp-test-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Kirim Email Tes</h2><p class="mt-1 text-sm text-gray-500">Email ini hanya dipakai untuk pengujian dan tidak disimpan.</p><input form="smtp-test-form" name="recipient" type="email" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="email@penerima.com" required><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-smtp-modal class="rounded-xl border px-4 py-2">Batal</button><button form="smtp-test-form" type="submit" class="rounded-xl bg-primary px-4 py-2 text-white">Kirim</button></div></div></div>
 </div>
 @endsection
 
@@ -1656,6 +1658,13 @@
         });
 
         bindFooterRemoveButtons();
+
+        const settingsForm = document.getElementById('settings-form'); const passwordModal = document.getElementById('settings-password-modal');
+        settingsForm?.addEventListener('submit', (event) => { if (settingsForm.dataset.confirmed) return; event.preventDefault(); passwordModal.classList.remove('hidden'); passwordModal.classList.add('flex'); });
+        document.getElementById('settings-confirm-save')?.addEventListener('click', () => { const password = document.getElementById('settings-modal-password').value; if (!password) return; const input = document.createElement('input'); input.type = 'hidden'; input.name = 'admin_password'; input.value = password; settingsForm.append(input); settingsForm.dataset.confirmed = '1'; settingsForm.submit(); });
+        document.querySelector('[data-close-settings-modal]')?.addEventListener('click', () => passwordModal.classList.add('hidden'));
+        const smtpModal = document.getElementById('smtp-test-modal'); document.querySelector('[form="smtp-test-form"]')?.addEventListener('click', (event) => { if (event.currentTarget.tagName !== 'BUTTON') return; event.preventDefault(); smtpModal.classList.remove('hidden'); smtpModal.classList.add('flex'); });
+        document.querySelector('[data-close-smtp-modal]')?.addEventListener('click', () => smtpModal.classList.add('hidden'));
     });
 </script>
 @endpush

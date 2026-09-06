@@ -18,9 +18,10 @@ class SettingController extends Controller
 {
     public function testSmtp(Request $request)
     {
+        $request->validate(['recipient' => ['required', 'email', 'max:255']]);
         $profile = ClientProfile::query()->first();
         $email = MailSafety::email($profile?->smtp_email);
-        $recipient = MailSafety::email($profile?->smtp_notification_email) ?: $email;
+        $recipient = MailSafety::email($request->input('recipient'));
         $password = $profile?->smtp_app_password;
         if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.');
         config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com', 'mail.mailers.smtp.port' => $profile->smtp_port ?: 587, 'mail.mailers.smtp.username' => $email, 'mail.mailers.smtp.password' => $password, 'mail.mailers.smtp.scheme' => $profile->smtp_encryption ?: 'tls', 'mail.from.address' => $email]);
@@ -359,7 +360,8 @@ class SettingController extends Controller
             }
         }
 
-        $sensitiveChanged = $sensitiveChanged || $smtpSettingsChanged;
+        // Every settings change is confirmed with the current admin password.
+        $sensitiveChanged = true;
 
         if ($sensitiveChanged) {
             if (! $request->filled('admin_password') && $request->filled('ai_admin_password')) {
