@@ -98,6 +98,7 @@
                         @endforeach
                         <th class="px-4 py-3 text-center">Total</th>
                         <th class="px-4 py-3 text-center">Waktu Pengerjaan</th>
+                        <th class="px-4 py-3 text-center">Indikasi Kecurangan</th>
                         <th class="px-4 py-3 text-center">Status</th>
                         <th class="px-4 py-3 text-center">Aksi</th>
                     </tr>
@@ -156,6 +157,10 @@
                                 </div>
                             </td>
                             <td class="px-4 py-4 text-center">
+                                @php $tabSwitchCount = $participant['tab_switch_count'] ?? 0; @endphp
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $tabSwitchCount > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }}">{{ $tabSwitchCount }} pindah tab</span>
+                            </td>
+                            <td class="px-4 py-4 text-center">
                                 <span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
                             </td>
                             <td class="px-4 py-4">
@@ -185,7 +190,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ 5 + $tryout->tryoutDetails->count() }}" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="{{ 6 + $tryout->tryoutDetails->count() }}" class="px-6 py-12 text-center text-gray-500">
                                 Belum ada peserta untuk tryout ini.
                             </td>
                         </tr>

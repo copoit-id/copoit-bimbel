@@ -234,6 +234,7 @@ class LaporanController extends Controller
                 SUM(correct_answers) as total_correct,
                 SUM(wrong_answers) as total_wrong,
                 SUM(unanswered) as total_unanswered,
+                SUM(tab_switch_count) as tab_switch_count,
                 SUM(score) as total_score,
                 MAX(utbk_total_score) as irt_total_score,
                 MAX(status) as attempt_status
@@ -350,6 +351,7 @@ class LaporanController extends Controller
                     'total_correct' => $subtests->sum('correct'),
                     'total_wrong' => $subtests->sum('wrong'),
                     'total_unanswered' => $subtests->sum('unanswered'),
+                    'tab_switch_count' => (int) ($latest->tab_switch_count ?? 0),
                     'subtests' => $subtests,
                     // Keep the report compact: one latest logical attempt per participant.
                     // Older attempts remain represented by total_attempts, without repeating rows.
