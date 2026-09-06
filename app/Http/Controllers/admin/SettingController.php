@@ -24,7 +24,19 @@ class SettingController extends Controller
         $recipient = MailSafety::email($request->input('recipient'));
         $password = $profile?->smtp_app_password;
         if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.')->with('active_tab', 'smtp');
-        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com', 'mail.mailers.smtp.port' => $profile->smtp_port ?: 587, 'mail.mailers.smtp.username' => $email, 'mail.mailers.smtp.password' => $password, 'mail.mailers.smtp.scheme' => null, 'mail.from.address' => $email, 'mail.from.name' => config('app.name')]);
+        // Test hanya mengirim satu plain-text message kecil. Batasi koneksi agar UI
+        // tidak menunggu lama saat host atau App Password keliru.
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com',
+            'mail.mailers.smtp.port' => $profile->smtp_port ?: 587,
+            'mail.mailers.smtp.username' => $email,
+            'mail.mailers.smtp.password' => $password,
+            'mail.mailers.smtp.scheme' => null,
+            'mail.mailers.smtp.timeout' => 8,
+            'mail.from.address' => $email,
+            'mail.from.name' => config('app.name'),
+        ]);
         try {
             Mail::raw('Tes SMTP berhasil. Konfigurasi email Epycentrum aktif.', fn ($message) => $message->to($recipient)->subject('Tes SMTP Epycentrum'));
             return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.')->with('active_tab', 'smtp');
