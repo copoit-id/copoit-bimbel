@@ -829,6 +829,7 @@ Route::prefix('{portal}')
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
         Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/pengaturan/smtp/test', [SettingController::class, 'testSmtp'])->name('settings.smtp.test');
         Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
 
         // Route untuk admin leaderboard

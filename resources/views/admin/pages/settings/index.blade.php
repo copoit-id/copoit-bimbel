@@ -8,7 +8,7 @@
             <h1 class="text-2xl font-semibold text-gray-900">Branding & Identitas</h1>
             <p class="text-gray-500">Perbarui tampilan umum platform bimbel sesuai kebutuhan klien.</p>
         </div>
-        <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2 shadow-sm">
+        <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2">
             <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="client-brand-logo w-10 h-10 rounded-full object-cover"
                 alt="Logo Preview">
             <div>
@@ -908,8 +908,11 @@
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
+                <div><label class="text-sm font-medium text-gray-900 mb-1 inline-block">Password Admin</label><input type="password" name="admin_password" class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5" placeholder="Wajib untuk menyimpan SMTP">@error('admin_password')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror</div>
             </div>
+            <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4"><button form="smtp-test-form" type="submit" class="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-send-plane-line"></i>Kirim Email Tes</button><p class="text-xs text-gray-500">Simpan SMTP terlebih dahulu, lalu cek inbox tujuan.</p></div>
         </div>
+        <form id="smtp-test-form" method="POST" action="{{ route('admin.settings.smtp.test') }}">@csrf</form>
 
         <div data-settings-panel="contact"
             class="settings-tab-panel bg-white border border-border rounded-2xl shadow-sm p-6 space-y-4 {{ $activeSettingsTab !== 'contact' ? 'hidden' : '' }}">
@@ -1372,11 +1375,11 @@
             @endif
         </div> --}}
 
-        <div class="flex items-center justify-end gap-3">
+        <div class="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
             <button type="submit"
-                class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary/90">Simpan
+                class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90">Simpan
                 Pengaturan</button>
         </div>
         </fieldset>

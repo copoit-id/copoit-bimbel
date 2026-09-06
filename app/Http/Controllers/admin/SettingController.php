@@ -10,11 +10,28 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SettingController extends Controller
 {
+    public function testSmtp(Request $request)
+    {
+        $profile = ClientProfile::query()->first();
+        $email = MailSafety::email($profile?->smtp_email);
+        $recipient = MailSafety::email($profile?->smtp_notification_email) ?: $email;
+        $password = $profile?->smtp_app_password;
+        if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.');
+        config(['mail.default' => 'smtp', 'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com', 'mail.mailers.smtp.port' => $profile->smtp_port ?: 587, 'mail.mailers.smtp.username' => $email, 'mail.mailers.smtp.password' => $password, 'mail.mailers.smtp.scheme' => $profile->smtp_encryption ?: 'tls', 'mail.from.address' => $email]);
+        try {
+            Mail::raw('Tes SMTP berhasil. Konfigurasi email Epycentrum aktif.', fn ($message) => $message->to($recipient)->subject('Tes SMTP Epycentrum'));
+            return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.');
+        } catch (\Throwable $exception) {
+            report($exception);
+            return back()->with('error', 'Email tes gagal dikirim. Periksa email SMTP dan sandi aplikasi.');
+        }
+    }
     public function index()
     {
         $profile = ClientProfile::query()->first();
