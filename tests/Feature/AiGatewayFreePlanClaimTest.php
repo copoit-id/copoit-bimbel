@@ -145,17 +145,7 @@ class AiGatewayFreePlanClaimTest extends TestCase
 
         app(AiGatewayPlanController::class)->destroy($plan);
 
-        $request = Request::create('/super-admin/ai-gateway-plans/'.$plan->id, 'PUT', [
-            'scope' => $plan->scope,
-            'name' => $plan->name,
-            'price' => $plan->price,
-            'token_limit' => $plan->token_limit,
-            'chat_limit' => $plan->chat_limit,
-            'duration_days' => $plan->duration_days,
-            'is_active' => true,
-        ]);
-
-        app(AiGatewayPlanController::class)->update($request, $plan->fresh());
+        app(AiGatewayPlanController::class)->activate($plan->fresh());
 
         $this->assertDatabaseHas('ai_gateway_plans', [
             'id' => $plan->id,

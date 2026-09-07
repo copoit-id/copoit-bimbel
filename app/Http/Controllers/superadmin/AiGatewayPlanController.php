@@ -52,6 +52,13 @@ class AiGatewayPlanController extends Controller
         return back()->with('success', 'Paket AI berhasil diperbarui.');
     }
 
+    public function activate(AiGatewayPlan $aiGatewayPlan): RedirectResponse
+    {
+        $aiGatewayPlan->update(['is_active' => true]);
+
+        return back()->with('success', 'Paket berhasil diaktifkan kembali dan sekarang tersedia untuk pembelian atau klaim baru.');
+    }
+
     public function destroy(AiGatewayPlan $aiGatewayPlan): RedirectResponse
     {
         if ($aiGatewayPlan->subscriptions()->exists() || $aiGatewayPlan->transactions()->exists()) {

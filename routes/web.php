@@ -516,6 +516,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/ai-usage/projects', [AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');
     Route::delete('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'destroyGatewayClient'])->name('ai-usage.projects.destroy');
+    Route::patch('/ai-gateway-plans/{aiGatewayPlan}/activate', [AiGatewayPlanController::class, 'activate'])
+        ->name('ai-gateway-plans.activate');
     Route::resource('ai-gateway-plans', AiGatewayPlanController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Plan Master Data Routes (CRUD Plan templates)

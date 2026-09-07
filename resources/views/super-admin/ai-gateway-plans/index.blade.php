@@ -68,7 +68,16 @@
                         </div>
                         @php($planHasHistory = $plan->subscriptions_count > 0 || $plan->transactions_count > 0)
                         <div class="flex items-center gap-2">
-                            <button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.remove('hidden')" class="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">{{ $plan->is_active ? 'Edit' : 'Aktifkan kembali' }}</button>
+                            @if($plan->is_active)
+                                <button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.remove('hidden')" class="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">Edit</button>
+                            @else
+                                <form method="POST" action="{{ route('super-admin.ai-gateway-plans.activate', $plan) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button class="rounded-full border border-green-500 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-500 hover:text-white">Aktifkan kembali</button>
+                                </form>
+                                <button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.remove('hidden')" class="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">Edit</button>
+                            @endif
                             @if(! $planHasHistory || $plan->is_active)
                                 <form method="POST" action="{{ route('super-admin.ai-gateway-plans.destroy', $plan) }}" onsubmit="return confirm('{{ $planHasHistory ? 'Paket akan dinonaktifkan. Peserta yang sudah memiliki paket tetap aktif. Lanjutkan?' : 'Hapus paket ini?' }}')">
                                     @csrf
