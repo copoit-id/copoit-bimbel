@@ -149,6 +149,7 @@ class AiGatewayBillingController extends Controller
     public function checkout(Request $request): JsonResponse
     {
         $client = $this->client($request);
+        $scope = $this->scope($request);
         $data = $request->validate([
             'plan_id' => 'required|integer|exists:ai_gateway_plans,id',
             'external_user_id' => 'required|string|max:120',
@@ -161,6 +162,7 @@ class AiGatewayBillingController extends Controller
         $successRedirectUrl = $this->allowedRedirectUrl($client, $data['success_redirect_url'] ?? null);
         $failureRedirectUrl = $this->allowedRedirectUrl($client, $data['failure_redirect_url'] ?? null);
         $plan = AiGatewayPlan::where('is_active', true)
+            ->where('scope', $scope)
             ->where('token_limit', '>', 0)
             ->findOrFail($data['plan_id']);
 

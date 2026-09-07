@@ -76,8 +76,8 @@ class AiGatewayPlanController extends Controller
         $aiGatewayPlan->update(['is_active' => false]);
 
         return back()->with(
-            'warning',
-            'Paket pernah digunakan sehingga riwayatnya tidak dapat dihapus. Paket telah dinonaktifkan dan tidak lagi tersedia untuk pembelian atau klaim baru.'
+            'success',
+            'Paket berhasil dinonaktifkan. Riwayat klaim dan transaksi tetap disimpan agar akses peserta yang sudah aktif tidak berubah. Paket tidak lagi tersedia untuk pembelian atau klaim baru, dan dapat diaktifkan kembali kapan saja.'
         );
     }
 

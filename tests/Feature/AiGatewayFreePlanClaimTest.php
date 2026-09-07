@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\superadmin\AiUsageController;
+use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Models\AiGatewayClient;
 use App\Models\AiGatewayPlan;
 use App\Models\AiGatewaySubscription;
@@ -83,6 +84,87 @@ class AiGatewayFreePlanClaimTest extends TestCase
             'provider' => 'free_claim',
             'amount' => 0,
             'status' => 'paid',
+        ]);
+    }
+
+    public function test_archiving_claimed_plan_hides_it_from_new_purchases_without_revoking_existing_access(): void
+    {
+        [, $key] = $this->gatewayClient();
+        $plan = $this->freePlan();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', [
+                'plan_id' => $plan->id,
+                'external_user_id' => 'participant-archived-plan',
+            ])
+            ->assertOk()
+            ->assertJson(['activated' => true]);
+
+        app(AiGatewayPlanController::class)->destroy($plan);
+
+        $this->assertDatabaseHas('ai_gateway_plans', [
+            'id' => $plan->id,
+            'is_active' => false,
+        ]);
+        $this->assertDatabaseHas('ai_gateway_subscriptions', [
+            'ai_gateway_plan_id' => $plan->id,
+            'external_user_id' => 'participant-archived-plan',
+            'status' => 'active',
+        ]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/plans')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $plan->id]);
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', [
+                'plan_id' => $plan->id,
+                'external_user_id' => 'participant-new-purchase',
+            ])
+            ->assertNotFound();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->getJson('/api/ai-gateway/subscription?external_user_id=participant-archived-plan')
+            ->assertOk()
+            ->assertJsonPath('subscription.ai_gateway_plan_id', $plan->id)
+            ->assertJsonPath('subscription.status', 'active');
+    }
+
+    public function test_archived_plan_can_be_activated_again_without_changing_existing_subscription(): void
+    {
+        [, $key] = $this->gatewayClient();
+        $plan = $this->freePlan();
+
+        $this->withHeader('X-AI-Gateway-Key', $key)
+            ->postJson('/api/ai-gateway/checkout', [
+                'plan_id' => $plan->id,
+                'external_user_id' => 'participant-reactivated-plan',
+            ])
+            ->assertOk();
+
+        app(AiGatewayPlanController::class)->destroy($plan);
+
+        $request = Request::create('/super-admin/ai-gateway-plans/'.$plan->id, 'PUT', [
+            'scope' => $plan->scope,
+            'name' => $plan->name,
+            'price' => $plan->price,
+            'token_limit' => $plan->token_limit,
+            'chat_limit' => $plan->chat_limit,
+            'duration_days' => $plan->duration_days,
+            'is_active' => true,
+        ]);
+
+        app(AiGatewayPlanController::class)->update($request, $plan->fresh());
+
+        $this->assertDatabaseHas('ai_gateway_plans', [
+            'id' => $plan->id,
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('ai_gateway_subscriptions', [
+            'ai_gateway_plan_id' => $plan->id,
+            'external_user_id' => 'participant-reactivated-plan',
+            'status' => 'active',
         ]);
     }
 

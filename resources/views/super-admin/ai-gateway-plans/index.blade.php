@@ -67,7 +67,16 @@
                             </p>
                         </div>
                         @php($planHasHistory = $plan->subscriptions_count > 0 || $plan->transactions_count > 0)
-                        <div class="flex items-center gap-2"><button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.remove('hidden')" class="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">Edit</button><form method="POST" action="{{ route('super-admin.ai-gateway-plans.destroy', $plan) }}" onsubmit="return confirm('{{ $planHasHistory ? 'Paket pernah digunakan dan akan dinonaktifkan. Lanjutkan?' : 'Hapus paket ini?' }}')">@csrf @method('DELETE')<button class="rounded-full border border-red-400 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-500 hover:text-white">{{ $planHasHistory ? 'Nonaktifkan' : 'Hapus' }}</button></form></div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.remove('hidden')" class="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">{{ $plan->is_active ? 'Edit' : 'Aktifkan kembali' }}</button>
+                            @if(! $planHasHistory || $plan->is_active)
+                                <form method="POST" action="{{ route('super-admin.ai-gateway-plans.destroy', $plan) }}" onsubmit="return confirm('{{ $planHasHistory ? 'Paket akan dinonaktifkan. Peserta yang sudah memiliki paket tetap aktif. Lanjutkan?' : 'Hapus paket ini?' }}')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="rounded-full border border-red-400 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-500 hover:text-white">{{ $planHasHistory ? 'Nonaktifkan' : 'Hapus' }}</button>
+                                </form>
+                            @endif
+                        </div>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4 text-sm md:grid-cols-3">
                         <div>
@@ -100,7 +109,7 @@
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">Edit Paket {{ $scopes[$activeScope] }}</h3>
-                    <p class="mt-1 text-sm text-gray-500">Perubahan berlaku untuk pembelian atau klaim berikutnya; kuota langganan yang sudah aktif tidak berubah.</p>
+                    <p class="mt-1 text-sm text-gray-500">{{ $plan->is_active ? 'Perubahan berlaku untuk pembelian atau klaim berikutnya; kuota langganan yang sudah aktif tidak berubah.' : 'Paket ini nonaktif dan tidak tampil dalam pembelian. Centang opsi di bawah lalu simpan untuk mengaktifkannya kembali.' }}</p>
                 </div>
                 <button type="button" onclick="document.getElementById('edit-plan-{{ $plan->id }}').classList.add('hidden')" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button>
             </div>
