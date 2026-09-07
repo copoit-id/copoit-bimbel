@@ -212,12 +212,13 @@ class UserController extends Controller
             $request,
             $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         if ($validated['role'] === 'parent' && empty($validated['child_ids'])) {
             return back()->withInput()->withErrors(['child_ids' => 'Akun orang tua wajib ditautkan ke minimal satu anak.']);
         }
 
-        $user = DB::transaction(function () use ($validated, $destinationPayload, $tutorProfileService): User {
+        $user = DB::transaction(function () use ($validated, $destinationPayload, $secondDestinationPayload, $tutorProfileService): User {
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
@@ -232,6 +233,7 @@ class UserController extends Controller
                 'status' => $validated['status'] ?? 'aktif',
                 'role' => $validated['role'],
                 ...$destinationPayload,
+                ...$secondDestinationPayload,
             ]);
             $role = Role::where('slug', $user->role)->first();
             if ($role) {
@@ -254,6 +256,7 @@ class UserController extends Controller
 
         $user->load([
             'participantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.parent',
             'referredBy:id,name,email',
             'studyGroups:id,name,description,is_active',
             'userPackageAccess' => fn ($query) => $query
@@ -391,12 +394,13 @@ class UserController extends Controller
             $request,
             $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         if ($validated['role'] === 'parent' && empty($validated['child_ids'])) {
             return back()->withInput()->withErrors(['child_ids' => 'Akun orang tua wajib ditautkan ke minimal satu anak.']);
         }
 
-        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $tutorProfileService): User {
+        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $secondDestinationPayload, $tutorProfileService): User {
             $user = User::findOrFail($id);
             $user->fill([
                 'name' => $validated['name'],
@@ -411,6 +415,7 @@ class UserController extends Controller
                 'status' => $validated['status'],
                 'role' => $validated['role'],
                 ...$destinationPayload,
+                ...$secondDestinationPayload,
             ]);
 
             if (! empty($validated['password'])) {

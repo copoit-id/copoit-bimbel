@@ -283,6 +283,17 @@
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    <div data-student-field class="mt-6">
+                        <x-form.participant-destination-selector
+                            choice="2"
+                            :destination-categories="$destinationCategories"
+                            :selected-destination-id="old('second_participant_destination_category_id', $user->second_participant_destination_category_id ?? null)"
+                            :selected-source="old('second_participant_destination_source', $user->second_participant_destination_source ?? '')"
+                            :selected-external-id="old('second_participant_destination_external_id', $user->second_participant_destination_external_id ?? '')"
+                            :selected-institution-name="old('second_participant_destination_institution_name', $user->second_participant_destination_institution_name ?? '')"
+                            :selected-program-name="old('second_participant_destination_program_name', $user->second_participant_destination_program_name ?? '')" />
+                    </div>
                 </div>
             </div>
 

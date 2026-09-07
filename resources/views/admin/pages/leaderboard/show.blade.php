@@ -25,7 +25,7 @@
     <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div @class(['grid gap-4 mb-6', 'grid-cols-3' => $schoolLeaderboard, 'grid-cols-4' => ! $schoolLeaderboard])>
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
@@ -53,6 +53,7 @@
                 <i class="ri-trophy-line text-3xl text-dark"></i>
             </div>
         </div>
+        @unless($schoolLeaderboard)
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
@@ -62,6 +63,7 @@
                 <i class="ri-check-double-line text-3xl text-dark"></i>
             </div>
         </div>
+        @endunless
     </div>
 
     @if($podiumRankings->isNotEmpty())
@@ -82,7 +84,7 @@
                         <article class="leaderboard-podium__entry leaderboard-podium__entry--{{ $podiumRank }}">
                             <span class="leaderboard-podium__medal"><i class="ri-medal-fill"></i></span>
                             <p class="leaderboard-podium__name" title="{{ $podium['name'] }}">{{ $podium['name'] }}</p>
-                            @if($podium['origin_institution'] || $podium['major_choices'])
+                            @if(! $schoolLeaderboard && ($podium['origin_institution'] || $podium['major_choices']))
                                 <div class="leaderboard-podium__profile">
                                     @if($podium['origin_institution'])
                                         <p title="{{ $podium['origin_institution'] }}">{{ $podium['origin_institution'] }}</p>
@@ -106,6 +108,7 @@
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
         <div class="flex flex-col gap-4 mb-4">
+            @unless($schoolLeaderboard)
             @if($destinationCategories->isEmpty())
                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                     <div>
@@ -161,6 +164,7 @@
                     </div>
                 </form>
             @endif
+            @endunless
 
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div class="relative w-full sm:max-w-xs">
@@ -189,8 +193,10 @@
                     <tr>
                         <th scope="col" class="sticky left-0 z-20 w-[76px] min-w-[76px] bg-gray-50 px-6 py-3 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Peringkat</th>
                         <th scope="col" class="sticky left-[76px] z-20 min-w-[220px] bg-gray-50 px-6 py-3 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Peserta</th>
-                        <th scope="col" class="px-6 py-3">Asal Sekolah / Instansi</th>
-                        <th scope="col" class="px-6 py-3">Pilihan Jurusan</th>
+                        @unless($schoolLeaderboard)
+                            <th scope="col" class="px-6 py-3">Asal Sekolah / Instansi</th>
+                            <th scope="col" class="px-6 py-3">Pilihan Jurusan</th>
+                        @endunless
                         @php
                             $hasMultipleSubtests = $tryout->tryoutDetails->count() > 1;
                         @endphp
@@ -281,13 +287,16 @@
                                     <div>
                                         <p class="font-medium">{{ $ranking->user->name ?? 'Unknown User' }}</p>
                                         <p class="text-md text-gray-500">{{ $ranking->user->email ?? 'No Email' }}</p>
-                                        <p class="text-xs text-gray-400">
-                                            {{ $ranking->user?->participant_destination_display_name ?? 'Tujuan belum dipilih' }}
-                                        </p>
+                                        @unless($schoolLeaderboard)
+                                            <p class="text-xs text-gray-400">
+                                                {{ $ranking->user?->participant_destination_display_name ?? 'Tujuan belum dipilih' }}
+                                            </p>
+                                        @endunless
                                     </div>
                                 </div>
                             </td>
 
+                            @unless($schoolLeaderboard)
                             <td class="px-6 py-4">
                                 <p class="min-w-[150px] text-sm font-medium text-gray-700">{{ $ranking->user?->origin_institution ?: '—' }}</p>
                             </td>
@@ -304,6 +313,7 @@
                                     @endforelse
                                 </div>
                             </td>
+                            @endunless
 
                             @if($hasMultipleSubtests)
                                 @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
@@ -321,7 +331,7 @@
                             <td class="px-6 py-4 text-center">
                                 <div class="flex justify-center items-center">
                                     <span class="text-sm font-semibold text-gray-800">{{ $rawScore }}</span>
-                                    @if($maxScore > 0)
+                                    @if($showScoreMaximum && $maxScore > 0)
                                         <span class="ml-1 text-sm text-gray-500">/ {{ $maxScore }}</span>
                                     @endif
                                 </div>
@@ -369,7 +379,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $hasMultipleSubtests ? 8 + $tryout->tryoutDetails->count() : 8 }}"
+                            <td colspan="{{ ($schoolLeaderboard ? 6 : 8) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}"
                                 class="px-6 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>

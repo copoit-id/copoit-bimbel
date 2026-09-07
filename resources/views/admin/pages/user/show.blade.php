@@ -108,10 +108,8 @@
             <section class="rounded-xl border border-gray-200 bg-white p-6">
                 <div class="mb-5 flex items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-600"><i class="ri-graduation-cap-line text-xl"></i></span><div><h2 class="font-semibold text-gray-900">Tujuan & Informasi Akun</h2><p class="text-sm text-gray-500">Target pendidikan dan jejak pendaftaran</p></div></div>
                 <dl class="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
-                    <div><dt class="text-gray-500">Institusi tujuan</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->participant_destination_institution_name ?: ($user->participantDestinationCategory?->parent?->name ?: '—') }}</dd></div>
-                    <div><dt class="text-gray-500">Program tujuan</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->participant_destination_program_name ?: ($user->participantDestinationCategory?->name ?: '—') }}</dd></div>
-                    <div><dt class="text-gray-500">Pilihan jurusan 1</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->major_choice_1 ?: '—' }}</dd></div>
-                    <div><dt class="text-gray-500">Pilihan jurusan 2</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->major_choice_2 ?: '—' }}</dd></div>
+                    <div><dt class="text-gray-500">Tujuan 1</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}</dd></div>
+                    <div><dt class="text-gray-500">Tujuan 2</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}</dd></div>
                     <div><dt class="text-gray-500">Role akun</dt><dd class="mt-1"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $roleClass }}">{{ $roleLabels[$user->role] ?? \Illuminate\Support\Str::headline($user->role) }}</span></dd></div>
                     <div><dt class="text-gray-500">Status akun</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->status === 'aktif' ? 'Aktif' : 'Nonaktif' }}</dd></div>
                     <div><dt class="text-gray-500">Direferensikan oleh</dt><dd class="mt-1 font-medium text-gray-900">{{ $user->referredBy?->name ?: '—' }}</dd></div>

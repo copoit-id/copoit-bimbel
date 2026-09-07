@@ -137,6 +137,7 @@ class LeaderboardController extends Controller
         ];
 
         $scoreDisplayService = $this->scoreDisplayService;
+        $showScoreMaximum = $scoreDisplayService->shouldShowMaximum($tryout);
         $statistics['average_score_display'] = $finalScoreSummary['average_formatted'];
         $statistics['highest_score_display'] = $finalScoreSummary['highest_formatted'];
         $podiumRankings = $rankingRows
@@ -168,7 +169,7 @@ class LeaderboardController extends Controller
             'statistics',
             'podiumRankings',
             'destinationCategories',
-            'destinationFilter', 'schoolLeaderboard'
+            'destinationFilter', 'schoolLeaderboard', 'showScoreMaximum'
         ));
     }
 
@@ -473,6 +474,7 @@ class LeaderboardController extends Controller
                 $totalQuestions = 0;
                 $allSubtestsPassed = true;
                 $subtestScores = [];
+                $displaySubtestScores = [];
 
                 foreach ($attempt as $ranking) {
                     $ranking->loadMissing([
@@ -496,6 +498,13 @@ class LeaderboardController extends Controller
                     $subtestScores[$ranking->tryout_detail_id] = $rawScore;
                     $totalCorrect += $ranking->userAnswerDetails->where('is_correct', true)->count();
                     $totalQuestions += (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count());
+                    $displaySubtestScores[$ranking->tryout_detail_id] = $scoreDisplayService->present(
+                        $tryout,
+                        $rawScore,
+                        $ranking->userAnswerDetails->where('is_correct', true)->count(),
+                        (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count()),
+                        $maxScore
+                    );
                 }
 
                 $representative = $attempt->first();
@@ -508,6 +517,7 @@ class LeaderboardController extends Controller
                 $representative->max_score = $totalMaxScore;
                 $representative->is_passed = $allSubtestsPassed;
                 $representative->subtest_scores = $subtestScores;
+                $representative->display_subtest_scores = $displaySubtestScores;
                 $representative->display_score = $scoreDisplayService->present(
                     $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore, $attempt->count()
                 );
