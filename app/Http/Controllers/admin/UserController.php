@@ -727,7 +727,7 @@ class UserController extends Controller
     private function getRoleOptions(): array
     {
         return Role::query()
-            ->whereNotIn('slug', ['super_admin', 'admin_demo'])
+            ->whereNotIn('slug', ['super_admin', 'admin_demo', 'admin'])
             ->when(! $this->parentPortalEnabled(), fn ($query) => $query->where('slug', '!=', 'parent'))
             ->orderBy('name')
             ->get(['name', 'slug'])
