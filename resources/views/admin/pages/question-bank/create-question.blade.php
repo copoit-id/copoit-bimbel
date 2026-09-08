@@ -45,7 +45,7 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('question_type', 'multiple_choice') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -88,6 +88,7 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                             Gunakan custom skor
                         </label>
                     </div>
+                    <p class="text-sm text-gray-500">Isi minimal dua opsi (A dan B). Pilihan C sampai E bersifat opsional.</p>
                     <div id="multipleAnswerScoringContainer" class="@if(old('question_type') !== 'multiple_answer') hidden @endif">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Skor Multiple Answer</label>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
@@ -131,11 +132,12 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                                 @checked(in_array($optionKey, old('correct_answers', []), true))
                                 class="multi-correct hidden rounded border-gray-300 text-primary focus:ring-primary">
                             <label class="font-semibold text-gray-800" for="correct_{{ strtolower($optionKey) }}">
-                                Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
+                                Pilihan {{ $optionKey }} @if(in_array($optionKey, ['A', 'B'], true)) <span class="text-red-500">*</span> @endif
                             </label>
                         </div>
                         <textarea name="option_{{ strtolower($optionKey) }}" rows="2"
-                            class="ckeditor-option w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="180"
                             placeholder="Teks pilihan">{{ old('option_' . strtolower($optionKey)) }}</textarea>
                         <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores')) hidden @endif">
                             <label class="text-sm text-gray-600">Skor</label>
@@ -412,6 +414,28 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
             });
         }
 
+        function hasEditorContent(textarea) {
+            const $ = window.jQuery || window.$;
+            const value = $ && $(textarea).data('summernoteInitialized')
+                ? $(textarea).summernote('code')
+                : textarea.value;
+
+            return value
+                .replace(/<(?:br|\/?p|\/?div)[^>]*>/gi, '')
+                .replace(/&nbsp;/gi, '')
+                .trim() !== '';
+        }
+
+        function setEditorContent(textarea, value) {
+            const $ = window.jQuery || window.$;
+            if ($ && $(textarea).data('summernoteInitialized')) {
+                $(textarea).summernote('code', value);
+                return;
+            }
+
+            textarea.value = value;
+        }
+
         function configureOptionRows(type) {
             const isTrueFalse = type === 'true_false';
             const isMultipleAnswer = type === 'multiple_answer';
@@ -426,13 +450,13 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                 if (isTrueFalse) {
                     if (optionKey === 'A' || optionKey === 'B') {
                         row.classList.remove('hidden');
-                        if (textarea && !textarea.value.trim()) {
-                            textarea.value = optionKey === 'A' ? 'Benar' : 'Salah';
+                        if (textarea && !hasEditorContent(textarea)) {
+                            setEditorContent(textarea, optionKey === 'A' ? 'Benar' : 'Salah');
                         }
                     } else {
                         row.classList.add('hidden');
                         if (textarea) {
-                            textarea.value = '';
+                            setEditorContent(textarea, '');
                         }
                         if (radio) {
                             radio.checked = false;
@@ -467,6 +491,13 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                     }
                 }
             });
+
+            if (isTrueFalse) {
+                const checked = document.querySelector('input[name="correct_answer"]:checked');
+                if (!checked || !['A', 'B'].includes(checked.value)) {
+                    document.getElementById('correct_a').checked = true;
+                }
+            }
         }
 
         addMatchingBtn?.addEventListener('click', () => {

@@ -3,6 +3,9 @@
 @section('content')
 @php
     $questionType = old('question_type', $question->question_type ?? 'multiple_choice');
+    if ($questionType === 'true_false') {
+        $questionType = 'multiple_choice';
+    }
     $metadata = is_array($question->metadata) ? $question->metadata : [];
     $shortMeta = $metadata['short_answer'] ?? [];
     $audioMeta = $metadata['audio_answer'] ?? [];
@@ -79,7 +82,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected($questionType === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -123,6 +126,7 @@
                             Gunakan custom skor
                         </label>
                     </div>
+                    <p class="text-sm text-gray-500">Isi minimal dua opsi (A dan B). Pilihan C sampai E bersifat opsional.</p>
                     <div id="multipleAnswerScoringContainer" class="@if($questionType !== 'multiple_answer') hidden @endif">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Skor Multiple Answer</label>
                         @php
@@ -177,11 +181,12 @@
                                 @checked(in_array($optionKey, old('correct_answers', $multiCorrectKeys), true))
                                 class="multi-correct hidden rounded border-gray-300 text-primary focus:ring-primary">
                             <label class="font-semibold text-gray-800" for="correct_{{ strtolower($optionKey) }}">
-                                Pilihan {{ $optionKey }} @if($optionKey !== 'E') <span class="text-red-500">*</span> @endif
+                                Pilihan {{ $optionKey }} @if(in_array($optionKey, ['A', 'B'], true)) <span class="text-red-500">*</span> @endif
                             </label>
                         </div>
                         <textarea name="option_{{ strtolower($optionKey) }}" rows="2"
-                            class="ckeditor-option w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="180"
                             placeholder="Teks pilihan">{{ $optionText }}</textarea>
                         <div class="flex items-center gap-3 custom-score-field @if(!old('use_custom_scores', ($question->custom_score ?? 'no') === 'yes')) hidden @endif">
                             <label class="text-sm text-gray-600">Skor</label>
@@ -450,6 +455,28 @@
             });
         }
 
+        function hasEditorContent(textarea) {
+            const $ = window.jQuery || window.$;
+            const value = $ && $(textarea).data('summernoteInitialized')
+                ? $(textarea).summernote('code')
+                : textarea.value;
+
+            return value
+                .replace(/<(?:br|\/?p|\/?div)[^>]*>/gi, '')
+                .replace(/&nbsp;/gi, '')
+                .trim() !== '';
+        }
+
+        function setEditorContent(textarea, value) {
+            const $ = window.jQuery || window.$;
+            if ($ && $(textarea).data('summernoteInitialized')) {
+                $(textarea).summernote('code', value);
+                return;
+            }
+
+            textarea.value = value;
+        }
+
         function configureOptionRows(type) {
             const isTrueFalse = type === 'true_false';
             const isMultipleAnswer = type === 'multiple_answer';
@@ -464,13 +491,13 @@
                 if (isTrueFalse) {
                     if (optionKey === 'A' || optionKey === 'B') {
                         row.classList.remove('hidden');
-                        if (textarea && !textarea.value.trim()) {
-                            textarea.value = optionKey === 'A' ? 'Benar' : 'Salah';
+                        if (textarea && !hasEditorContent(textarea)) {
+                            setEditorContent(textarea, optionKey === 'A' ? 'Benar' : 'Salah');
                         }
                     } else {
                         row.classList.add('hidden');
                         if (textarea) {
-                            textarea.value = '';
+                            setEditorContent(textarea, '');
                         }
                         if (radio) {
                             radio.checked = false;
@@ -505,6 +532,13 @@
                     }
                 }
             });
+
+            if (isTrueFalse) {
+                const checked = document.querySelector('input[name="correct_answer"]:checked');
+                if (!checked || !['A', 'B'].includes(checked.value)) {
+                    document.getElementById('correct_a').checked = true;
+                }
+            }
         }
 
         addMatchingBtn?.addEventListener('click', () => {

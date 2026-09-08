@@ -555,8 +555,8 @@ class QuestionController extends Controller
         $rules = [
             'option_a' => 'required|string',
             'option_b' => 'required|string',
-            'option_c' => 'required|string',
-            'option_d' => 'required|string',
+            'option_c' => 'nullable|string',
+            'option_d' => 'nullable|string',
             'option_e' => 'nullable|string',
             'correct_answer' => 'required|in:A,B,C,D,E',
             'correct_answers' => 'nullable|array|min:1',
@@ -604,6 +604,35 @@ class QuestionController extends Controller
         ];
 
         $request->validate($rules, [], $attributes);
+
+        if ($questionType === 'true_false') {
+            return;
+        }
+
+        $availableOptionKeys = $this->availableOptionKeys($request);
+        if (count($availableOptionKeys) < 2) {
+            throw ValidationException::withMessages([
+                'option_b' => 'Soal pilihan ganda harus memiliki minimal dua opsi jawaban.',
+            ]);
+        }
+
+        $correctKeys = $questionType === 'multiple_answer'
+            ? array_map('strtoupper', (array) $request->input('correct_answers', []))
+            : [strtoupper((string) $request->input('correct_answer'))];
+
+        if (array_diff($correctKeys, $availableOptionKeys) !== []) {
+            throw ValidationException::withMessages([
+                $questionType === 'multiple_answer' ? 'correct_answers' : 'correct_answer' => 'Jawaban benar harus dipilih dari opsi yang diisi.',
+            ]);
+        }
+    }
+
+    private function availableOptionKeys(Request $request): array
+    {
+        return collect(['A', 'B', 'C', 'D', 'E'])
+            ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+            ->values()
+            ->all();
     }
 
     private function prepareMultipleChoiceOptions(Request $request, string $questionType = 'multiple_choice'): array
@@ -615,18 +644,11 @@ class QuestionController extends Controller
             ];
         }
 
-        $options = [
-            ['key' => 'A', 'text' => $request->option_a],
-            ['key' => 'B', 'text' => $request->option_b],
-            ['key' => 'C', 'text' => $request->option_c],
-            ['key' => 'D', 'text' => $request->option_d],
-        ];
-
-        if ($request->filled('option_e')) {
-            $options[] = ['key' => 'E', 'text' => $request->option_e];
-        }
-
-        return $options;
+        return collect(['A', 'B', 'C', 'D', 'E'])
+            ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+            ->map(fn (string $key) => ['key' => $key, 'text' => $request->input('option_'.strtolower($key))])
+            ->values()
+            ->all();
     }
 
     private function validateMatchingQuestion(Request $request): void

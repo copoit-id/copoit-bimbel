@@ -108,13 +108,11 @@
                                 class="text-red-500">*</span></label>
                         <select id="question_type" name="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="multiple_choice" {{ $rawType==='multiple_choice' ? 'selected' : '' }}>
+                            <option value="multiple_choice" {{ $currentType==='multiple_choice' ? 'selected' : '' }}>
                                 Multiple
                                 Choice</option>
                             <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
                                 Multiple Answer (Lebih dari 1 benar)</option>
-                            <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>True/False
-                            </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
                             <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
@@ -178,6 +176,7 @@
                             @endif
                             @endif
                         </div>
+                        <p class="text-sm text-gray-500">Isi minimal dua opsi (A dan B). Pilihan C sampai E bersifat opsional.</p>
                         <div id="multipleAnswerScoreContainer"
                             class="space-y-2 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
                             <label class="block text-sm font-medium text-gray-700">Skor Multiple Answer</label>
@@ -245,11 +244,12 @@
                                 <label for="option_{{ strtolower($optionKey) }}"
                                     class="block text-sm font-medium text-gray-700 mb-2">
                                     Pilihan {{ $optionKey }}
-                                    @if($optionKey !== 'E')<span class="text-red-500">*</span>@endif
+                                    @if(in_array($optionKey, ['A', 'B'], true))<span class="text-red-500">*</span>@endif
                                 </label>
                                 <textarea id="option_{{ strtolower($optionKey) }}"
-                                    name="option_{{ strtolower($optionKey) }}" {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    name="option_{{ strtolower($optionKey) }}" {{ in_array($optionKey, ['A', 'B'], true) ? 'required' : '' }}
+                                    class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    data-height="180"
                                     placeholder="Pilihan {{ $optionKey }}">{{ $optionData ? $optionData->option_text : old('option_' . strtolower($optionKey)) }}</textarea>
                             </div>
                             <div class="custom-score-field w-full sm:w-1/4"
@@ -911,6 +911,28 @@
         }
         syncMtfHeaderLabels();
 
+        function hasEditorContent(textarea) {
+            const $ = window.jQuery || window.$;
+            const value = $ && $(textarea).data('summernoteInitialized')
+                ? $(textarea).summernote('code')
+                : textarea.value;
+
+            return value
+                .replace(/<(?:br|\/?p|\/?div)[^>]*>/gi, '')
+                .replace(/&nbsp;/gi, '')
+                .trim() !== '';
+        }
+
+        function setEditorContent(textarea, value) {
+            const $ = window.jQuery || window.$;
+            if ($ && $(textarea).data('summernoteInitialized')) {
+                $(textarea).summernote('code', value);
+                return;
+            }
+
+            textarea.value = value;
+        }
+
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';
             const isMultipleAnswer = questionType === 'multiple_answer';
@@ -924,8 +946,8 @@
                 if (isTrueFalse) {
                     if (key === 'A' || key === 'B') {
                         row.style.display = '';
-                        if (textarea && !textarea.value.trim()) {
-                            textarea.value = key === 'A' ? 'Benar' : 'Salah';
+                        if (textarea && !hasEditorContent(textarea)) {
+                            setEditorContent(textarea, key === 'A' ? 'Benar' : 'Salah');
                         }
                         if (textarea) {
                             textarea.required = false;
@@ -948,7 +970,7 @@
                         row.style.display = 'none';
                         if (textarea) {
                             textarea.required = false;
-                            textarea.value = '';
+                            setEditorContent(textarea, '');
                         }
                         if (radio) {
                             radio.required = false;
@@ -965,10 +987,10 @@
                 } else {
                     row.style.display = '';
                     if (textarea) {
-                        textarea.required = key !== 'E';
+                        textarea.required = key === 'A' || key === 'B';
                     }
                     if (radio) {
-                        radio.required = !isMultipleAnswer && key !== 'E';
+                        radio.required = !isMultipleAnswer && key === 'A';
                         radio.classList.toggle('hidden', isMultipleAnswer);
                     }
                     if (multiCheckbox) {
