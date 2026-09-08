@@ -203,7 +203,7 @@ function isActive($route, $current) {
                 @if($user && $canShowAiLearning)
                 <a href="{{ route('user.ai-learning.index') }}"
                    class="user-nav-link px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.ai-learning', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-sparkling-2-line mr-1.5 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}"></i>AI Learning
+                    <i class="ri-sparkling-2-line mr-1.5 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}"></i>AI Learning Tools
                 </a>
                 @endif
 

@@ -71,7 +71,7 @@ class AppServiceProvider extends ServiceProvider
                 'isPickerMode' => $questionPickerDetail !== null || $programSchedulePicker !== null,
             ]);
         });
-        View::composer(['user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
+        View::composer(['user.components.navbar', 'user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
             $view->with(app(UserNavigationService::class)->context(auth()->user()));
         });
         View::composer('parent.layout', function ($view): void {
