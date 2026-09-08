@@ -922,11 +922,10 @@
                 </div>
                 <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Enkripsi</label>
-                    @php($smtpEncryption = old('smtp_encryption', $profile->smtp_encryption ?? 'tls'))
                     <select name="smtp_encryption" class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
-                        <option value="tls" @selected($smtpEncryption === 'tls')>TLS (umumnya port 587)</option>
-                        <option value="ssl" @selected($smtpEncryption === 'ssl')>SSL (umumnya port 465)</option>
-                        <option value="none" @selected($smtpEncryption === 'none')>Tanpa enkripsi</option>
+                        <option value="tls" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'tls')>TLS (umumnya port 587)</option>
+                        <option value="ssl" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'ssl')>SSL (umumnya port 465)</option>
+                        <option value="none" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'none')>Tanpa enkripsi</option>
                     </select>
                     @error('smtp_encryption')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
