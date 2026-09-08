@@ -8,7 +8,7 @@
             <h1 class="text-2xl font-semibold text-gray-900">Branding & Identitas</h1>
             <p class="text-gray-500">Perbarui tampilan umum platform bimbel sesuai kebutuhan klien.</p>
         </div>
-        <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2 shadow-sm">
+        <div class="hidden md:flex items-center gap-3 bg-white border border-border rounded-2xl px-4 py-2">
             <img src="{{ $branding['logo_url'] ?? asset('img/logo/logo-copoit.png') }}" class="client-brand-logo w-10 h-10 rounded-full object-cover"
                 alt="Logo Preview">
             <div>
@@ -82,7 +82,7 @@
     $tutorContentEnabled = (bool) ($profile->tutor_content_enabled ?? ($branding['tutor_content_enabled'] ?? false));
     @endphp
 
-    <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <form id="settings-form" action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
         @method('PUT')
         <input type="hidden" name="settings_tab" id="settings_tab" value="{{ $activeSettingsTab }}">
@@ -97,10 +97,12 @@
 
         @if ($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm">
-            <p class="font-semibold">Pengaturan belum tersimpan</p>
-            <p>{{ $errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.' }}</p>
+            <p class="font-semibold">{{ $errors->has('admin_password') ? 'Password Admin salah' : 'Pengaturan belum tersimpan' }}</p>
+            <p>{{ $errors->first('admin_password') ?: ($errors->first('general') ?: 'Periksa kembali bagian yang ditandai merah, lalu simpan ulang.') }}</p>
         </div>
         @endif
+        @if (session('success'))<div class="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{{ session('success') }}</div>@endif
+        @if (session('error'))<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ session('error') }}</div>@endif
 
         <div class="bg-white border border-border rounded-2xl shadow-sm p-3 md:p-4">
             <div class="flex flex-wrap gap-2">
@@ -309,7 +311,7 @@
                 );
             @endphp
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'shared' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
                     <input type="radio" name="tutor_content_visibility" value="shared"
                         class="mt-1 h-5 w-5 text-primary focus:ring-primary"
@@ -324,8 +326,17 @@
                         class="mt-1 h-5 w-5 text-primary focus:ring-primary"
                         {{ $tutorContentVisibility === 'isolated' ? 'checked' : '' }}>
                     <div>
+                        <p class="font-semibold text-gray-900">Isolasi Penuh</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap akun hanya melihat dan mengelola konten miliknya. Super Admin tetap dapat melihat seluruh konten.</p>
+                    </div>
+                </label>
+                <label class="flex gap-3 border rounded-2xl p-4 cursor-pointer transition {{ $tutorContentVisibility === 'tutor_isolated' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/60' }}">
+                    <input type="radio" name="tutor_content_visibility" value="tutor_isolated"
+                        class="mt-1 h-5 w-5 text-primary focus:ring-primary"
+                        {{ $tutorContentVisibility === 'tutor_isolated' ? 'checked' : '' }}>
+                    <div>
                         <p class="font-semibold text-gray-900">Isolasi Tutor</p>
-                        <p class="mt-1 text-xs leading-5 text-gray-500">Setiap Tutor atau akun operasional hanya melihat konten miliknya. Admin dan Super Admin tetap dapat melihat seluruh konten.</p>
+                        <p class="mt-1 text-xs leading-5 text-gray-500">Tutor melihat konten sendiri dan Admin, tetapi tidak dapat menghapus konten Admin. Konten Tutor lain tetap terpisah.</p>
                     </div>
                 </label>
             </div>
@@ -861,7 +872,7 @@
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Email SMTP</p>
                 <h2 class="text-xl font-semibold text-gray-900">Notifikasi Pendaftar Baru</h2>
-                <p class="text-gray-500 text-sm">Isi email SMTP dan sandi aplikasi. Host/port/enkripsi memakai default sistem.</p>
+                <p class="text-gray-500 text-sm">Isi konfigurasi sesuai penyedia email. Default Gmail: smtp.gmail.com, port 587, TLS.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -890,6 +901,37 @@
                     @enderror
                 </div>
                 <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Host SMTP</label>
+                    <input type="text" name="smtp_host"
+                        value="{{ old('smtp_host', $profile->smtp_host ?? 'smtp.gmail.com') }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="smtp.gmail.com">
+                    @error('smtp_host')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Port SMTP</label>
+                    <input type="number" name="smtp_port" min="1" max="65535"
+                        value="{{ old('smtp_port', $profile->smtp_port ?? 587) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="587">
+                    @error('smtp_port')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Enkripsi</label>
+                    <select name="smtp_encryption" class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <option value="tls" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'tls')>TLS (umumnya port 587)</option>
+                        <option value="ssl" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'ssl')>SSL (umumnya port 465)</option>
+                        <option value="none" @selected(old('smtp_encryption', $profile->smtp_encryption ?? 'tls') === 'none')>Tanpa enkripsi</option>
+                    </select>
+                    @error('smtp_encryption')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
                     <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Email Tujuan Notifikasi</label>
                     <input type="email" name="smtp_notification_email"
                         value="{{ old('smtp_notification_email', $profile->smtp_notification_email ?? ($branding['smtp_notification_email'] ?? '')) }}"
@@ -900,6 +942,7 @@
                     @enderror
                 </div>
             </div>
+            <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4"><button form="smtp-test-form" type="submit" class="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-send-plane-line"></i>Kirim Email Tes</button><p class="text-xs text-gray-500">Simpan SMTP terlebih dahulu, lalu cek inbox tujuan.</p></div>
         </div>
 
         <div data-settings-panel="contact"
@@ -1363,15 +1406,20 @@
             @endif
         </div> --}}
 
-        <div class="flex items-center justify-end gap-3">
+        <div class="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
             <a href="{{ url()->previous() }}"
                 class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">Batalkan</a>
             <button type="submit"
-                class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary/90">Simpan
+                class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90">Simpan
                 Pengaturan</button>
         </div>
         </fieldset>
     </form>
+
+    <form id="smtp-test-form" method="POST" action="{{ route('admin.settings.smtp.test') }}">@csrf</form>
+
+    <div id="settings-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Konfirmasi Password Admin</h2><p class="mt-1 text-sm text-gray-500">Masukkan password untuk menyimpan perubahan.</p><input id="settings-modal-password" type="password" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="Password Admin"><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-settings-modal class="rounded-xl border px-4 py-2">Batal</button><button id="settings-confirm-save" type="button" class="rounded-xl bg-primary px-4 py-2 text-white">Simpan</button></div></div></div>
+    <div id="smtp-test-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"><div class="w-full max-w-md rounded-2xl bg-white p-6"><h2 class="text-lg font-semibold">Kirim Email Tes</h2><p class="mt-1 text-sm text-gray-500">Email ini hanya dipakai untuk pengujian dan tidak disimpan.</p><input form="smtp-test-form" name="recipient" type="email" class="mt-4 w-full rounded-xl border border-gray-200 px-4 py-2.5" placeholder="email@penerima.com" required><div class="mt-5 flex justify-end gap-3"><button type="button" data-close-smtp-modal class="rounded-xl border px-4 py-2">Batal</button><button form="smtp-test-form" type="submit" class="rounded-xl bg-primary px-4 py-2 text-white">Kirim</button></div></div></div>
 </div>
 @endsection
 
@@ -1644,6 +1692,13 @@
         });
 
         bindFooterRemoveButtons();
+
+        const settingsForm = document.getElementById('settings-form'); const passwordModal = document.getElementById('settings-password-modal');
+        settingsForm?.addEventListener('submit', (event) => { if (settingsForm.dataset.confirmed) return; event.preventDefault(); passwordModal.classList.remove('hidden'); passwordModal.classList.add('flex'); });
+        document.getElementById('settings-confirm-save')?.addEventListener('click', () => { const password = document.getElementById('settings-modal-password').value; if (!password) return; const input = document.createElement('input'); input.type = 'hidden'; input.name = 'admin_password'; input.value = password; settingsForm.append(input); settingsForm.dataset.confirmed = '1'; settingsForm.submit(); });
+        document.querySelector('[data-close-settings-modal]')?.addEventListener('click', () => passwordModal.classList.add('hidden'));
+        const smtpModal = document.getElementById('smtp-test-modal'); document.querySelector('[form="smtp-test-form"]')?.addEventListener('click', (event) => { if (event.currentTarget.tagName !== 'BUTTON') return; event.preventDefault(); smtpModal.classList.remove('hidden'); smtpModal.classList.add('flex'); });
+        document.querySelector('[data-close-smtp-modal]')?.addEventListener('click', () => smtpModal.classList.add('hidden'));
     });
 </script>
 @endpush

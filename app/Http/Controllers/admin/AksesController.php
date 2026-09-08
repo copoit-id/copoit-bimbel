@@ -564,7 +564,13 @@ class AksesController extends Controller
     {
         return UserPackageAcces::where('requirement_status', 'pending')
             ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
-            ->with(['user', 'package'])
+            ->with([
+                'user',
+                'package',
+                'bookingRequests' => fn ($query) => $query
+                    ->with('tentor:id,name')
+                    ->latest('created_at'),
+            ])
             ->orderBy('created_at', 'asc')
             ->get();
     }

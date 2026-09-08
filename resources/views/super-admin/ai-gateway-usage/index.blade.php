@@ -10,6 +10,13 @@
     'learning_question' => 'Generate soal',
     'learning_flashcard' => 'Flashcard',
 ])
+@php($gatewayTabs = [
+    'overview' => ['label' => 'Ringkasan', 'icon' => 'ri-pie-chart-2-line'],
+    'projects' => ['label' => 'Project & Kuota Gratis', 'icon' => 'ri-layout-grid-line'],
+    'subscriptions' => ['label' => 'Paket Peserta', 'icon' => 'ri-user-star-line'],
+    'audit' => ['label' => 'Audit & Log', 'icon' => 'ri-file-list-3-line'],
+])
+@php($activeTab = array_key_exists(request('tab'), $gatewayTabs) ? request('tab') : 'overview')
 <div class="space-y-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
@@ -33,6 +40,17 @@
         </div>
     @endif
 
+    <nav class="flex gap-2 overflow-x-auto border-b border-gray-200 pb-px" aria-label="Navigasi monitoring AI Gateway">
+        @foreach($gatewayTabs as $key => $tab)
+            <a href="{{ route('super-admin.ai-gateway-usage.index', array_merge(request()->query(), ['tab' => $key])) }}"
+                class="inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition {{ $activeTab === $key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800' }}"
+                @if($activeTab === $key) aria-current="page" @endif>
+                <i class="{{ $tab['icon'] }} text-base"></i>{{ $tab['label'] }}
+            </a>
+        @endforeach
+    </nav>
+
+    @if($activeTab === 'overview')
     <div class="grid gap-4 md:grid-cols-3">
         <div class="rounded-xl border border-gray-200 bg-white p-5"><p class="text-sm text-gray-500">Project terdaftar</p><p class="mt-1 text-2xl font-bold text-gray-900">{{ $clients->count() }}</p></div>
         <div class="rounded-xl border border-gray-200 bg-white p-5"><p class="text-sm text-gray-500">Total request gateway</p><p class="mt-1 text-2xl font-bold text-gray-900">{{ number_format($summary->request_count ?? 0, 0, ',', '.') }}</p></div>
@@ -56,7 +74,6 @@
             @endforeach
         </div>
     </div>
-
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div><h2 class="font-semibold text-gray-900">Pemakaian per peserta dan fitur</h2><p class="mt-1 text-sm text-gray-500">Satu baris menunjukkan jumlah penggunaan satu fitur oleh satu peserta pada project tertentu.</p></div>
         <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
@@ -64,6 +81,9 @@
         </div>
     </div>
 
+    @endif
+
+    @if($activeTab === 'projects')
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div><h2 class="font-semibold text-gray-900">Project gateway</h2><p class="mt-1 text-sm text-gray-500">Project key disimpan aman dan hanya ditampilkan sekali saat dibuat.</p></div>
@@ -87,9 +107,11 @@
             @endforeach
         </div>
     </div>
+    @endif
 
     <div id="create-gateway-project-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 p-4"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><div class="flex items-start justify-between gap-4"><div><h2 class="text-lg font-semibold text-gray-900">Tambah project gateway</h2><p class="mt-1 text-sm text-gray-500">Project key dibuat satu kali untuk aplikasi ini.</p></div><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><form method="POST" action="{{ route('super-admin.ai-usage.projects.store') }}" class="mt-6 space-y-4">@csrf<label class="block"><span class="text-sm font-semibold text-gray-700">Nama project</span><input name="name" required class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="Contoh: Bimbel Cabang A"></label><label class="block"><span class="text-sm font-semibold text-gray-700">Base URL project</span><input name="base_url" type="url" class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10" placeholder="https://bimbel-cabang-a.com"></label><label class="block"><span class="text-sm font-semibold text-gray-700">Kuota token bulanan</span><input name="monthly_token_limit" type="number" min="0" value="0" class="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">Isi 0 untuk tanpa batas.</span></label><div class="flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('create-gateway-project-modal').classList.add('hidden')" class="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100">Batal</button><button class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90">Buat project & key</button></div></form></div></div></div>
 
+    @if($activeTab === 'subscriptions')
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div>
             <h2 class="font-semibold text-gray-900">Paket dan kuota peserta</h2>
@@ -141,7 +163,9 @@
         </div>
         <div class="mt-4">{{ $subscriptions->links() }}</div>
     </div>
+    @endif
 
+    @if($activeTab === 'audit')
     <div class="rounded-xl border border-gray-200 bg-white p-5">
         <div><h2 class="font-semibold text-gray-900">Riwayat penambahan token</h2><p class="mt-1 text-sm text-gray-500">Audit jumlah token, alasan, dan super admin yang melakukan perubahan.</p></div>
         <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100">
@@ -164,5 +188,6 @@
         <div class="mt-4 overflow-x-auto rounded-xl border border-gray-100"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><tr><th class="px-4 py-3">Waktu</th><th class="px-4 py-3">Project / sumber</th><th class="px-4 py-3">Akun asal</th><th class="px-4 py-3">Fitur</th><th class="px-4 py-3">Referensi</th><th class="px-4 py-3">Model</th><th class="px-4 py-3 text-right">Token</th><th class="px-4 py-3 text-right">Waktu respons</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($logs as $log)<tr class="align-top"><td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ $log->created_at->format('d M Y H:i') }}</td><td class="px-4 py-3"><p class="font-medium text-gray-900">{{ $log->client?->name ?? 'Project dihapus' }}</p><p class="mt-1 max-w-xs truncate text-xs text-gray-500" title="{{ $log->origin_base_url ?: $log->client?->base_url }}">{{ $log->origin_base_url ?: ($log->client?->base_url ?: '-') }}</p></td><td class="px-4 py-3"><p class="font-medium text-gray-800">{{ $log->external_user_name ?: 'Pengguna tidak tersedia' }}</p><p class="mt-1 text-xs text-gray-500">{{ $log->external_user_email ?: 'ID: ' . ($log->external_user_id ?: '-') }}</p></td><td class="whitespace-nowrap px-4 py-3"><span class="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">{{ $featureLabels[$log->feature ?? 'discussion'] ?? ucfirst(str_replace('_', ' ', $log->feature ?? 'discussion')) }}</span></td><td class="px-4 py-3 text-gray-600">{{ $log->question_reference ?: '-' }}</td><td class="px-4 py-3"><span class="rounded bg-gray-100 px-2 py-1 text-xs">{{ strtoupper($log->provider) }}</span><p class="mt-1 text-xs text-gray-500">{{ $log->model }}</p></td><td class="whitespace-nowrap px-4 py-3 text-right font-medium">{{ number_format($log->input_tokens, 0, ',', '.') }} / {{ number_format($log->output_tokens, 0, ',', '.') }} / {{ number_format($log->total_tokens, 0, ',', '.') }}</td><td class="whitespace-nowrap px-4 py-3 text-right text-gray-600">{{ number_format(($log->response_time_ms ?? 0) / 1000, 2, ',', '.') }} dtk</td></tr>@empty<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">Belum ada request gateway yang sesuai.</td></tr>@endforelse</tbody></table></div>
         <div class="mt-4">{{ $logs->links() }}</div>
     </div>
+    @endif
 </div>
 @endsection

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ParticipantDestinationCategory;
 use App\Models\Payment;
 use App\Models\Role;
+use App\Models\StudyGroup;
 use App\Models\User;
 use App\Rules\SafeName;
 use App\Services\ParticipantDestinationSelectionService;
@@ -35,10 +36,12 @@ class UserController extends Controller
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
         $search = trim((string) $request->query('search', ''));
-        $status = $request->query('status');
+        $status = $request->has('status') ? $request->query('status') : 'aktif';
 
-        if (! in_array($status, ['aktif', 'nonaktif'], true)) {
+        if ($status === '') {
             $status = null;
+        } elseif (! in_array($status, ['aktif', 'nonaktif'], true)) {
+            $status = 'aktif';
         }
 
         if (! array_key_exists((string) $activeRole, $roleOptions)) {
@@ -48,6 +51,7 @@ class UserController extends Controller
         $users = User::query()
             ->with([
                 'participantDestinationCategory.parent',
+                'secondParticipantDestinationCategory.parent',
                 'studyGroups:id,name',
                 'userPackageAccess' => fn ($query) => $query
                     ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])
@@ -139,9 +143,10 @@ class UserController extends Controller
         return view('admin.pages.user.login-as', compact('users', 'search', 'status'));
     }
 
-    public function create()
+    public function create(Request $request): View
     {
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
+        $formRole = $this->requestedFormRole($request, $roleOptions);
         $destinationCategories = $this->getDestinationCategories();
         $parentPortalEnabled = $this->parentPortalEnabled();
         $childOptions = $parentPortalEnabled
@@ -154,10 +159,13 @@ class UserController extends Controller
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
+            'formRole' => $formRole,
             'destinationCategories' => $destinationCategories,
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
             'parentPortalEnabled' => $parentPortalEnabled,
+            'schoolAdminStudyGroups' => $this->schoolAdminStudyGroups(),
+            'selectedSchoolAdminStudyGroupIds' => $this->oldInputIds('school_admin_study_group_ids'),
         ]);
     }
 
@@ -166,7 +174,7 @@ class UserController extends Controller
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
     ) {
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
@@ -188,6 +196,8 @@ class UserController extends Controller
             'parent_name' => ['nullable', 'required_if:add_parent_account,1', 'string', 'max:255', new SafeName],
             'parent_email' => ['nullable', 'required_if:add_parent_account,1', 'email', 'max:255', 'unique:users,email'],
             'parent_password' => ['nullable', 'required_if:add_parent_account,1', 'string', 'min:8'],
+            'school_admin_study_group_ids' => ['nullable', Rule::requiredIf($request->input('role') === 'admin_sekolah'), 'array', 'min:1'],
+            'school_admin_study_group_ids.*' => ['integer', 'exists:study_groups,id'],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -207,12 +217,13 @@ class UserController extends Controller
             $request,
             $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         if ($validated['role'] === 'parent' && empty($validated['child_ids'])) {
             return back()->withInput()->withErrors(['child_ids' => 'Akun orang tua wajib ditautkan ke minimal satu anak.']);
         }
 
-        $user = DB::transaction(function () use ($validated, $destinationPayload, $tutorProfileService): User {
+        $user = DB::transaction(function () use ($validated, $destinationPayload, $secondDestinationPayload, $tutorProfileService): User {
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
@@ -227,6 +238,7 @@ class UserController extends Controller
                 'status' => $validated['status'] ?? 'aktif',
                 'role' => $validated['role'],
                 ...$destinationPayload,
+                ...$secondDestinationPayload,
             ]);
             $role = Role::where('slug', $user->role)->first();
             if ($role) {
@@ -235,6 +247,7 @@ class UserController extends Controller
             $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $this->syncStudentParent($user, $validated);
             $tutorProfileService->sync($user);
+            $user->schoolAdminStudyGroups()->sync($user->role === 'admin_sekolah' ? ($validated['school_admin_study_group_ids'] ?? []) : []);
 
             return $user;
         });
@@ -242,12 +255,13 @@ class UserController extends Controller
         return redirect()->route('admin.user.index', ['role' => $user->role])->with('success', 'User created successfully.');
     }
 
-    public function show(User $user): View
+    public function show(User $user, bool $schoolAdminView = false): View
     {
         $this->ensureParentPortalUserIsAvailable($user);
 
         $user->load([
             'participantDestinationCategory.parent',
+            'secondParticipantDestinationCategory.parent',
             'referredBy:id,name,email',
             'studyGroups:id,name,description,is_active',
             'userPackageAccess' => fn ($query) => $query
@@ -308,14 +322,14 @@ class UserController extends Controller
                 ->sum(fn ($invoice) => $invoice->remaining_amount),
         ];
 
-        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary'));
+        return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary', 'schoolAdminView'));
     }
 
-    public function edit($id)
+    public function edit($id): View
     {
         $user = User::with(['children:id,name', 'parents:id,name,email'])->findOrFail($id);
         $this->ensureParentPortalUserIsAvailable($user);
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
         $parentPortalEnabled = $this->parentPortalEnabled();
         $childOptions = $parentPortalEnabled
@@ -335,10 +349,14 @@ class UserController extends Controller
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
+            'formRole' => $user->role,
+            'roleLocked' => ! array_key_exists($user->role, $roleOptions),
             'destinationCategories' => $destinationCategories,
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
             'parentPortalEnabled' => $parentPortalEnabled,
+            'schoolAdminStudyGroups' => $this->schoolAdminStudyGroups(),
+            'selectedSchoolAdminStudyGroupIds' => $user->schoolAdminStudyGroups()->pluck('study_groups.id')->all(),
         ]);
     }
 
@@ -348,9 +366,12 @@ class UserController extends Controller
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
     ) {
-        $this->ensureParentPortalUserIsAvailable(User::findOrFail($id));
-        $roleOptions = $this->getRoleOptions();
-        $roleSlugs = array_keys($roleOptions);
+        $existingUser = User::findOrFail($id);
+        $this->ensureParentPortalUserIsAvailable($existingUser);
+        $roleOptions = $this->getAssignableRoleOptions();
+        $roleSlugs = $existingUser->role === 'admin'
+            ? ['admin']
+            : array_keys($roleOptions);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users,email,'.$id,
@@ -371,6 +392,8 @@ class UserController extends Controller
             'parent_name' => ['nullable', 'required_if:add_parent_account,1', 'string', 'max:255', new SafeName],
             'parent_email' => ['nullable', 'required_if:add_parent_account,1', 'email', 'max:255', 'unique:users,email'],
             'parent_password' => ['nullable', 'required_if:add_parent_account,1', 'string', 'min:8'],
+            'school_admin_study_group_ids' => ['nullable', Rule::requiredIf($request->input('role') === 'admin_sekolah'), 'array', 'min:1'],
+            'school_admin_study_group_ids.*' => ['integer', 'exists:study_groups,id'],
         ], [
             'phone.required_if' => 'Nomor WhatsApp wajib diisi untuk siswa.',
             'phone.regex' => 'Nomor WhatsApp harus diawali 62 tanpa angka 0 atau tanda + di depan.',
@@ -381,12 +404,13 @@ class UserController extends Controller
             $request,
             $validated['role'] === 'user' && $destinationSelectionService->isRequired()
         );
+        $secondDestinationPayload = $destinationSelectionService->validateSecond($request);
 
         if ($validated['role'] === 'parent' && empty($validated['child_ids'])) {
             return back()->withInput()->withErrors(['child_ids' => 'Akun orang tua wajib ditautkan ke minimal satu anak.']);
         }
 
-        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $tutorProfileService): User {
+        $user = DB::transaction(function () use ($id, $validated, $destinationPayload, $secondDestinationPayload, $tutorProfileService): User {
             $user = User::findOrFail($id);
             $user->fill([
                 'name' => $validated['name'],
@@ -396,11 +420,12 @@ class UserController extends Controller
                 'birthday' => $validated['birthday'] ?? null,
                 'education_level' => $validated['education_level'] ?? null,
                 'origin_institution' => $validated['origin_institution'] ?? null,
-                'major_choice_1' => $validated['major_choice_1'] ?? null,
-                'major_choice_2' => $validated['major_choice_2'] ?? null,
+                'major_choice_1' => $validated['major_choice_1'] ?? $user->major_choice_1,
+                'major_choice_2' => $validated['major_choice_2'] ?? $user->major_choice_2,
                 'status' => $validated['status'],
                 'role' => $validated['role'],
                 ...$destinationPayload,
+                ...$secondDestinationPayload,
             ]);
 
             if (! empty($validated['password'])) {
@@ -415,6 +440,7 @@ class UserController extends Controller
             $user->children()->sync($user->isParent() ? ($validated['child_ids'] ?? []) : []);
             $this->syncStudentParent($user, $validated);
             $tutorProfileService->sync($user);
+            $user->schoolAdminStudyGroups()->sync($user->role === 'admin_sekolah' ? ($validated['school_admin_study_group_ids'] ?? []) : []);
 
             return $user;
         });
@@ -701,11 +727,36 @@ class UserController extends Controller
     private function getRoleOptions(): array
     {
         return Role::query()
-            ->whereNotIn('slug', ['super_admin', 'admin_demo'])
+            ->whereNotIn('slug', ['super_admin', 'admin_demo', 'admin'])
             ->when(! $this->parentPortalEnabled(), fn ($query) => $query->where('slug', '!=', 'parent'))
             ->orderBy('name')
+            ->get(['name', 'slug'])
+            ->sortBy(fn (Role $role): int => $role->slug === 'user' ? 0 : 1)
             ->pluck('name', 'slug')
             ->toArray();
+    }
+
+    /** @return array<string, string> */
+    private function getAssignableRoleOptions(): array
+    {
+        return collect($this->getRoleOptions())
+            ->except('admin')
+            ->all();
+    }
+
+    /** @param array<string, string> $roleOptions */
+    private function requestedFormRole(Request $request, array $roleOptions): string
+    {
+        $requestedRole = (string) $request->query('role', 'user');
+
+        return array_key_exists($requestedRole, $roleOptions)
+            ? $requestedRole
+            : (array_key_exists('user', $roleOptions) ? 'user' : (string) array_key_first($roleOptions));
+    }
+
+    private function schoolAdminStudyGroups()
+    {
+        return StudyGroup::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
     }
 
     private function parentPortalEnabled(): bool

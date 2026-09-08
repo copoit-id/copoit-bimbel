@@ -17,6 +17,30 @@
                     ['insert', ['link', 'picture', 'video']],
                     ['view', ['fullscreen', 'codeview', 'help']]
                 ];
+                const MAX_PASTED_IMAGE_BYTES = 4 * 1024 * 1024;
+
+                const insertPastedImage = ($target, event) => {
+                    const clipboard = event.originalEvent?.clipboardData || event.clipboardData;
+                    const imageItem = Array.from(clipboard?.items || [])
+                        .find((item) => item.type?.startsWith('image/'));
+
+                    if (!imageItem) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const image = imageItem.getAsFile();
+                    if (!image || image.size > MAX_PASTED_IMAGE_BYTES) {
+                        window.alert('Ukuran gambar yang ditempel maksimal 4 MB.');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.addEventListener('load', () => {
+                        $target.summernote('insertImage', reader.result, image.name || 'gambar-tempel');
+                    });
+                    reader.readAsDataURL(image);
+                };
 
                 const parseToolbar = (value) => {
                     if (!value) {
@@ -78,7 +102,12 @@
                                 minHeight: minHeight ?? null,
                                 maxHeight: maxHeight ?? null,
                                 focus,
-                                toolbar
+                                toolbar,
+                                callbacks: {
+                                    onPaste(event) {
+                                        insertPastedImage($target, event);
+                                    }
+                                }
                             });
 
                             $target.data('summernoteInitialized', true);

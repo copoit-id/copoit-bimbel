@@ -9,6 +9,7 @@ use App\Models\ClassSession;
 use App\Models\ScheduleBookingRequest;
 use App\Models\TutorAttendance;
 use App\Models\TutorPayroll;
+use App\Models\TutorPayrollItem;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\PlanModuleService;
 use Illuminate\Http\RedirectResponse;
@@ -111,12 +112,39 @@ class TutorDashboardController extends Controller
     public function schedule(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
-        $schedule = $this->weeklyScheduleData($tentor->id);
+        $scheduleRange = $request->string('range')->toString();
+        $scheduleRange = in_array($scheduleRange, ['week', 'month', 'all'], true) ? $scheduleRange : 'week';
+        $schedule = match ($scheduleRange) {
+            'week' => $this->weeklyScheduleData($tentor->id),
+            'month' => $this->monthlyScheduleData($tentor->id),
+            default => $this->allScheduleData($tentor->id),
+        };
+        $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
+            'canManageSchedule' => $canManageSchedule,
+            'scheduleRange' => $scheduleRange,
             ...$schedule,
         ]);
+    }
+
+    public function earnings(Request $request): View
+    {
+        $tentor = $request->user()->tentorProfile;
+        $items = TutorPayrollItem::query()
+            ->with(['payroll:id,tentor_id,status,paid_at', 'session:id,class_schedule_id,start_at', 'session.schedule:id,title'])
+            ->whereHas('payroll', fn ($query) => $query->where('tentor_id', $tentor->id))
+            ->latest('session_date')
+            ->paginate(20);
+
+        $summary = TutorPayroll::query()
+            ->where('tentor_id', $tentor->id)
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END) as paid_amount")
+            ->selectRaw("SUM(CASE WHEN status != 'paid' THEN net_amount ELSE 0 END) as pending_amount")
+            ->first();
+
+        return view('tutor.earnings', compact('items', 'summary'));
     }
 
     public function attendanceIndex(Request $request): View
@@ -312,6 +340,47 @@ class TutorDashboardController extends Controller
                 6 => 'Sabtu',
                 7 => 'Minggu',
             ],
+        ];
+    }
+
+    private function monthlyScheduleData(int $tentorId): array
+    {
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+        $calendarStart = $monthStart->copy()->startOfWeek();
+        $calendarEnd = $monthEnd->copy()->endOfWeek();
+
+        return [
+            'monthSessions' => $this->sessionsFor($tentorId, includeTutorAttendance: false)
+                ->whereBetween('session_date', [$calendarStart->toDateString(), $calendarEnd->toDateString()])
+                ->get()
+                ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
+            'monthDates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
+            'monthStart' => $monthStart,
+        ];
+    }
+
+    private function allScheduleData(int $tentorId): array
+    {
+        $sessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)->get();
+
+        return [
+            'allMonths' => $sessions
+                ->groupBy(fn (ClassSession $session) => $session->start_at->format('Y-m'))
+                ->sortKeys()
+                ->map(function ($monthSessions, string $monthKey): array {
+                    $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
+                    $calendarStart = $monthStart->copy()->startOfWeek();
+                    $calendarEnd = $monthStart->copy()->endOfMonth()->endOfWeek();
+
+                    return [
+                        'label' => $monthStart->locale('id')->translatedFormat('F Y'),
+                        'month' => $monthStart->month,
+                        'dates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
+                        'sessions' => $monthSessions->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
+                    ];
+                })
+                ->values(),
         ];
     }
 

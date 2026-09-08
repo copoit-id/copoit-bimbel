@@ -39,18 +39,20 @@ class LeaderboardController extends Controller
     public function index()
     {
         // Get all tryouts with their packages and participant counts - GROUP BY tryout
+        $schoolStudentIds = $this->schoolStudentIds();
         $tryouts = Tryout::with([
             'tryoutDetails' => fn ($query) => $query->withCount('questions'),
             'packages',
         ])
             ->get()
-            ->map(function ($tryout) {
+            ->map(function ($tryout) use ($schoolStudentIds) {
                 $totalQuestions = (int) $tryout->tryoutDetails->sum('questions_count');
                 $totalDuration = (int) $tryout->tryoutDetails->sum('duration');
 
                 // Count total participants across all packages for this tryout
                 $participantCount = UserAnswer::where('tryout_id', $tryout->tryout_id)
                     ->where('status', 'completed')
+                    ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
                     ->distinct('user_id')
                     ->count();
 
@@ -89,7 +91,8 @@ class LeaderboardController extends Controller
             ->filter() // Remove null values
             ->values(); // Reset array keys
 
-        return view('admin.pages.leaderboard.index', compact('tryouts'));
+        $schoolLeaderboard = $schoolStudentIds !== null;
+        return view('admin.pages.leaderboard.index', compact('tryouts', 'schoolLeaderboard'));
     }
 
     public function show($package_id, $tryout_id)
@@ -104,7 +107,7 @@ class LeaderboardController extends Controller
         // Get tryout details
         $tryoutDetail = $tryout->tryoutDetails->first();
         if (!$tryoutDetail) {
-            return redirect()->route('admin.leaderboard.index')
+            return redirect()->route($this->schoolStudentIds() !== null ? 'admin.school.leaderboard' : 'admin.leaderboard.index')
                 ->with('error', 'Tryout belum memiliki detail soal');
         }
 
@@ -134,6 +137,7 @@ class LeaderboardController extends Controller
         ];
 
         $scoreDisplayService = $this->scoreDisplayService;
+        $showScoreMaximum = $scoreDisplayService->shouldShowMaximum($tryout);
         $statistics['average_score_display'] = $finalScoreSummary['average_formatted'];
         $statistics['highest_score_display'] = $finalScoreSummary['highest_formatted'];
         $podiumRankings = $rankingRows
@@ -146,6 +150,8 @@ class LeaderboardController extends Controller
                 return [
                     'rank' => $index + 1,
                     'name' => $ranking->user->name ?? 'Peserta',
+                    'origin_institution' => $ranking->user?->origin_institution,
+                    'major_choices' => $ranking->user?->leaderboard_major_choices ?? [],
                     'score' => $displayScore['formatted'],
                     'maximum' => $scoreDisplayService->shouldShowMaximum($tryout)
                         ? $displayScore['formatted_maximum']
@@ -154,6 +160,7 @@ class LeaderboardController extends Controller
             })
             ->keyBy('rank');
 
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
         return view('admin.pages.leaderboard.show', compact(
             'package',
             'tryout',
@@ -162,7 +169,7 @@ class LeaderboardController extends Controller
             'statistics',
             'podiumRankings',
             'destinationCategories',
-            'destinationFilter'
+            'destinationFilter', 'schoolLeaderboard', 'showScoreMaximum'
         ));
     }
 
@@ -170,6 +177,7 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -181,27 +189,29 @@ class LeaderboardController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Peringkat');
         $subtests = $this->exportSubtests($tryout);
+        $showScoreMaximum = $this->scoreDisplayService->shouldShowMaximum($tryout);
 
         $headers = [
             'Peringkat',
             'Nama Peserta',
             'Email',
-            'Tujuan / Instansi',
         ];
+
+        if (! $schoolLeaderboard) {
+            $headers = [...$headers, 'Asal Sekolah / Instansi', 'Pilihan Jurusan', 'Tujuan / Instansi'];
+        }
 
         foreach ($subtests as $subtest) {
             $headers[] = 'Skor '.$subtest['alias'];
         }
 
-        $headers = [
-            ...$headers,
-            'Skor Total',
-            'Skor Maks',
-            'Status',
-            'Waktu Selesai',
-            'Durasi',
-            'Tanggal',
-        ];
+        $headers = [...$headers, 'Skor Total'];
+
+        if ($showScoreMaximum) {
+            $headers[] = 'Skor Maks';
+        }
+
+        $headers = [...$headers, 'Status', 'Waktu Selesai', 'Durasi', 'Tanggal'];
 
         $sheet->fromArray($headers, null, 'A1');
 
@@ -218,8 +228,15 @@ class LeaderboardController extends Controller
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
-                $ranking->user?->participant_destination_display_name ?? '-',
             ];
+
+            if (! $schoolLeaderboard) {
+                $values = [...$values,
+                    $ranking->user?->origin_institution ?? '-',
+                    $ranking->user?->leaderboard_major_choices_display ?? '-',
+                    $ranking->user?->participant_destination_display_name ?? '-',
+                ];
+            }
 
             foreach ($subtests as $subtest) {
                 $values[] = $ranking->display_subtest_scores[$subtest['id']]['formatted']
@@ -229,10 +246,14 @@ class LeaderboardController extends Controller
             $displayScore = $ranking->display_score['formatted'] ?? $score;
             $displayMaximum = $ranking->display_score['formatted_maximum'] ?? $maxScore;
 
+            $rowValues = [...$values, $displayScore];
+
+            if ($showScoreMaximum) {
+                $rowValues[] = $displayMaximum;
+            }
+
             $sheet->fromArray([
-                ...$values,
-                $displayScore,
-                $displayMaximum,
+                ...$rowValues,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
                 $finishedAt ? $finishedAt->format('H:i') : '-',
                 $duration,
@@ -246,8 +267,13 @@ class LeaderboardController extends Controller
         $sheet->getColumnDimension('A')->setWidth(12);
         $sheet->getColumnDimension('B')->setWidth(28);
         $sheet->getColumnDimension('C')->setWidth(32);
-        $sheet->getColumnDimension('D')->setWidth(28);
-        for ($column = 5; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
+        $fixedColumns = $schoolLeaderboard ? 3 : 6;
+        if (! $schoolLeaderboard) {
+            $sheet->getColumnDimension('D')->setWidth(28);
+            $sheet->getColumnDimension('E')->setWidth(32);
+            $sheet->getColumnDimension('F')->setWidth(28);
+        }
+        for ($column = $fixedColumns + 1; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
             $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column))->setWidth(15);
         }
         $this->styleExportSheet($sheet, $lastColumn, $row - 1);
@@ -272,6 +298,8 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
+        $showScoreMaximum = $this->scoreDisplayService->shouldShowMaximum($tryout);
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -285,6 +313,8 @@ class LeaderboardController extends Controller
             'rankings' => $rankings,
             'subtests' => $this->exportSubtests($tryout),
             'destinationFilter' => $destinationFilter,
+            'schoolLeaderboard' => $schoolLeaderboard,
+            'showScoreMaximum' => $showScoreMaximum,
         ])->render();
 
         $options = new Options();
@@ -292,7 +322,7 @@ class LeaderboardController extends Controller
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', $tryout->tryoutDetails->count() > 1 ? 'landscape' : 'portrait');
+        $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
 
         $filename = sprintf(
@@ -327,19 +357,30 @@ class LeaderboardController extends Controller
         return UserAnswer::where('tryout_id', $tryoutId)
             ->where('status', 'completed')
             ->whereNotNull('score')
+            ->when($this->schoolStudentIds() !== null, fn ($query) => $query->whereIn('user_id', $this->schoolStudentIds()))
             ->when(!empty($destinationCategoryIds), function ($query) use ($destinationCategoryIds) {
                 $query->whereHas('user', function ($userQuery) use ($destinationCategoryIds) {
                     $userQuery->whereIn('participant_destination_category_id', $destinationCategoryIds);
                 });
             })
             ->with([
+                'user:id,name,email,origin_institution,major_choice_1,major_choice_2,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
                 'user.participantDestinationCategory.parent',
+                'user.secondParticipantDestinationCategory.parent',
                 'tryoutDetail',
                 'userAnswerDetails.question.questionOptions',
                 'userAnswerDetails.questionOption',
             ])
             ->orderBy('score', 'desc')
             ->orderBy('finished_at', 'asc');
+    }
+
+    private function schoolStudentIds(): ?Collection
+    {
+        $user = auth()->user();
+        if ($user?->role !== 'admin_sekolah') return null;
+        $groupIds = $user->schoolAdminStudyGroups()->pluck('study_groups.id');
+        return \App\Models\User::where('role', 'user')->whereHas('studyGroups', fn ($query) => $query->whereIn('study_groups.id', $groupIds))->pluck('id');
     }
 
     private function buildLeaderboardPaginator($tryoutId, int $perPage = 15)
@@ -450,6 +491,7 @@ class LeaderboardController extends Controller
                 $totalQuestions = 0;
                 $allSubtestsPassed = true;
                 $subtestScores = [];
+                $displaySubtestScores = [];
 
                 foreach ($attempt as $ranking) {
                     $ranking->loadMissing([
@@ -473,6 +515,13 @@ class LeaderboardController extends Controller
                     $subtestScores[$ranking->tryout_detail_id] = $rawScore;
                     $totalCorrect += $ranking->userAnswerDetails->where('is_correct', true)->count();
                     $totalQuestions += (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count());
+                    $displaySubtestScores[$ranking->tryout_detail_id] = $scoreDisplayService->present(
+                        $tryout,
+                        $rawScore,
+                        $ranking->userAnswerDetails->where('is_correct', true)->count(),
+                        (int) ($detail->questions_count ?? $ranking->userAnswerDetails->count()),
+                        $maxScore
+                    );
                 }
 
                 $representative = $attempt->first();
@@ -485,6 +534,7 @@ class LeaderboardController extends Controller
                 $representative->max_score = $totalMaxScore;
                 $representative->is_passed = $allSubtestsPassed;
                 $representative->subtest_scores = $subtestScores;
+                $representative->display_subtest_scores = $displaySubtestScores;
                 $representative->display_score = $scoreDisplayService->present(
                     $tryout, $totalScore, $totalCorrect, $totalQuestions, $totalMaxScore, $attempt->count()
                 );

@@ -13,6 +13,7 @@ use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
+use App\Services\PlanModuleService;
 use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
@@ -29,6 +30,10 @@ use Illuminate\Validation\Rule;
 
 class TryoutController extends Controller
 {
+    public function __construct(
+        private PlanModuleService $planModules
+    ) {}
+
     private const UTBK_SUBTESTS = [
         'penalaran_umum' => [
             'label' => 'Penalaran Umum',
@@ -163,20 +168,24 @@ class TryoutController extends Controller
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
         $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
-        $certificateTemplates = CertificateTemplate::query()
-            ->where('client_profile_id', $this->clientProfileId())
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $certificateTemplates = $certificateManagementEnabled
+            ? CertificateTemplate::query()
+                ->where('client_profile_id', $this->clientProfileId())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+            : collect();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateManagementEnabled', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
         $this->normalizeDurationInputs($request);
-        $request->validate($this->tryoutValidationRules());
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $request->validate($this->tryoutValidationRules(null, $certificateManagementEnabled));
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
         $lobbyTokenData = $this->lobbyTokenData($request);
@@ -184,6 +193,7 @@ class TryoutController extends Controller
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
         $cardDisplay = $request->input('user_card_display', 'icon');
+        $certificateConfiguration = $this->certificateConfiguration($request, $certificateManagementEnabled);
 
         if ($cardDisplay === 'thumbnail' && ! $request->hasFile('thumbnail')) {
             return back()
@@ -217,8 +227,7 @@ class TryoutController extends Controller
                 'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
-                'is_certification' => $request->has('is_certification'),
-                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
+                ...$certificateConfiguration,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -260,17 +269,20 @@ class TryoutController extends Controller
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
             $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
-            $certificateTemplates = CertificateTemplate::query()
-                ->where('client_profile_id', $this->clientProfileId())
-                ->where(function ($query) use ($tryout): void {
-                    $query->where('is_active', true)
-                        ->orWhere('certificate_template_id', $tryout->certificate_template_id);
-                })
-                ->orderBy('name')
-                ->get();
+            $certificateManagementEnabled = $this->certificateManagementEnabled();
+            $certificateTemplates = $certificateManagementEnabled
+                ? CertificateTemplate::query()
+                    ->where('client_profile_id', $this->clientProfileId())
+                    ->where(function ($query) use ($tryout): void {
+                        $query->where('is_active', true)
+                            ->orWhere('certificate_template_id', $tryout->certificate_template_id);
+                    })
+                    ->orderBy('name')
+                    ->get()
+                : collect();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateTemplates', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateManagementEnabled', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -287,7 +299,8 @@ class TryoutController extends Controller
         }
 
         $this->normalizeDurationInputs($request);
-        $request->validate($this->tryoutValidationRules($tryout->type_tryout));
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $request->validate($this->tryoutValidationRules($tryout->type_tryout, $certificateManagementEnabled));
         // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
         // tidak mengubah arti nilai dan riwayat hasil peserta.
         $scoringMethod = $this->storedScoringMethod($tryout);
@@ -295,6 +308,7 @@ class TryoutController extends Controller
         $lobbyTokenData = $this->lobbyTokenData($request, $tryout);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
+        $certificateConfiguration = $this->certificateConfiguration($request, $certificateManagementEnabled);
 
         try {
             $originalType = $tryout->type_tryout;
@@ -346,8 +360,7 @@ class TryoutController extends Controller
                 'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
-                'is_certification' => $request->has('is_certification'),
-                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
+                ...$certificateConfiguration,
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'is_active' => $request->has('is_active'),
@@ -1049,8 +1062,35 @@ class TryoutController extends Controller
         return ClientProfile::query()->value('id');
     }
 
-    private function tryoutValidationRules(?string $currentType = null): array
+    private function certificateManagementEnabled(): bool
     {
+        return $this->planModules->allows('certificate')
+            && (bool) config('client.branding.certificate_management_enabled', true);
+    }
+
+    /**
+     * @return array{is_certification: bool, certificate_template_id: int|null}
+     */
+    private function certificateConfiguration(Request $request, bool $certificateManagementEnabled): array
+    {
+        if (! $certificateManagementEnabled) {
+            return [
+                'is_certification' => false,
+                'certificate_template_id' => null,
+            ];
+        }
+
+        return [
+            'is_certification' => $request->boolean('is_certification'),
+            'certificate_template_id' => $request->boolean('is_certification')
+                ? $request->integer('certificate_template_id') ?: null
+                : null,
+        ];
+    }
+
+    private function tryoutValidationRules(?string $currentType = null, ?bool $certificateManagementEnabled = null): array
+    {
+        $certificateManagementEnabled ??= $this->certificateManagementEnabled();
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
 
         $rules = [
@@ -1081,11 +1121,13 @@ class TryoutController extends Controller
                 },
             ],
             'is_certification' => 'boolean',
-            'certificate_template_id' => [
-                'nullable',
-                Rule::exists('certificate_templates', 'certificate_template_id')
-                    ->where('client_profile_id', $this->clientProfileId()),
-            ],
+            'certificate_template_id' => $certificateManagementEnabled
+                ? [
+                    'nullable',
+                    Rule::exists('certificate_templates', 'certificate_template_id')
+                        ->where('client_profile_id', $this->clientProfileId()),
+                ]
+                : ['prohibited'],
             'is_active' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',

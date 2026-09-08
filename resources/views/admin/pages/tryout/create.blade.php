@@ -357,31 +357,33 @@
                         </span>
                     </label>
 
-                    <div id="certificateTemplateField" class="{{ $isCertificationChecked ? '' : 'hidden' }} rounded-lg border border-primary/20 bg-primary/5 p-4">
-                        <label for="certificate_template_id" class="mb-1 block text-sm font-semibold text-gray-800">Template Sertifikat</label>
-                        <select id="certificate_template_id" name="certificate_template_id" class="w-full rounded-lg border-gray-300 text-sm focus:border-primary focus:ring-primary">
-                            <option value="">Pilih template</option>
-                            @foreach($certificateTemplates as $certificateTemplate)
-                                <option value="{{ $certificateTemplate->certificate_template_id }}" @selected((string) $selectedCertificateTemplateId === (string) $certificateTemplate->certificate_template_id)>{{ $certificateTemplate->name }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-2 text-xs text-gray-500">Template yang dipilih akan tersimpan khusus untuk tryout ini. Atur background dan posisi isi di <a href="{{ route('admin.certificate.template.index') }}" class="font-semibold text-primary hover:underline">Template Sertifikat</a>.</p>
-                    </div>
+                    @if($certificateManagementEnabled)
+                        <div id="certificateTemplateField" class="{{ $isCertificationChecked ? '' : 'hidden' }} rounded-lg border border-primary/20 bg-primary/5 p-4">
+                            <label for="certificate_template_id" class="mb-1 block text-sm font-semibold text-gray-800">Template Sertifikat</label>
+                            <select id="certificate_template_id" name="certificate_template_id" class="w-full rounded-lg border-gray-300 text-sm focus:border-primary focus:ring-primary">
+                                <option value="">Pilih template</option>
+                                @foreach($certificateTemplates as $certificateTemplate)
+                                    <option value="{{ $certificateTemplate->certificate_template_id }}" @selected((string) $selectedCertificateTemplateId === (string) $certificateTemplate->certificate_template_id)>{{ $certificateTemplate->name }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-2 text-xs text-gray-500">Template yang dipilih akan tersimpan khusus untuk tryout ini. Atur background dan posisi isi di <a href="{{ route('admin.certificate.template.index') }}" class="font-semibold text-primary hover:underline">Template Sertifikat</a>.</p>
+                        </div>
 
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
-                            $isCertificationChecked ? 'checked' : '' }}
-                            class="sr-only peer tryout-toggle-input">
-                        <span
-                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" id="is_certification" name="is_certification" value="1" {{
+                                $isCertificationChecked ? 'checked' : '' }}
+                                class="sr-only peer tryout-toggle-input">
                             <span
-                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
-                        </span>
-                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            Generate Sertifikat Otomatis
-                            <x-ui.tooltip>Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.</x-ui.tooltip>
-                        </span>
-                    </label>
+                                class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                                <span
+                                    class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                            </span>
+                            <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                Generate Sertifikat Otomatis
+                                <x-ui.tooltip>Sertifikat akan digenerate jika diaktifkan. Wajib memiliki template.</x-ui.tooltip>
+                            </span>
+                        </label>
+                    @endif
 
                     <div class="space-y-3">
                         <label class="flex items-center gap-3">

@@ -41,7 +41,11 @@ class Material extends Model
                 return;
             }
 
-            $query->where($query->qualifyColumn('created_by'), $user->id);
+            app(TutorContentVisibilityService::class)->applyContentVisibilityScope(
+                $query,
+                $user,
+                $query->qualifyColumn('created_by')
+            );
         });
     }
 

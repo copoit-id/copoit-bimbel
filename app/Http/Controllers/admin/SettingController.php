@@ -10,11 +10,62 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SettingController extends Controller
 {
+    public function testSmtp(Request $request)
+    {
+        $request->validate(['recipient' => ['required', 'email', 'max:255']]);
+        $recipient = MailSafety::email($request->input('recipient'));
+        if (! $recipient) {
+            return back()->withErrors(['recipient' => 'Alamat email tujuan tidak valid.'])
+                ->with('active_tab', 'smtp');
+        }
+
+        // Konfigurasi mail default sudah dibangun oleh AppServiceProvider dari
+        // ClientProfile (database). Gunakan mailer yang sama persis dengan
+        // forgot password agar endpoint test tidak memiliki jalur SMTP berbeda.
+        if (config('mail.default') !== 'smtp'
+            || ! MailSafety::email(config('mail.mailers.smtp.username'))
+            || ! filled(config('mail.mailers.smtp.password'))) {
+            return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.')
+                ->with('active_tab', 'smtp');
+        }
+
+        try {
+            Mail::raw(
+                'Tes SMTP berhasil. Konfigurasi email Anda aktif.',
+                fn ($message) => $message->to($recipient)->subject('Tes SMTP '.config('app.name')),
+            );
+
+            return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.')->with('active_tab', 'smtp');
+        } catch (\Throwable $exception) {
+            report($exception);
+            return back()->with('error', $this->smtpTestErrorMessage($exception))->with('active_tab', 'smtp');
+        }
+    }
+
+    private function smtpTestErrorMessage(\Throwable $exception): string
+    {
+        $message = strtolower($exception->getMessage());
+
+        if (str_contains($message, 'auth') || str_contains($message, 'username') || str_contains($message, 'password')) {
+            return 'SMTP menolak autentikasi. Pastikan email dan sandi aplikasi sesuai akun pengirim.';
+        }
+
+        if (str_contains($message, 'ssl') || str_contains($message, 'tls') || str_contains($message, 'crypto') || str_contains($message, 'certificate')) {
+            return 'Koneksi SMTP gagal karena enkripsi tidak sesuai. Periksa pasangan port dan enkripsi.';
+        }
+
+        if (str_contains($message, 'connection') || str_contains($message, 'timed out') || str_contains($message, 'stream_socket')) {
+            return 'Server SMTP tidak dapat dihubungi. Periksa host, port, enkripsi, atau blokir jaringan server.';
+        }
+
+        return 'Email tes gagal dikirim. Periksa konfigurasi SMTP atau log aplikasi untuk detail aman.';
+    }
     public function index()
     {
         $profile = ClientProfile::query()->first();
@@ -109,7 +160,7 @@ class SettingController extends Controller
             'material_nav_label' => ['required', 'string', 'max:80'],
             'package_nav_label' => ['required', 'string', 'max:80'],
             'tryout_nav_label' => ['required', 'string', 'max:80'],
-            'tutor_content_visibility' => ['nullable', 'in:shared,isolated'],
+            'tutor_content_visibility' => ['nullable', 'in:shared,isolated,tutor_isolated'],
             'warna_primary' => ['required', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'warna_secondary' => ['nullable', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             // SVG is executable XML in browsers. Do not place untrusted SVG
@@ -134,6 +185,9 @@ class SettingController extends Controller
             'interactive_qris_use_tip' => ['nullable', 'boolean'],
             'ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
             'ipaymu_va' => ['nullable', 'string', 'max:100'],
+            'smtp_host' => ['nullable', 'string', 'max:255'],
+            'smtp_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'smtp_encryption' => ['nullable', 'in:tls,ssl,none'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -260,15 +314,9 @@ class SettingController extends Controller
             }
         }
 
-        $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
-        $smtpPort = (int) ($profile->smtp_port ?: 587);
-        $smtpEncryption = $profile->smtp_encryption ?: 'tls';
-
-        if (in_array($smtpHost, ['127.0.0.1', 'localhost'], true) && $smtpPort === 2525) {
-            $smtpHost = 'smtp.gmail.com';
-            $smtpPort = 587;
-            $smtpEncryption = 'tls';
-        }
+        $smtpHost = trim((string) (($validated['smtp_host'] ?? null) ?: ($profile->smtp_host ?: 'smtp.gmail.com')));
+        $smtpPort = (int) (($validated['smtp_port'] ?? null) ?: ($profile->smtp_port ?: 587));
+        $smtpEncryption = strtolower((string) (($validated['smtp_encryption'] ?? null) ?: ($profile->smtp_encryption ?: 'tls')));
         $validated['smtp_email'] = MailSafety::email($validated['smtp_email'] ?? null);
         $validated['smtp_notification_email'] = MailSafety::email($validated['smtp_notification_email'] ?? null);
         $smtpEmail = $validated['smtp_email'] ?? MailSafety::email($profile->smtp_email);
@@ -297,6 +345,9 @@ class SettingController extends Controller
         $smtpSettingsChanged = $newPassword !== ''
             || MailSafety::email($profile->smtp_email) !== ($validated['smtp_email'] ?? null)
             || MailSafety::email($profile->smtp_notification_email) !== ($validated['smtp_notification_email'] ?? null)
+            || $profile->smtp_host !== $smtpHost
+            || (int) $profile->smtp_port !== $smtpPort
+            || strtolower((string) $profile->smtp_encryption) !== $smtpEncryption
             || ($shouldClearSmtp && (
                 ! empty($profile->smtp_host)
                 || ! empty($profile->smtp_port)
@@ -342,7 +393,8 @@ class SettingController extends Controller
             }
         }
 
-        $sensitiveChanged = $sensitiveChanged || $smtpSettingsChanged;
+        // Every settings change is confirmed with the current admin password.
+        $sensitiveChanged = true;
 
         if ($sensitiveChanged) {
             if (! $request->filled('admin_password') && $request->filled('ai_admin_password')) {
@@ -377,7 +429,10 @@ class SettingController extends Controller
         $smtpConfigured = ! empty($profile->smtp_email) || ! empty($existingSmtpPassword);
         $smtpRequested = $request->filled('smtp_email')
             || $request->filled('smtp_app_password')
-            || $request->filled('smtp_notification_email');
+            || $request->filled('smtp_notification_email')
+            || $request->filled('smtp_host')
+            || $request->filled('smtp_port')
+            || $request->filled('smtp_encryption');
         $shouldValidateSmtp = $smtpConfigured || $smtpRequested;
 
         if (! $shouldClearSmtp && $shouldValidateSmtp && (! $smtpEmail || ! $smtpPassword)) {

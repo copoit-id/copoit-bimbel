@@ -52,6 +52,13 @@ class ClassScheduleBookingConfigurator
         array $previousPackageIds = [],
         bool $wasCustom = false
     ): void {
+        // Booking policy is now owned by the package. Existing callers remain
+        // safe, while a tenant can explicitly opt into the former schedule-
+        // driven synchronisation during a staged migration if ever required.
+        if (! config('client.branding.legacy_schedule_booking_sync', false)) {
+            return;
+        }
+
         $schedule->loadMissing(['packages:package_id,name', 'studyGroup:id,tentor_id']);
         $currentPackageIds = $schedule->packages
             ->pluck('package_id')

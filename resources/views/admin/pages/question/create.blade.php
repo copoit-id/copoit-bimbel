@@ -93,7 +93,7 @@
                         ];
                     }
                 }
-                while (count($mtfStatements) < 2) {
+                while (count($mtfStatements) < 1) {
                     $mtfStatements[] = [
                         'id' => 'stmt_' . (count($mtfStatements) + 1),
                         'text' => '',
@@ -108,13 +108,11 @@
                                 class="text-red-500">*</span></label>
                         <select id="question_type" name="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="multiple_choice" {{ $rawType==='multiple_choice' ? 'selected' : '' }}>
+                            <option value="multiple_choice" {{ $currentType==='multiple_choice' ? 'selected' : '' }}>
                                 Multiple
                                 Choice</option>
                             <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
                                 Multiple Answer (Lebih dari 1 benar)</option>
-                            <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
-                            </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
                             <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
@@ -178,6 +176,7 @@
                             @endif
                             @endif
                         </div>
+                        <p class="text-sm text-gray-500">Isi minimal dua opsi (A dan B). Pilihan C sampai E bersifat opsional.</p>
                         <div id="multipleAnswerScoreContainer"
                             class="space-y-2 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
                             <label class="block text-sm font-medium text-gray-700">Skor Multiple Answer</label>
@@ -245,11 +244,12 @@
                                 <label for="option_{{ strtolower($optionKey) }}"
                                     class="block text-sm font-medium text-gray-700 mb-2">
                                     Pilihan {{ $optionKey }}
-                                    @if($optionKey !== 'E')<span class="text-red-500">*</span>@endif
+                                    @if(in_array($optionKey, ['A', 'B'], true))<span class="text-red-500">*</span>@endif
                                 </label>
                                 <textarea id="option_{{ strtolower($optionKey) }}"
-                                    name="option_{{ strtolower($optionKey) }}" {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    name="option_{{ strtolower($optionKey) }}" {{ in_array($optionKey, ['A', 'B'], true) ? 'required' : '' }}
+                                    class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    data-height="180"
                                     placeholder="Pilihan {{ $optionKey }}">{{ $optionData ? $optionData->option_text : old('option_' . strtolower($optionKey)) }}</textarea>
                             </div>
                             <div class="custom-score-field w-full sm:w-1/4"
@@ -357,7 +357,7 @@
                     <div class="space-y-4 question-type-section" data-question-type="multiple_true_false" style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Multiple True/False</h3>
-                            <p class="text-sm text-gray-600">Isi beberapa pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
+                            <p class="text-sm text-gray-600">Isi satu atau lebih pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
@@ -412,7 +412,8 @@
                                             <input type="hidden" name="mtf_statements[{{ $index }}][id]" value="{{ $statement['id'] }}">
                                             <input type="hidden" name="mtf_statements[{{ $index }}][correct]" value="{{ $statement['correct'] === 'false' ? 'false' : 'true' }}" class="mtf-correct-input">
                                             <textarea name="mtf_statements[{{ $index }}][text]" rows="2"
-                                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                data-height="180"
                                                 placeholder="Tulis pernyataan...">{{ $statement['text'] }}</textarea>
                                         </td>
                                         <td class="px-5 py-3.5 text-center align-middle">
@@ -518,14 +519,12 @@
 
                         <div>
                             <label for="short_answer_expected"
-                                class="block text-sm font-medium text-gray-700 mb-2">Daftar
-                                Jawaban Benar (Opsional)</label>
+                                class="block text-sm font-medium text-gray-700 mb-2">Jawaban Benar</label>
                             <textarea id="short_answer_expected" name="short_answer_expected" rows="4"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Masukkan satu jawaban per baris">{{ $shortAnswerExpected }}</textarea>
-                            <p class="text-xs text-gray-500 mt-2">Pisahkan dengan baris baru untuk jawaban alternatif
-                                (contoh:
-                                &quot;Jakarta&quot; kemudian baris berikutnya &quot;DKI Jakarta&quot;).</p>
+                                class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                data-height="220"
+                                placeholder="Masukkan jawaban benar atau referensi koreksi.">{{ $shortAnswerExpected }}</textarea>
+                            <p class="text-xs text-gray-500 mt-2">Essay mendukung format dan gambar sebagai referensi koreksi otomatis.</p>
                         </div>
                         <div class="flex items-center gap-2" data-short-answer-case>
                             <input type="checkbox" id="short_answer_case_sensitive" name="short_answer_case_sensitive"
@@ -824,6 +823,7 @@
             addMtfRowBtn.addEventListener('click', function() {
                 const row = createMtfRow(mtfIndex);
                 mtfContainer.appendChild(row);
+                window.initSummernoteFields?.();
                 mtfIndex += 1;
             });
 
@@ -834,8 +834,8 @@
                 }
 
                 const rows = mtfContainer.querySelectorAll('.mtf-row');
-                if (rows.length <= 2) {
-                    alert('Minimal harus ada dua pernyataan.');
+                if (rows.length <= 1) {
+                    alert('Minimal harus ada satu pernyataan.');
                     return;
                 }
 
@@ -869,7 +869,8 @@
                         <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
                         <input type="hidden" name="mtf_statements[${index}][correct]" value="${normalizedCorrect}" class="mtf-correct-input">
                         <textarea name="mtf_statements[${index}][text]" rows="2"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="180"
                             placeholder="Tulis pernyataan...">${textValue}</textarea>
                     </td>
                     <td class="px-5 py-3.5 text-center align-middle">
@@ -910,6 +911,28 @@
         }
         syncMtfHeaderLabels();
 
+        function hasEditorContent(textarea) {
+            const $ = window.jQuery || window.$;
+            const value = $ && $(textarea).data('summernoteInitialized')
+                ? $(textarea).summernote('code')
+                : textarea.value;
+
+            return value
+                .replace(/<(?:br|\/?p|\/?div)[^>]*>/gi, '')
+                .replace(/&nbsp;/gi, '')
+                .trim() !== '';
+        }
+
+        function setEditorContent(textarea, value) {
+            const $ = window.jQuery || window.$;
+            if ($ && $(textarea).data('summernoteInitialized')) {
+                $(textarea).summernote('code', value);
+                return;
+            }
+
+            textarea.value = value;
+        }
+
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';
             const isMultipleAnswer = questionType === 'multiple_answer';
@@ -923,8 +946,8 @@
                 if (isTrueFalse) {
                     if (key === 'A' || key === 'B') {
                         row.style.display = '';
-                        if (textarea && !textarea.value.trim()) {
-                            textarea.value = key === 'A' ? 'Benar' : 'Salah';
+                        if (textarea && !hasEditorContent(textarea)) {
+                            setEditorContent(textarea, key === 'A' ? 'Benar' : 'Salah');
                         }
                         if (textarea) {
                             textarea.required = false;
@@ -947,7 +970,7 @@
                         row.style.display = 'none';
                         if (textarea) {
                             textarea.required = false;
-                            textarea.value = '';
+                            setEditorContent(textarea, '');
                         }
                         if (radio) {
                             radio.required = false;
@@ -964,10 +987,10 @@
                 } else {
                     row.style.display = '';
                     if (textarea) {
-                        textarea.required = key !== 'E';
+                        textarea.required = key === 'A' || key === 'B';
                     }
                     if (radio) {
-                        radio.required = !isMultipleAnswer && key !== 'E';
+                        radio.required = !isMultipleAnswer && key === 'A';
                         radio.classList.toggle('hidden', isMultipleAnswer);
                     }
                     if (multiCheckbox) {

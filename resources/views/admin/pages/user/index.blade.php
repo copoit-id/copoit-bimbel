@@ -19,15 +19,9 @@
                 <i class="ri-upload-line"></i>
                 Import CSV
             </a>
-            {{-- Button dengan Cek Plan Quota --}}
-            <x-plan-quota-button 
-                feature="user"
-                href="{{ route('admin.user.create') }}"
-                icon="ri-add-line"
-                label="Tambah User"
-                variant="primary"
-                size="md"
-                tooltipPosition="bottom" />
+            <x-ui.button :href="route('admin.user.create', request()->only(['role', 'search', 'status']))" icon="ri-add-line">
+                Tambah Pengguna
+            </x-ui.button>
         </div>
     </div>
 
@@ -185,9 +179,16 @@
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-gray-700">
-                                    {{ $user->participant_destination_display_name ?? '-' }}
-                                </span>
+                                <div class="space-y-1">
+                                    <p class="text-gray-700">
+                                        <span class="text-xs text-gray-500">Pilihan 1:</span>
+                                        {{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}
+                                    </p>
+                                    <p class="text-xs text-gray-600">
+                                        <span class="text-gray-500">Pilihan 2:</span>
+                                        {{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}
+                                    </p>
+                                </div>
                             </td>
                             <td class="px-6 py-4">
                                 @php
@@ -461,111 +462,4 @@
     message="Password akan direset ke default dari bagian email sebelum @."
     confirmText="Ya, reset"
     confirmVariant="primary" />
-
-<!-- Add User Modal -->
-<div id="add-user-modal" tabindex="-1" aria-hidden="true"
-    class="fixed top-0 left-0 right-0 z-50 hidden w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full">
-    <div class="relative w-full max-w-2xl max-h-full">
-        <div class="relative bg-white rounded-lg shadow">
-            <div class="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 class="text-xl font-semibold text-gray-900">
-                    Tambah User Baru
-                </h3>
-                <button type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                    data-modal-hide="add-user-modal">
-                    <i class="ri-close-line text-lg"></i>
-                </button>
-            </div>
-
-            {{-- Form disesuaikan dengan validasi di controller --}}
-            <form action="{{ route('admin.user.store') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Nama Lengkap</label>
-                            <input type="text" name="name" value="{{ old('name') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
-                            <input type="text" name="username" value="{{ old('username') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('username') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Email</label>
-                            <input type="email" name="email" value="{{ old('email') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Password</label>
-                            <input type="password" name="password"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('password') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Role</label>
-                            <select name="role"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                                <option value="" @selected(old('role')==='' )>Pilih role</option>
-                                @foreach($roleOptions as $roleSlug => $roleName)
-                                    <option value="{{ $roleSlug }}" @selected(old('role') === $roleSlug)>{{ $roleName }}</option>
-                                @endforeach
-                            </select>
-                            @error('role') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Status</label>
-                            <select name="status"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                                <option value="" @selected(old('status')==='' )>Pilih status</option>
-                                <option value="aktif" @selected(old('status')==='aktif' )>Aktif</option>
-                                <option value="nonaktif" @selected(old('status')==='nonaktif' )>Tidak Aktif</option>
-                            </select>
-                            @error('status') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        {{-- Optional: foto profil (tidak divalidasi di controller) --}}
-                        <div class="col-span-2">
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Foto Profil</label>
-                            <div class="flex items-center justify-center w-full">
-                                <label for="dropzone-file"
-                                    class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <i class="ri-upload-cloud-2-line text-4xl text-gray-500 mb-2"></i>
-                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Klik untuk
-                                                upload</span> atau drag and drop</p>
-                                        <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG atau JPG (maks. 2MB)</p>
-                                    </div>
-                                    <input id="dropzone-file" type="file" name="avatar" accept="image/png,image/jpeg"
-                                        class="hidden" />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center justify-end p-6 space-x-2 border-t border-gray-200 rounded-b">
-                    <button type="button" data-modal-hide="add-user-modal"
-                        class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
-                        Batal
-                    </button>
-                    <button type="submit"
-                        class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                        Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endsection

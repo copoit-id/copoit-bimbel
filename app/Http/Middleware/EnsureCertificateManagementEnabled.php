@@ -2,12 +2,17 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\PlanModuleService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureCertificateManagementEnabled
 {
+    public function __construct(
+        private PlanModuleService $planModules
+    ) {}
+
     /**
      * Handle an incoming request.
      *
@@ -15,7 +20,10 @@ class EnsureCertificateManagementEnabled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!config('client.branding.certificate_management_enabled', true)) {
+        if (
+            ! config('client.branding.certificate_management_enabled', true)
+            || ! $this->planModules->allows('certificate')
+        ) {
             abort(404);
         }
 

@@ -34,15 +34,11 @@
 
     {{-- Stats Grid --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <x-dashboard.stat-card
-            label="Total Revenue"
-            value="Rp {{ number_format($summary['total_revenue'], 0, ',', '.') }}"
-            icon="ri-money-dollar-circle-line"
-            :trend="$revenueTrend['direction']"
-            :trend-value="$revenueTrend['value']"
-            trend-label="from last period"
-            color="green"
-        />
+        @if($schoolDashboard ?? false)
+            <x-dashboard.stat-card label="Paket Aktif" :value="number_format($summary['active_packages'])" icon="ri-shopping-bag-3-line" :trend="$packageTrend['direction']" :trend-value="$packageTrend['value']" trend-label="dari siswa rombel" color="green" />
+        @else
+            <x-dashboard.stat-card label="Total Revenue" value="Rp {{ number_format($summary['total_revenue'], 0, ',', '.') }}" icon="ri-money-dollar-circle-line" :trend="$revenueTrend['direction']" :trend-value="$revenueTrend['value']" trend-label="from last period" color="green" />
+        @endif
         
         <x-dashboard.stat-card
             label="Active Users"
@@ -92,14 +88,14 @@
             />
         </div>
         
-        {{-- Revenue Chart --}}
+        {{-- Paket aktif untuk dashboard sekolah / Revenue untuk admin --}}
         <div class="lg:col-span-1">
             <x-dashboard.chart-card
-                title="Total Revenue"
-                subtitle="Revenue trends"
-                value="Rp {{ number_format($summary['total_revenue'], 0, ',', '.') }}"
-                :trend="$revenueTrend['direction']"
-                :trend-value="$revenueTrend['value']"
+                :title="($schoolDashboard ?? false) ? 'Paket Aktif' : 'Total Revenue'"
+                :subtitle="($schoolDashboard ?? false) ? 'Akses paket siswa rombel' : 'Revenue trends'"
+                :value="($schoolDashboard ?? false) ? number_format($summary['active_packages']) : 'Rp '.number_format($summary['total_revenue'], 0, ',', '.')"
+                :trend="($schoolDashboard ?? false) ? $packageTrend['direction'] : $revenueTrend['direction']"
+                :trend-value="($schoolDashboard ?? false) ? $packageTrend['value'] : $revenueTrend['value']"
                 chart-id="revenueChart"
                 chart-type="line"
                 height="280px"
@@ -112,16 +108,20 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {{-- Recent Transactions --}}
         <x-dashboard.activity-table
-            title="Recent Transactions"
-            :columns="['Customer', 'Package', 'Date', 'Amount', 'Status']"
+            :title="($schoolDashboard ?? false) ? 'Aktivitas Tryout Terbaru' : 'Recent Transactions'"
+            :columns="($schoolDashboard ?? false) ? ['Siswa', 'Tryout', 'Waktu Mulai', 'Status'] : ['Customer', 'Package', 'Date', 'Amount', 'Status']"
             :tabs="[
-                ['id' => 'all', 'label' => 'All', 'count' => $payments->count()],
+                ['id' => 'all', 'label' => 'All', 'count' => ($schoolDashboard ?? false) ? ($recentTryouts ?? collect())->count() : $payments->count()],
                 ['id' => 'completed', 'label' => 'Completed'],
                 ['id' => 'pending', 'label' => 'Pending'],
             ]"
             active-tab="all"
         >
-            @forelse($payments as $payment)
+            @if($schoolDashboard ?? false)
+            @forelse(($recentTryouts ?? collect()) as $attempt)
+                <tr class="hover:bg-gray-50/50 transition-colors"><td class="px-6 py-4"><p class="text-sm font-medium text-gray-900">{{ $attempt->user?->name ?? '-' }}</p><p class="text-xs text-gray-500">{{ $attempt->user?->email }}</p></td><td class="px-6 py-4 text-sm text-gray-700">{{ $attempt->tryout?->name ?? 'Tryout' }}</td><td class="px-6 py-4 text-sm text-gray-500">{{ $attempt->started_at?->format('d M Y H:i') }}</td><td class="px-6 py-4"><span class="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">{{ ucfirst($attempt->status) }}</span></td></tr>
+            @empty <tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">Belum ada aktivitas tryout.</td></tr>@endforelse
+            @else @forelse($payments as $payment)
                 <tr class="hover:bg-gray-50/50 transition-colors">
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
@@ -166,7 +166,7 @@
                         </div>
                     </td>
                 </tr>
-            @endforelse
+            @endforelse @endif
         </x-dashboard.activity-table>
 
         {{-- Recent Users --}}

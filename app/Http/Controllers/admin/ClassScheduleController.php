@@ -146,7 +146,7 @@ class ClassScheduleController extends Controller
             ->all();
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
 
         return view('admin.pages.class-schedule.create', compact(
             'classes',
@@ -222,7 +222,7 @@ class ClassScheduleController extends Controller
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
         $allowCustomBooking = $bookingScheduleEnabled && $request->boolean('allow_custom_booking');
 
         DB::transaction(function () use (
@@ -368,7 +368,7 @@ class ClassScheduleController extends Controller
         $preselectedDay = $classSchedule->day_of_week ?: 1;
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
 
         return view('admin.pages.class-schedule.edit', compact(
             'classSchedule',
@@ -433,7 +433,7 @@ class ClassScheduleController extends Controller
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
         $allowCustomBooking = $bookingScheduleEnabled
             ? $request->boolean('allow_custom_booking')
             : (bool) $classSchedule->allow_custom_booking;

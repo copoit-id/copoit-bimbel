@@ -52,6 +52,13 @@ class AiGatewayPlanController extends Controller
         return back()->with('success', 'Paket AI berhasil diperbarui.');
     }
 
+    public function activate(AiGatewayPlan $aiGatewayPlan): RedirectResponse
+    {
+        $aiGatewayPlan->update(['is_active' => true]);
+
+        return back()->with('success', 'Paket berhasil diaktifkan kembali dan sekarang tersedia untuk pembelian atau klaim baru.');
+    }
+
     public function destroy(AiGatewayPlan $aiGatewayPlan): RedirectResponse
     {
         if ($aiGatewayPlan->subscriptions()->exists() || $aiGatewayPlan->transactions()->exists()) {
@@ -76,8 +83,8 @@ class AiGatewayPlanController extends Controller
         $aiGatewayPlan->update(['is_active' => false]);
 
         return back()->with(
-            'warning',
-            'Paket pernah digunakan sehingga riwayatnya tidak dapat dihapus. Paket telah dinonaktifkan dan tidak lagi tersedia untuk pembelian atau klaim baru.'
+            'success',
+            'Paket berhasil dinonaktifkan. Riwayat klaim dan transaksi tetap disimpan agar akses peserta yang sudah aktif tidak berubah. Paket tidak lagi tersedia untuk pembelian atau klaim baru, dan dapat diaktifkan kembali kapan saja.'
         );
     }
 

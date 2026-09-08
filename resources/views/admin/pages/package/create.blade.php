@@ -10,6 +10,11 @@
     $selectedFeatures = is_array($oldFeatures) ? $oldFeatures : [''];
     $selectedAccessDurationUnit = old('access_duration_unit', $package->access_duration_unit ?? 'forever');
     $selectedAccessDurationValue = old('access_duration_value', $package->access_duration_value ?? 1);
+    $customBookingEnabled = old(
+        'allow_custom_booking',
+        isset($package) ? (bool) $package->bookingRule?->is_enabled : false,
+    );
+    $enrollmentMode = old('enrollment_mode', $package->enrollment_mode ?? 'direct_purchase');
 
     if (!is_array($oldFeatures) && isset($package) && $package->features) {
         $decodedFeatures = json_decode($package->features, true);
@@ -234,6 +239,45 @@
                         </div>
                     </div>
 
+                    <section class="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                        <label class="block">
+                            <span class="text-base font-semibold text-gray-800">Mode paket</span>
+                            <select id="enrollment_mode" name="enrollment_mode" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5">
+                                <option value="direct_purchase" @selected($enrollmentMode === 'direct_purchase')>Produk</option>
+                                <option value="program" @selected($enrollmentMode === 'program')>Program</option>
+                            </select>
+                            <span id="enrollment-mode-description" class="mt-2 block text-sm text-gray-600"></span>
+                        </label>
+                    </section>
+
+                    <section id="program-schedule-settings" class="rounded-xl border border-sky-200 bg-sky-50 p-5 {{ $enrollmentMode === 'program' ? '' : 'hidden' }}">
+                        <div class="flex items-start gap-3">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-primary"><i class="ri-calendar-schedule-line text-lg"></i></span>
+                            <div>
+                                <h3 class="font-semibold text-gray-800">Jadwal program</h3>
+                                <p class="mt-1 text-sm text-gray-600">Program berfokus pada jadwal. Kamu dapat menautkan jadwal kelas yang sudah tersedia, dan tetap mengaktifkan jadwal custom bila diperlukan.</p>
+                                @if(isset($package))
+                                    <a href="{{ route('admin.class-schedules.index', ['package_id' => $package->package_id]) }}" class="mt-3 inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-calendar-check-line"></i> Pilih jadwal program</a>
+                                @else
+                                    <p class="mt-3 text-xs font-medium text-gray-500">Simpan program terlebih dahulu, lalu pilih jadwal pada menu Jadwal Kelas.</p>
+                                @endif
+                            </div>
+                        </div>
+                    </section>
+
+                    @if($canManageBooking)
+                        <section id="custom-booking-option" class="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                            <input type="hidden" name="allow_custom_booking" value="0">
+                            <label class="flex cursor-pointer items-start gap-3">
+                                <input id="allow_custom_booking" type="checkbox" name="allow_custom_booking" value="1" @checked($customBookingEnabled) class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
+                                <span>
+                                    <span class="block text-base font-semibold text-gray-800">Izinkan booking jadwal custom</span>
+                                    <span class="mt-1 block text-sm text-gray-600">Siswa pemilik paket dapat memilih tutor dan mengajukan jadwal sendiri atau bersama teman. Tutor/admin memproses persetujuan, waktu akhir, dan lokasi setelah pengajuan masuk.</span>
+                                </span>
+                            </label>
+                        </section>
+                    @endif
+
                     <div>
                         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
                         <textarea id="description" name="description" rows="4"
@@ -304,8 +348,22 @@
     const claimTryoutInput = document.getElementById('free_claim_tryout_id');
     const durationUnit = document.getElementById('access_duration_unit');
     const durationValue = document.getElementById('access_duration_value');
+    const enrollmentMode = document.getElementById('enrollment_mode');
+    const programScheduleSettings = document.getElementById('program-schedule-settings');
+    const packageType = document.getElementById('type_package');
+    const customBookingOption = document.getElementById('custom-booking-option');
 
     function toggleFields() {
+        if (enrollmentMode?.value === 'program') {
+            priceField.classList.add('hidden');
+            priceInput.value = 0;
+            priceInput.removeAttribute('required');
+            requirementWrapper.classList.add('hidden');
+            requirementInput && requirementInput.removeAttribute('required');
+            claimTryoutInput && claimTryoutInput.removeAttribute('required');
+            return;
+        }
+
         if (typePriceSelect.value === 'paid') {
             priceField.classList.remove('hidden');
             priceInput.setAttribute('required', 'required');
@@ -336,8 +394,28 @@
         claimTryoutInput?.toggleAttribute('required', isTryoutClaim && typePriceSelect.value === 'free_conditional');
     }
 
+    function updateEnrollmentModeDescription() {
+        const description = document.getElementById('enrollment-mode-description');
+        if (!description || !enrollmentMode) return;
+
+        description.textContent = enrollmentMode.value === 'program'
+            ? 'Peserta tidak checkout dari halaman paket. Admin mengatur pendaftaran, akses, serta tagihan terpisah—misalnya tagihan bulanan atau tagihan sesuai periode program.'
+            : 'Peserta membeli paket langsung dari katalog. Setelah pembayaran berhasil, akses paket aktif seperti alur yang berjalan saat ini.';
+    }
+
+    function toggleProgramScheduleSettings() {
+        programScheduleSettings?.classList.toggle('hidden', enrollmentMode?.value !== 'program');
+    }
+
     toggleFields();
+    updateEnrollmentModeDescription();
+    toggleProgramScheduleSettings();
     typePriceSelect.addEventListener('change', toggleFields);
+    enrollmentMode?.addEventListener('change', () => {
+        toggleFields();
+        updateEnrollmentModeDescription();
+        toggleProgramScheduleSettings();
+    });
     claimRequirementType?.addEventListener('change', toggleClaimRequirement);
 
     function toggleDurationValue() {
@@ -347,6 +425,15 @@
 
     toggleDurationValue();
     durationUnit?.addEventListener('change', toggleDurationValue);
+
+    function toggleCustomBookingOption() {
+        if (!packageType || !customBookingOption) return;
+        customBookingOption.classList.toggle('hidden', packageType.value !== 'bimbel');
+    }
+
+    toggleCustomBookingOption();
+    packageType?.addEventListener('change', toggleCustomBookingOption);
+
 });
 </script>
 @endsection

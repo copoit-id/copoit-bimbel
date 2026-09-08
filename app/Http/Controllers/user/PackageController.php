@@ -23,6 +23,7 @@ use App\Models\UserClassAccess;
 use App\Models\UserMaterialAccess;
 use Carbon\Carbon;
 use App\Models\UserTryoutAccess;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -52,6 +53,7 @@ class PackageController extends Controller
         $tab = 'all';
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'latest');
+        $requestedEnrollmentMode = $request->string('mode')->toString();
         
         // Get user's owned package IDs (cast to int for consistent comparison)
         $userOwnedPackageIds = [];
@@ -76,7 +78,11 @@ class PackageController extends Controller
         
         $packagesQuery = Package::where('status', 'active')
             ->where('is_displayed', true)
-            ->with(['detailPackages', 'freeClaimTryout:tryout_id,name'])
+            ->with([
+                'detailPackages',
+                'freeClaimTryout:tryout_id,name',
+                'bookingRule:id,package_id,is_enabled,learning_mode',
+            ])
             ->withCount(['materials', 'tryouts', 'tesKorans']);
 
         if ($search !== '') {
@@ -92,6 +98,26 @@ class PackageController extends Controller
             'name_desc' => $packagesQuery->orderBy('name', 'desc'),
             default => $packagesQuery->orderBy('created_at', 'desc'),
         };
+
+        $hasProductPackages = (clone $packagesQuery)
+            ->where('enrollment_mode', Package::ENROLLMENT_DIRECT_PURCHASE)
+            ->exists();
+        $hasProgramPackages = (clone $packagesQuery)
+            ->where('enrollment_mode', Package::ENROLLMENT_PROGRAM)
+            ->exists();
+        $showEnrollmentTabs = $hasProductPackages && $hasProgramPackages;
+        $selectedEnrollmentMode = $requestedEnrollmentMode === 'program' && $hasProgramPackages
+            ? 'program'
+            : 'product';
+
+        if ($showEnrollmentTabs) {
+            $packagesQuery->where(
+                'enrollment_mode',
+                $selectedEnrollmentMode === 'program'
+                    ? Package::ENROLLMENT_PROGRAM
+                    : Package::ENROLLMENT_DIRECT_PURCHASE
+            );
+        }
 
         $packages = $packagesQuery->get();
 
@@ -146,7 +172,9 @@ class PackageController extends Controller
             'aiGatewayPlans',
             'combinedAiPayment',
             'search',
-            'sort'
+            'sort',
+            'showEnrollmentTabs',
+            'selectedEnrollmentMode',
         ));
     }
 
@@ -189,7 +217,36 @@ class PackageController extends Controller
         try {
             $package = Package::where('status', 'active')
                 ->where('is_displayed', true)
+                ->with('bookingRule:id,package_id,is_enabled,learning_mode')
                 ->findOrFail($package_id);
+
+            if ($package->enrollment_mode === Package::ENROLLMENT_PROGRAM) {
+                $message = 'Program ini tidak dapat dibeli langsung. Tagihan dan akses dikelola terpisah oleh admin.';
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $message,
+                    ], 422);
+                }
+
+                return redirect()->back()->with('info', $message);
+            }
+
+            if ($package->bookingRule?->is_enabled
+                && $package->bookingRule->learning_mode === 'group') {
+                $message = 'Paket ini didapatkan melalui rombel. Buat atau gabung rombel terlebih dahulu.';
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $message,
+                        'redirect_url' => route('user.booking.index'),
+                    ]);
+                }
+
+                return redirect()->route('user.booking.index')->with('info', $message);
+            }
 
             $existingAccess = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
@@ -215,7 +272,8 @@ class PackageController extends Controller
 
                     return response()->json([
                         'success' => true,
-                        'message' => 'Paket gratis berhasil diaktifkan!'
+                        'message' => 'Paket gratis berhasil diaktifkan!',
+                        'redirect_url' => $this->activatedPackageRedirectUrl($package),
                     ]);
 
                 case 'free_conditional':
@@ -244,6 +302,7 @@ class PackageController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => 'Syarat Tryout sudah terpenuhi. Paket gratis berhasil diaktifkan!',
+                            'redirect_url' => $this->activatedPackageRedirectUrl($package),
                         ]);
                     }
 
@@ -323,7 +382,7 @@ class PackageController extends Controller
                         return response()->json([
                             'success' => true,
                             'message' => ($discountData['source'] === 'voucher' ? 'Kode diskon berhasil digunakan.' : 'Diskon berhasil diterapkan.') . ' Paket sudah aktif.',
-                            'redirect_url' => route('user.package.my'),
+                            'redirect_url' => $this->activatedPackageRedirectUrl($package),
                         ]);
                     }
 
@@ -420,13 +479,14 @@ class PackageController extends Controller
                                 return response()->json([
                                     'success' => true,
                                     'message' => 'Pembayaran sudah berhasil. Akses paket sudah aktif.',
-                                    'redirect_url' => route('user.package.my'),
+                                    'redirect_url' => $this->activatedPackageRedirectUrl($package),
                                 ]);
                             }
 
                             return $this->redirectAfterSuccessfulProductPayment(
                                 $request,
-                                'Pembayaran sudah berhasil. Akses paket sudah aktif.'
+                                'Pembayaran sudah berhasil. Akses paket sudah aktif.',
+                                $pendingGatewayPayment,
                             );
                         }
 
@@ -1239,7 +1299,68 @@ class PackageController extends Controller
         return back()->with('error', $message);
     }
 
-    private function saveConditionalRequest(Package $package, ?UserPackageAcces $existingAccess, array $proofs, ?string $userNotes = null): void
+    public function requestProgram(Request $request, $package_id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'mode' => ['required', 'in:program,custom'],
+        ]);
+        $package = Package::query()
+            ->where('status', 'active')
+            ->where('is_displayed', true)
+            ->where('enrollment_mode', Package::ENROLLMENT_PROGRAM)
+            ->with('bookingRule:package_id,is_enabled,learning_mode')
+            ->findOrFail($package_id);
+        $isCustomRequest = $validated['mode'] === 'custom';
+        if ($isCustomRequest && (! $package->bookingRule?->is_enabled || ! in_array($package->bookingRule->learning_mode, ['personal', 'both'], true))) {
+            return back()->with('error', 'Program ini belum mengaktifkan pengajuan jadwal custom.');
+        }
+        $existingAccess = UserPackageAcces::query()
+            ->where('user_id', $request->user()->id)
+            ->where('package_id', $package->package_id)
+            ->first();
+
+        if ($existingAccess?->is_active) {
+            return back()->with('info', 'Anda sudah join program ini.');
+        }
+        if ($existingAccess?->requirement_status === 'pending') {
+            return back()->with('info', 'Pengajuan join program masih menunggu persetujuan admin.');
+        }
+
+        $this->saveConditionalRequest(
+            $package,
+            $existingAccess,
+            [],
+            $isCustomRequest ? 'Pengajuan jadwal custom' : 'Pengajuan join program',
+            $isCustomRequest
+                ? 'Pengajuan jadwal custom menunggu persetujuan admin.'
+                : 'Pengajuan join program menunggu persetujuan admin.'
+        );
+
+        if ($isCustomRequest) {
+            $customAccess = UserPackageAcces::query()
+                ->where('user_id', $request->user()->id)
+                ->where('package_id', $package->package_id)
+                ->first();
+
+            return redirect()
+                ->route('user.booking.index', ['access' => $customAccess?->user_package_access_id, 'mode' => 'custom'])
+                ->with('info', 'Pilih tutor dan waktu untuk mengajukan jadwal custom.');
+        }
+
+        return back()->with(
+            'success',
+            ($isCustomRequest ? 'Pengajuan jadwal custom' : 'Pengajuan join program')
+                .' berhasil dikirim. Tunggu persetujuan admin.'
+        );
+    }
+
+    private function saveConditionalRequest(
+        Package $package,
+        ?UserPackageAcces $existingAccess,
+        array $proofs,
+        ?string $userNotes = null,
+        ?string $requestNotes = null
+    ): void
     {
         $proofPaths = collect($proofs)
             ->map(fn (\Illuminate\Http\UploadedFile $proof) => $proof->store('conditional-proofs', 'public'))
@@ -1268,7 +1389,7 @@ class PackageController extends Controller
             'status' => 'pending',
             'payment_amount' => 0,
             'payment_status' => 'conditional',
-            'notes' => $package->conditional_requirement,
+            'notes' => $requestNotes ?? $package->conditional_requirement,
             'requirement_proof_path' => $proofPaths[0] ?? null,
             'requirement_proof_paths' => $proofPaths,
             'requirement_user_notes' => $userNotes ? trim($userNotes) : null,
@@ -2593,7 +2714,8 @@ class PackageController extends Controller
 
                     return $this->redirectAfterSuccessfulProductPayment(
                         $request,
-                        'Pembayaran berhasil. Paket sudah aktif.'
+                        'Pembayaran berhasil. Paket sudah aktif.',
+                        $payment,
                     );
                 }
             } catch (\Throwable $e) {
@@ -2658,10 +2780,27 @@ class PackageController extends Controller
         $request->session()->put('ai_gateway_combined_checkout', $combinedCheckout);
     }
 
-    private function redirectAfterSuccessfulProductPayment(Request $request, string $message): \Illuminate\Http\RedirectResponse
+    private function redirectAfterSuccessfulProductPayment(
+        Request $request,
+        string $message,
+        ?Payment $payment = null
+    ): \Illuminate\Http\RedirectResponse
     {
         return $this->redirectAfterCombinedProductPaymentReturn($request)
-            ?? redirect()->route('user.package.my')->with('success', $message);
+            ?? redirect()->to(
+                $payment?->package
+                    ? $this->activatedPackageRedirectUrl($payment->package)
+                    : route('user.package.my')
+            )->with('success', $message);
+    }
+
+    private function activatedPackageRedirectUrl(Package $package): string
+    {
+        $package->loadMissing('bookingRule:id,package_id,is_enabled');
+
+        return $package->type_package === 'bimbel' && $package->bookingRule?->is_enabled
+            ? route('user.booking.index')
+            : route('user.package.my');
     }
 
     private function redirectAfterCombinedProductPaymentReturn(Request $request): ?\Illuminate\Http\RedirectResponse
@@ -3518,7 +3657,9 @@ class PackageController extends Controller
                     'unanswered',
                 ])
                 ->with([
-                    'user:id,name,email,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
+                    'user:id,name,email,origin_institution,major_choice_1,major_choice_2,participant_destination_category_id,second_participant_destination_category_id,participant_destination_source,participant_destination_institution_name,participant_destination_program_name,second_participant_destination_source,second_participant_destination_institution_name,second_participant_destination_program_name',
+                    'user.participantDestinationCategory.parent',
+                    'user.secondParticipantDestinationCategory.parent',
                     'tryoutDetail' => fn ($query) => $query->withCount('questions'),
                 ])
                 ->get()
@@ -3767,6 +3908,8 @@ class PackageController extends Controller
                 return [
                     'rank' => $index + 1,
                     'name' => $ranking['user']->name,
+                    'origin_institution' => $ranking['user']->origin_institution,
+                    'major_choices' => $ranking['user']->leaderboard_major_choices,
                     'score' => $ranking['display_score']['formatted'],
                     'maximum' => $showScoreMaximum
                         ? $ranking['display_score']['formatted_maximum']
@@ -5132,7 +5275,11 @@ class PackageController extends Controller
                 'detailPackages',
             ];
 
-        $package = Package::with(array_merge($relations, ['freeClaimTryout:tryout_id,name']))
+        $package = Package::with(array_merge($relations, [
+            'freeClaimTryout:tryout_id,name',
+            'bookingRule:package_id,is_enabled,learning_mode',
+            'schedules.tentor:id,name',
+        ]))
             ->where('status', 'active')
             ->where('is_displayed', true)
             ->findOrFail($package_id);
@@ -5140,19 +5287,36 @@ class PackageController extends Controller
         // Check if user is logged in and has access
         $hasAccess = false;
         $isOwned = false;
+        $bookingAccessId = null;
+        $canRequestCustomSchedule = false;
+        $isProgramRequestPending = false;
         $isPendingConditional = false;
         $pendingPackagePayment = null;
         
         if (Auth::check()) {
-            $hasAccess = UserPackageAcces::where('user_id', Auth::id())
+            $activeAccess = UserPackageAcces::query()
+                ->select(['user_package_access_id', 'package_id'])
+                ->where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->where('status', 'active')
                 ->where(function ($query) {
                     $query->whereNull('end_date')
                         ->orWhere('end_date', '>', Carbon::now());
                 })
-                ->exists();
+                ->latest('user_package_access_id')
+                ->first();
+            $hasAccess = $activeAccess !== null;
             $isOwned = $hasAccess;
+            $bookingAccessId = $activeAccess?->user_package_access_id;
+            $canRequestCustomSchedule = $package->enrollment_mode === Package::ENROLLMENT_PROGRAM
+                && $hasAccess
+                && $package->bookingRule?->is_enabled
+                && in_array($package->bookingRule->learning_mode, ['personal', 'both'], true);
+            $isProgramRequestPending = UserPackageAcces::query()
+                ->where('user_id', Auth::id())
+                ->where('package_id', $package_id)
+                ->where('requirement_status', 'pending')
+                ->exists();
             $isPendingConditional = UserPackageAcces::where('user_id', Auth::id())
                 ->where('package_id', $package_id)
                 ->where('requirement_status', 'pending')
@@ -5205,6 +5369,9 @@ class PackageController extends Controller
             'package',
             'hasAccess',
             'isOwned',
+            'bookingAccessId',
+            'canRequestCustomSchedule',
+            'isProgramRequestPending',
             'isPendingConditional',
             'pendingPackagePayment',
             'totalVideos',

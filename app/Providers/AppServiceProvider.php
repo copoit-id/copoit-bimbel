@@ -7,6 +7,7 @@ use App\Models\ClientProfile;
 use App\Models\Role;
 use App\Services\AdminLayoutContextService;
 use App\Services\AdminNavigationService;
+use App\Services\ParentNavigationService;
 use App\Services\UserNavigationService;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
@@ -31,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(PlanModuleService::class);
         $this->app->scoped(TutorContentVisibilityService::class);
         $this->app->scoped(UserNavigationService::class);
+        $this->app->scoped(ParentNavigationService::class);
     }
 
     /**
@@ -49,24 +51,31 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
         Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
         View::composer('admin.components.sidebar', function ($view): void {
-            $view->with(
-                'generalPublicVisibility',
-                app(AdminNavigationService::class)->publicPageVisibility(),
-            );
+            $view->with(app(AdminNavigationService::class)->context(auth()->user()));
         });
         View::composer('admin.layout.admin', function ($view): void {
             $isQuestionPickerRoute = request()->routeIs('admin.question-bank.*');
             $questionPickerDetail = $isQuestionPickerRoute
                 ? app(AdminLayoutContextService::class)->questionPickerDetail(request()->integer('import_for'))
                 : null;
+            $isProgramSchedulePickerRoute = request()->routeIs('admin.class-schedules.index');
+            $programSchedulePicker = $isProgramSchedulePickerRoute
+                ? app(AdminLayoutContextService::class)->programSchedulePicker(request()->integer('package_id'))
+                : null;
 
             $view->with([
                 'questionPickerDetail' => $questionPickerDetail,
                 'isQuestionPickerMode' => $questionPickerDetail !== null,
+                'programSchedulePicker' => $programSchedulePicker,
+                'isProgramSchedulePickerMode' => $programSchedulePicker !== null,
+                'isPickerMode' => $questionPickerDetail !== null || $programSchedulePicker !== null,
             ]);
         });
-        View::composer(['user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
+        View::composer(['user.components.navbar', 'user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
             $view->with(app(UserNavigationService::class)->context(auth()->user()));
+        });
+        View::composer('parent.layout', function ($view): void {
+            $view->with('parentNavigationItems', app(ParentNavigationService::class)->items());
         });
         $defaultAsset = 'img/logo/logo-copoit.png';
 
@@ -332,6 +341,9 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.password' => $smtpPassword,
             'mail.mailers.smtp.scheme' => null,
             'mail.mailers.smtp.encryption' => $smtpEncryption ?: null,
+            // Berlaku untuk seluruh email, termasuk forgot password dan SMTP
+            // test, agar request tidak menggantung lama saat port SMTP diblokir.
+            'mail.mailers.smtp.timeout' => 10,
             'mail.from.address' => $smtpEmail,
             'mail.from.name' => MailSafety::header(
                 (string) ($branding['name'] ?? config('app.name')),

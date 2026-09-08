@@ -31,6 +31,17 @@ class LatexPdfRendererTest extends TestCase
         $this->assertStringStartsWith('%PDF', $dompdf->output());
     }
 
+    public function test_it_replaces_standard_inline_and_display_dollar_delimiters(): void
+    {
+        $rendered = app(LatexPdfRenderer::class)->renderMany([
+            'question' => '<p>$ x^2 $ dan $$ \\frac{a}{b} $$</p>',
+        ]);
+
+        $this->assertSame(2, substr_count($rendered['question'], 'data:image/png;base64,'));
+        $this->assertStringNotContainsString('x^2', $rendered['question']);
+        $this->assertStringNotContainsString('\\frac{a}{b}', $rendered['question']);
+    }
+
     public function test_it_keeps_an_excessively_long_formula_as_text(): void
     {
         $formula = '\\('.str_repeat('x', 1_001).'\\)';

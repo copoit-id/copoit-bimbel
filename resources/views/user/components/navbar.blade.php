@@ -45,6 +45,18 @@
                 </div>
             @endif
             <div class="flex shrink-0 items-center">
+                @if($canShowAiLearning)
+                    <a href="{{ route('user.ai-learning.index') }}"
+                        @class([
+                            'mr-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors sm:mr-2 sm:px-3',
+                            'bg-white/15 text-white hover:bg-white/25' => $headerPrimary,
+                            'bg-primary/10 text-primary hover:bg-primary/15' => ! $headerPrimary,
+                        ])
+                        aria-current="{{ request()->routeIs('user.ai-learning.*') ? 'page' : 'false' }}">
+                        <i class="ri-sparkling-2-line text-base"></i>
+                        <span class="hidden sm:inline">AI Learning Tools</span>
+                    </a>
+                @endif
                 <div class="flex items-center ms-3">
                     <div>
                         @php
@@ -83,9 +95,9 @@
                             </li>
                             @endif
                             <li>
-                                <form action="{{ route('logout') }}" method="POST">
+                                <form id="user-logout-form" action="{{ route('logout') }}" method="POST">
                                     @csrf
-                                    <button type="submit" class="{{ $dropdownLinkClasses }}">Logout</button>
+                                    <button type="submit" class="{{ $dropdownLinkClasses }}" data-logout-confirm data-logout-form="user-logout-form">Logout</button>
                                 </form>
                             </li>
                         </ul>

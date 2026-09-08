@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\ScheduleBookingRequest;
 use App\Models\StudyGroup;
 use App\Models\Tentor;
+use App\Models\TutorLeaveRequest;
 use App\Models\User;
 use App\Models\UserPackageAcces;
 use App\Services\ScheduleBookingService;
@@ -49,6 +50,7 @@ class ScheduleBookingController extends Controller
             ->latest()
             ->limit(20)
             ->get();
+        $requestedPackageId = $request->integer('package_id');
         $accesses = UserPackageAcces::query()
             ->with([
                 'package:package_id,name',
@@ -56,12 +58,22 @@ class ScheduleBookingController extends Controller
                 'package.bookingRule.priceTiers',
             ])
             ->where('user_id', $user->id)
-            ->active()
+            ->where(function ($query) use ($requestedPackageId): void {
+                $query->where(function ($activeQuery): void {
+                    $activeQuery->active();
+                })->orWhere(function ($pendingQuery) use ($requestedPackageId): void {
+                    $pendingQuery->where('status', 'pending')
+                        ->where('requirement_status', 'pending')
+                        ->when($requestedPackageId, fn ($query) => $query->where('package_id', $requestedPackageId))
+                        ->whereHas('package', fn ($query) => $query->where('enrollment_mode', Package::ENROLLMENT_PROGRAM));
+                });
+            })
             ->whereHas('package.bookingRule', fn ($query) => $query->where('is_enabled', true))
             ->orderByDesc('created_at')
             ->get();
         $tutorDirectory = Tentor::query()
             ->active()
+            ->whereHas('user', fn ($query) => $query->where('role', 'tutor'))
             ->select([
                 'id',
                 'name',
@@ -141,6 +153,13 @@ class ScheduleBookingController extends Controller
                 ],
             ];
         });
+        $requestedAccessId = $request->integer('access');
+        $initialAccessId = $accesses->contains(
+            'user_package_access_id',
+            $requestedAccessId
+        )
+            ? $requestedAccessId
+            : $accesses->first()?->user_package_access_id;
         $bookings = ScheduleBookingRequest::query()
             ->with([
                 'package:package_id,name',
@@ -156,6 +175,7 @@ class ScheduleBookingController extends Controller
         return view('user.pages.booking.index', compact(
             'accesses',
             'accessOptions',
+            'initialAccessId',
             'bookings',
             'groupPackages',
             'studyGroups',
@@ -203,9 +223,17 @@ class ScheduleBookingController extends Controller
                 ->with('package:package_id,name')
                 ->whereKey($validated['user_package_access_id'])
                 ->where('user_id', $request->user()->id)
-                ->where('status', 'active')
                 ->where(function ($query): void {
-                    $query->whereNull('end_date')->orWhere('end_date', '>', now());
+                    $query->where(function ($activeQuery): void {
+                        $activeQuery->where('status', 'active')
+                            ->where(function ($dateQuery): void {
+                                $dateQuery->whereNull('end_date')->orWhere('end_date', '>', now());
+                            });
+                    })->orWhere(function ($pendingQuery): void {
+                        $pendingQuery->where('status', 'pending')
+                            ->where('requirement_status', 'pending')
+                            ->whereHas('package', fn ($packageQuery) => $packageQuery->where('enrollment_mode', Package::ENROLLMENT_PROGRAM));
+                    });
                 })
                 ->lockForUpdate()
                 ->first();
@@ -242,14 +270,6 @@ class ScheduleBookingController extends Controller
                 ]);
             }
 
-            $minimumStart = now()->addHours($rule->min_notice_hours);
-            $maximumStart = now()->addDays($rule->max_advance_days)->endOfDay();
-
-            if ($requestedStart->lt($minimumStart) || $requestedStart->gt($maximumStart)) {
-                throw ValidationException::withMessages([
-                    'requested_start_at' => "Waktu booking harus antara {$rule->min_notice_hours} jam hingga {$rule->max_advance_days} hari dari sekarang.",
-                ]);
-            }
             if ($access->end_date && $requestedStart->gt($access->end_date)) {
                 throw ValidationException::withMessages([
                     'requested_start_at' => 'Waktu booking melewati masa aktif paket.',
@@ -257,15 +277,32 @@ class ScheduleBookingController extends Controller
             }
 
             $tutorAllowed = $rule->allow_all_tutors
-                ? Tentor::active()->whereKey($validated['tentor_id'])->exists()
+                ? Tentor::active()
+                    ->whereHas('user', fn ($query) => $query->where('role', 'tutor'))
+                    ->whereKey($validated['tentor_id'])
+                    ->exists()
                 : $rule->tutors()
                     ->where('tentors.is_active', true)
+                    ->whereHas('user', fn ($query) => $query->where('role', 'tutor'))
                     ->whereKey($validated['tentor_id'])
                     ->exists();
 
             if (! $tutorAllowed) {
                 throw ValidationException::withMessages([
                     'tentor_id' => 'Tutor tidak tersedia untuk paket ini.',
+                ]);
+            }
+
+            $requestedEnd = $requestedStart->copy()->addMinutes($rule->duration_minutes);
+            $isTutorOnLeave = TutorLeaveRequest::query()
+                ->where('tentor_id', $validated['tentor_id'])
+                ->where('status', 'approved')
+                ->where('start_at', '<', $requestedEnd)
+                ->where('end_at', '>', $requestedStart)
+                ->exists();
+            if ($isTutorOnLeave) {
+                throw ValidationException::withMessages([
+                    'requested_start_at' => 'Tutor tidak tersedia pada waktu tersebut karena sedang cuti.',
                 ]);
             }
 

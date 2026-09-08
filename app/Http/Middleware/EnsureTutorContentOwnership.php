@@ -27,7 +27,7 @@ class EnsureTutorContentOwnership
 
         $ownerId = $this->resolveOwnerId($request);
 
-        if ($ownerId !== null && (int) $ownerId === (int) $request->user()->id) {
+        if ($this->contentVisibility->canTutorAccessContentOwner($ownerId, $request->user())) {
             return $next($request);
         }
 

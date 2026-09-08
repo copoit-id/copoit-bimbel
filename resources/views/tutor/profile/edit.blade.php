@@ -10,16 +10,19 @@
 @php
     $reviewTotal = (int) $tentor->visible_reviews_count;
     $averageRating = (float) ($tentor->visible_reviews_avg_rating ?? 0);
-    $initialTab = $errors->any() ? 'identity' : (request()->has('reviews_page') ? 'reviews' : 'identity');
+    $requestedTab = old('profile_tab', request('tab'));
+    $initialTab = in_array($requestedTab, ['identity', 'professional'], true)
+        ? $requestedTab
+        : (request()->has('reviews_page') ? 'reviews' : 'identity');
 @endphp
 
 <div class="w-full space-y-6" x-data="{ tab: @js($initialTab) }">
-    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div class="bg-gradient-to-r from-primary to-primary/80 px-5 py-6 text-white sm:px-7">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex min-w-0 items-center gap-4">
                     @if($tentor->profile_photo_path)
-                        <img src="{{ Storage::url($tentor->profile_photo_path) }}" alt="Foto {{ $tentor->name }}" class="h-16 w-16 rounded-2xl border-2 border-white/50 object-cover shadow-sm">
+                        <img src="{{ Storage::url($tentor->profile_photo_path) }}" alt="Foto {{ $tentor->name }}" class="h-16 w-16 rounded-2xl border-2 border-white/50 object-cover">
                     @else
                         <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-white/40 bg-white/15 text-2xl font-bold">
                             {{ mb_strtoupper(mb_substr($tentor->name, 0, 1)) }}
@@ -57,12 +60,13 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('tutor.profile.update') }}" enctype="multipart/form-data" x-show="tab !== 'reviews'" x-cloak>
+    <form method="POST" action="{{ route('tutor.profile.update') }}" enctype="multipart/form-data" x-show="tab !== 'reviews'">
         @csrf
         @method('PUT')
+        <input type="hidden" name="profile_tab" x-model="tab">
 
-        <div x-show="tab === 'identity'" x-cloak class="grid gap-6 xl:grid-cols-[minmax(340px,0.7fr)_minmax(0,1.3fr)]">
-            <section class="h-fit rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <div x-show="tab === 'identity'" class="grid gap-6 xl:grid-cols-[minmax(340px,0.7fr)_minmax(0,1.3fr)]">
+            <section class="h-fit rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <div class="flex flex-col items-start gap-5 sm:flex-row xl:flex-col">
                     @if($tentor->profile_photo_path)
                         <img src="{{ Storage::url($tentor->profile_photo_path) }}" alt="Foto {{ $tentor->name }}" class="h-32 w-32 rounded-2xl border border-gray-200 object-cover">
@@ -86,7 +90,7 @@
                 </div>
             </section>
 
-            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <div>
                     <h2 class="text-lg font-bold text-gray-900">Data diri</h2>
                     <p class="mt-1 text-sm text-gray-500">Pastikan informasi kontak Anda selalu terbaru.</p>
@@ -111,7 +115,7 @@
             </section>
         </div>
 
-        <section x-show="tab === 'professional'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <section x-show="tab === 'professional'" class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 class="text-lg font-bold text-gray-900">Profil profesional</h2>
@@ -163,7 +167,7 @@
 
     <section x-show="tab === 'reviews'" x-cloak class="space-y-6">
         <div class="grid gap-5 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
-            <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <article class="rounded-2xl border border-gray-200 bg-white p-6">
                 <p class="text-sm font-medium text-gray-500">Rata-rata rating</p>
                 <div class="mt-3 flex items-end gap-3">
                     <p class="text-5xl font-bold tracking-tight text-gray-900">{{ $reviewTotal ? number_format($averageRating, 1) : '—' }}</p>
@@ -177,7 +181,7 @@
                 <p class="mt-4 text-sm leading-6 text-gray-500">Berdasarkan {{ $reviewTotal }} review siswa yang ditampilkan.</p>
             </article>
 
-            <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <article class="rounded-2xl border border-gray-200 bg-white p-6">
                 <h2 class="font-bold text-gray-900">Rincian rating</h2>
                 <div class="mt-5 space-y-3">
                     @for($rating = 5; $rating >= 1; $rating--)
@@ -195,7 +199,7 @@
             </article>
         </div>
 
-        <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
             <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                     <h2 class="font-bold text-gray-900">Review dari siswa</h2>

@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends(auth()->user()?->isTutor() ? 'tutor.question-bank-layout' : 'admin.layout.admin')
 @section('title', 'Bank Soal')
 @section('content')
 <div class="space-y-6">
@@ -135,10 +135,12 @@
                             class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
                             <i class="ri-edit-line mr-1"></i>Edit
                         </button>
-                        <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
-                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
-                            <i class="ri-delete-bin-line mr-1"></i>Hapus
-                        </button>
+                        @if($deletableBankIds[$bank->id] ?? false)
+                            <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
+                                class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                                <i class="ri-delete-bin-line mr-1"></i>Hapus
+                            </button>
+                        @endif
                     </div>
                 @endunless
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"

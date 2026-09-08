@@ -166,7 +166,7 @@
                 'multiple_choice' => 'Multiple Choice',
                 'multiple_answer' => 'Multiple Answer',
                 'multiple_true_false' => 'Multiple True/False',
-                'true_false' => 'Benar/Salah',
+                'true_false' => 'True/False',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
                 'audio' => 'Jawaban Audio',
@@ -264,7 +264,7 @@
                             @foreach($mtfStatements as $stmt)
                             @php $isTrue = (($stmt['correct'] ?? 'true') === 'true'); @endphp
                             <tr class="border-t border-gray-200">
-                                <td class="px-5 py-3.5 text-gray-800">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="question-rich-text px-5 py-3.5 text-gray-800 [&_img]:h-auto [&_img]:max-w-full">{!! $stmt['text'] ?? '-' !!}</td>
                                 <td class="px-5 py-3.5 text-center align-middle">
                                     @if($isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
                                 </td>

@@ -64,6 +64,12 @@ class StudyGroup extends Model
             ->withTimestamps();
     }
 
+    public function schoolAdmins(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'school_admin_study_group')
+            ->withTimestamps();
+    }
+
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class, 'package_id', 'package_id');

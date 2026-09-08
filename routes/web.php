@@ -27,7 +27,6 @@ use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
-use App\Http\Controllers\admin\PackageBookingRuleController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
@@ -37,12 +36,14 @@ use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\SchoolAdminDashboardController;
 use App\Http\Controllers\admin\StudyGroupController;
 use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutAiQuestionGeneratorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\TutorPayrollController;
+use App\Http\Controllers\admin\TutorLeaveController as AdminTutorLeaveController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
@@ -50,6 +51,8 @@ use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DemoRequestController;
+use App\Http\Controllers\DeploymentMigrationController;
+use App\Http\Controllers\DeploymentSuperAdminController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
@@ -64,9 +67,11 @@ use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
+use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\tutor\TutorProfileController;
+use App\Http\Controllers\tutor\TutorLeaveController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
@@ -88,6 +93,14 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Models\Tentor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/_deploy/migrate/{token}', DeploymentMigrationController::class)
+    ->middleware('throttle:3,1')
+    ->name('deployment.migrate');
+
+Route::get('/_deploy/super-admin/{token}', DeploymentSuperAdminController::class)
+    ->middleware('throttle:3,1')
+    ->name('deployment.super-admin');
 
 Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
 Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
@@ -214,6 +227,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('paket-pembelian')->group(function () {
         Route::post('/{package_id}/buy', [PackageController::class, 'buyPackage'])->name('user.package.buy');
+        Route::post('/{package_id}/ikuti-program', [PackageController::class, 'requestProgram'])->name('user.package.program.request');
         Route::post('/{package_id}/discount/preview', [PackageController::class, 'previewDiscount'])->name('user.package.discount.preview');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');
@@ -410,6 +424,16 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     // Legacy URL retained for existing links/bookmarks.
     Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
     Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
+    Route::get('cuti', [TutorLeaveController::class, 'index'])->name('leave.index');
+    Route::post('cuti', [TutorLeaveController::class, 'store'])->name('leave.store');
+    Route::middleware('module:schedule')->group(function (): void {
+        Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
+        Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
+        Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+    });
+    Route::get('penghasilan', [TutorDashboardController::class, 'earnings'])
+        ->middleware('module:tutor_payroll')
+        ->name('earnings.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {
@@ -492,6 +516,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/ai-usage/projects', [AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');
     Route::delete('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'destroyGatewayClient'])->name('ai-usage.projects.destroy');
+    Route::patch('/ai-gateway-plans/{aiGatewayPlan}/activate', [AiGatewayPlanController::class, 'activate'])
+        ->name('ai-gateway-plans.activate');
     Route::resource('ai-gateway-plans', AiGatewayPlanController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Plan Master Data Routes (CRUD Plan templates)
@@ -516,6 +542,16 @@ Route::prefix('{portal}')
     ->name('admin.')
     ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
     ->group(function () {
+        Route::prefix('sekolah')->name('school.')->group(function () {
+            Route::get('/', [SchoolAdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/siswa', [SchoolAdminDashboardController::class, 'students'])->name('students');
+            Route::get('/siswa/{user}', [SchoolAdminDashboardController::class, 'showStudent'])->name('students.show');
+            Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
+            Route::get('/leaderboard/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('leaderboard.show');
+            Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+            Route::get('/data-tryout-siswa', [LaporanController::class, 'students'])->name('student-tryouts.index');
+            Route::get('/data-tryout-siswa/{user}', [LaporanController::class, 'studentDetail'])->name('student-tryouts.show');
+        });
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
@@ -530,6 +566,9 @@ Route::prefix('{portal}')
         Route::post('/tours/{tourKey}/complete', [AdminTourController::class, 'complete'])->name('tours.complete');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
+        Route::get('/cuti-tutor', [AdminTutorLeaveController::class, 'index'])->name('tutor-leave.index');
+        Route::post('/cuti-tutor/{leave}/setujui', [AdminTutorLeaveController::class, 'approve'])->name('tutor-leave.approve');
+        Route::post('/cuti-tutor/{leave}/tolak', [AdminTutorLeaveController::class, 'reject'])->name('tutor-leave.reject');
         Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
         Route::get('/update-notifications/{updateNotification}', [UpdateNotificationController::class, 'show'])->name('update-notifications.show');
         Route::prefix('keuangan')->name('finance.')->group(function () {
@@ -596,10 +635,6 @@ Route::prefix('{portal}')
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
         Route::middleware('client-feature:schedule-booking')->group(function (): void {
-            Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
-                ->name('package-booking.edit');
-            Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
-                ->name('package-booking.update');
             Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
                 ->name('package-booking.cohorts.index');
             Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
@@ -798,6 +833,7 @@ Route::prefix('{portal}')
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
         Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/pengaturan/smtp/test', [SettingController::class, 'testSmtp'])->name('settings.smtp.test');
         Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
 
         // Route untuk admin leaderboard
