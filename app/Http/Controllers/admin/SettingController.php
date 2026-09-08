@@ -51,8 +51,27 @@ class SettingController extends Controller
             return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.')->with('active_tab', 'smtp');
         } catch (\Throwable $exception) {
             report($exception);
-            return back()->with('error', 'Email tes gagal dikirim. Periksa email SMTP dan sandi aplikasi.')->with('active_tab', 'smtp');
+            return back()->with('error', $this->smtpTestErrorMessage($exception))->with('active_tab', 'smtp');
         }
+    }
+
+    private function smtpTestErrorMessage(\Throwable $exception): string
+    {
+        $message = strtolower($exception->getMessage());
+
+        if (str_contains($message, 'auth') || str_contains($message, 'username') || str_contains($message, 'password')) {
+            return 'SMTP menolak autentikasi. Pastikan email dan sandi aplikasi sesuai akun pengirim.';
+        }
+
+        if (str_contains($message, 'ssl') || str_contains($message, 'tls') || str_contains($message, 'crypto') || str_contains($message, 'certificate')) {
+            return 'Koneksi SMTP gagal karena enkripsi tidak sesuai. Periksa pasangan port dan enkripsi.';
+        }
+
+        if (str_contains($message, 'connection') || str_contains($message, 'timed out') || str_contains($message, 'stream_socket')) {
+            return 'Server SMTP tidak dapat dihubungi. Periksa host, port, enkripsi, atau blokir jaringan server.';
+        }
+
+        return 'Email tes gagal dikirim. Periksa konfigurasi SMTP atau log aplikasi untuk detail aman.';
     }
     public function index()
     {
@@ -173,6 +192,9 @@ class SettingController extends Controller
             'interactive_qris_use_tip' => ['nullable', 'boolean'],
             'ipaymu_api_key' => ['nullable', 'string', 'max:1000'],
             'ipaymu_va' => ['nullable', 'string', 'max:100'],
+            'smtp_host' => ['nullable', 'string', 'max:255'],
+            'smtp_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'smtp_encryption' => ['nullable', 'in:tls,ssl,none'],
             'smtp_email' => ['nullable', 'email', 'max:255'],
             'smtp_app_password' => ['nullable', 'string', 'max:255'],
             'smtp_notification_email' => ['nullable', 'email', 'max:255'],
@@ -299,15 +321,9 @@ class SettingController extends Controller
             }
         }
 
-        $smtpHost = $profile->smtp_host ?: 'smtp.gmail.com';
-        $smtpPort = (int) ($profile->smtp_port ?: 587);
-        $smtpEncryption = $profile->smtp_encryption ?: 'tls';
-
-        if (in_array($smtpHost, ['127.0.0.1', 'localhost'], true) && $smtpPort === 2525) {
-            $smtpHost = 'smtp.gmail.com';
-            $smtpPort = 587;
-            $smtpEncryption = 'tls';
-        }
+        $smtpHost = trim((string) (($validated['smtp_host'] ?? null) ?: ($profile->smtp_host ?: 'smtp.gmail.com')));
+        $smtpPort = (int) (($validated['smtp_port'] ?? null) ?: ($profile->smtp_port ?: 587));
+        $smtpEncryption = strtolower((string) (($validated['smtp_encryption'] ?? null) ?: ($profile->smtp_encryption ?: 'tls')));
         $validated['smtp_email'] = MailSafety::email($validated['smtp_email'] ?? null);
         $validated['smtp_notification_email'] = MailSafety::email($validated['smtp_notification_email'] ?? null);
         $smtpEmail = $validated['smtp_email'] ?? MailSafety::email($profile->smtp_email);
@@ -336,6 +352,9 @@ class SettingController extends Controller
         $smtpSettingsChanged = $newPassword !== ''
             || MailSafety::email($profile->smtp_email) !== ($validated['smtp_email'] ?? null)
             || MailSafety::email($profile->smtp_notification_email) !== ($validated['smtp_notification_email'] ?? null)
+            || $profile->smtp_host !== $smtpHost
+            || (int) $profile->smtp_port !== $smtpPort
+            || strtolower((string) $profile->smtp_encryption) !== $smtpEncryption
             || ($shouldClearSmtp && (
                 ! empty($profile->smtp_host)
                 || ! empty($profile->smtp_port)
@@ -417,7 +436,10 @@ class SettingController extends Controller
         $smtpConfigured = ! empty($profile->smtp_email) || ! empty($existingSmtpPassword);
         $smtpRequested = $request->filled('smtp_email')
             || $request->filled('smtp_app_password')
-            || $request->filled('smtp_notification_email');
+            || $request->filled('smtp_notification_email')
+            || $request->filled('smtp_host')
+            || $request->filled('smtp_port')
+            || $request->filled('smtp_encryption');
         $shouldValidateSmtp = $smtpConfigured || $smtpRequested;
 
         if (! $shouldClearSmtp && $shouldValidateSmtp && (! $smtpEmail || ! $smtpPassword)) {

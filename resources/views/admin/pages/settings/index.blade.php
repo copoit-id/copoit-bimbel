@@ -872,7 +872,7 @@
             <div>
                 <p class="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">Email SMTP</p>
                 <h2 class="text-xl font-semibold text-gray-900">Notifikasi Pendaftar Baru</h2>
-                <p class="text-gray-500 text-sm">Isi email SMTP dan sandi aplikasi. Host/port/enkripsi memakai default sistem.</p>
+                <p class="text-gray-500 text-sm">Isi konfigurasi sesuai penyedia email. Default Gmail: smtp.gmail.com, port 587, TLS.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -897,6 +897,38 @@
                     </p>
                     @endif
                     @error('smtp_app_password')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Host SMTP</label>
+                    <input type="text" name="smtp_host"
+                        value="{{ old('smtp_host', $profile->smtp_host ?? 'smtp.gmail.com') }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="smtp.gmail.com">
+                    @error('smtp_host')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Port SMTP</label>
+                    <input type="number" name="smtp_port" min="1" max="65535"
+                        value="{{ old('smtp_port', $profile->smtp_port ?? 587) }}"
+                        class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5"
+                        placeholder="587">
+                    @error('smtp_port')
+                    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-900 mb-1 inline-block">Enkripsi</label>
+                    @php($smtpEncryption = old('smtp_encryption', $profile->smtp_encryption ?? 'tls'))
+                    <select name="smtp_encryption" class="w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary px-4 py-2.5">
+                        <option value="tls" @selected($smtpEncryption === 'tls')>TLS (umumnya port 587)</option>
+                        <option value="ssl" @selected($smtpEncryption === 'ssl')>SSL (umumnya port 465)</option>
+                        <option value="none" @selected($smtpEncryption === 'none')>Tanpa enkripsi</option>
+                    </select>
+                    @error('smtp_encryption')
                     <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                     @enderror
                 </div>
