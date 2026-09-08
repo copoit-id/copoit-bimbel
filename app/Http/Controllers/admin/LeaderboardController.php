@@ -177,6 +177,7 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -188,29 +189,29 @@ class LeaderboardController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Peringkat');
         $subtests = $this->exportSubtests($tryout);
+        $showScoreMaximum = $this->scoreDisplayService->shouldShowMaximum($tryout);
 
         $headers = [
             'Peringkat',
             'Nama Peserta',
             'Email',
-            'Asal Sekolah / Instansi',
-            'Pilihan Jurusan',
-            'Tujuan / Instansi',
         ];
+
+        if (! $schoolLeaderboard) {
+            $headers = [...$headers, 'Asal Sekolah / Instansi', 'Pilihan Jurusan', 'Tujuan / Instansi'];
+        }
 
         foreach ($subtests as $subtest) {
             $headers[] = 'Skor '.$subtest['alias'];
         }
 
-        $headers = [
-            ...$headers,
-            'Skor Total',
-            'Skor Maks',
-            'Status',
-            'Waktu Selesai',
-            'Durasi',
-            'Tanggal',
-        ];
+        $headers = [...$headers, 'Skor Total'];
+
+        if ($showScoreMaximum) {
+            $headers[] = 'Skor Maks';
+        }
+
+        $headers = [...$headers, 'Status', 'Waktu Selesai', 'Durasi', 'Tanggal'];
 
         $sheet->fromArray($headers, null, 'A1');
 
@@ -227,10 +228,15 @@ class LeaderboardController extends Controller
                 $rank,
                 $ranking->user->name ?? 'Unknown User',
                 $ranking->user->email ?? '-',
-                $ranking->user?->origin_institution ?? '-',
-                $ranking->user?->leaderboard_major_choices_display ?? '-',
-                $ranking->user?->participant_destination_display_name ?? '-',
             ];
+
+            if (! $schoolLeaderboard) {
+                $values = [...$values,
+                    $ranking->user?->origin_institution ?? '-',
+                    $ranking->user?->leaderboard_major_choices_display ?? '-',
+                    $ranking->user?->participant_destination_display_name ?? '-',
+                ];
+            }
 
             foreach ($subtests as $subtest) {
                 $values[] = $ranking->display_subtest_scores[$subtest['id']]['formatted']
@@ -240,10 +246,14 @@ class LeaderboardController extends Controller
             $displayScore = $ranking->display_score['formatted'] ?? $score;
             $displayMaximum = $ranking->display_score['formatted_maximum'] ?? $maxScore;
 
+            $rowValues = [...$values, $displayScore];
+
+            if ($showScoreMaximum) {
+                $rowValues[] = $displayMaximum;
+            }
+
             $sheet->fromArray([
-                ...$values,
-                $displayScore,
-                $displayMaximum,
+                ...$rowValues,
                 $ranking->is_passed ? 'Lulus' : 'Tidak Lulus',
                 $finishedAt ? $finishedAt->format('H:i') : '-',
                 $duration,
@@ -257,10 +267,13 @@ class LeaderboardController extends Controller
         $sheet->getColumnDimension('A')->setWidth(12);
         $sheet->getColumnDimension('B')->setWidth(28);
         $sheet->getColumnDimension('C')->setWidth(32);
-        $sheet->getColumnDimension('D')->setWidth(28);
-        $sheet->getColumnDimension('E')->setWidth(32);
-        $sheet->getColumnDimension('F')->setWidth(28);
-        for ($column = 7; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
+        $fixedColumns = $schoolLeaderboard ? 3 : 6;
+        if (! $schoolLeaderboard) {
+            $sheet->getColumnDimension('D')->setWidth(28);
+            $sheet->getColumnDimension('E')->setWidth(32);
+            $sheet->getColumnDimension('F')->setWidth(28);
+        }
+        for ($column = $fixedColumns + 1; $column <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastColumn); $column++) {
             $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column))->setWidth(15);
         }
         $this->styleExportSheet($sheet, $lastColumn, $row - 1);
@@ -285,6 +298,8 @@ class LeaderboardController extends Controller
     {
         $package = Package::findOrFail($package_id);
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryout_id);
+        $schoolLeaderboard = $this->schoolStudentIds() !== null;
+        $showScoreMaximum = $this->scoreDisplayService->shouldShowMaximum($tryout);
         $destinationCategories = $this->getDestinationCategories();
         $destinationFilter = $this->resolveDestinationFilter($request, $destinationCategories);
 
@@ -298,6 +313,8 @@ class LeaderboardController extends Controller
             'rankings' => $rankings,
             'subtests' => $this->exportSubtests($tryout),
             'destinationFilter' => $destinationFilter,
+            'schoolLeaderboard' => $schoolLeaderboard,
+            'showScoreMaximum' => $showScoreMaximum,
         ])->render();
 
         $options = new Options();

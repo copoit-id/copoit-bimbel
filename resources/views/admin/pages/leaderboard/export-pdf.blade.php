@@ -42,7 +42,9 @@
     <div class="header">
         <div class="title">Leaderboard - {{ $tryout->name }}</div>
         <div class="meta">Paket: {{ $package->name }}</div>
-        <div class="meta">Filter tujuan: {{ $destinationFilter['label'] ?? 'Semua tujuan / instansi' }}</div>
+        @unless($schoolLeaderboard ?? false)
+            <div class="meta">Filter tujuan: {{ $destinationFilter['label'] ?? 'Semua tujuan / instansi' }}</div>
+        @endunless
         <div class="meta">Tanggal export: {{ now()->format('d M Y H:i') }}</div>
     </div>
 
@@ -52,14 +54,18 @@
                 <th class="text-center">Peringkat</th>
                 <th>Peserta</th>
                 <th>Email</th>
-                <th>Asal Sekolah / Instansi</th>
-                <th>Pilihan Jurusan</th>
-                <th>Tujuan / Instansi</th>
+                @unless($schoolLeaderboard ?? false)
+                    <th>Asal Sekolah / Instansi</th>
+                    <th>Pilihan Jurusan</th>
+                    <th>Tujuan / Instansi</th>
+                @endunless
                 @foreach($subtests ?? [] as $subtest)
                     <th class="text-center">{{ $subtest['alias'] }}</th>
                 @endforeach
                 <th class="text-center">Skor Total</th>
-                <th class="text-center">Skor Maks</th>
+                @if($showScoreMaximum ?? true)
+                    <th class="text-center">Skor Maks</th>
+                @endif
                 <th class="text-center">Status</th>
                 <th class="text-center">Waktu Selesai</th>
                 <th class="text-center">Tanggal</th>
@@ -82,16 +88,20 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $ranking->user->name ?? 'Unknown User' }}</td>
                     <td>{{ $ranking->user->email ?? '-' }}</td>
-                    <td>{{ $ranking->user?->origin_institution ?? '-' }}</td>
-                    <td>{{ $ranking->user?->leaderboard_major_choices_display ?? '-' }}</td>
-                    <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
+                    @unless($schoolLeaderboard ?? false)
+                        <td>{{ $ranking->user?->origin_institution ?? '-' }}</td>
+                        <td>{{ $ranking->user?->leaderboard_major_choices_display ?? '-' }}</td>
+                        <td>{{ $ranking->user?->participant_destination_display_name ?? '-' }}</td>
+                    @endunless
                     @foreach($subtests ?? [] as $subtest)
                         <td class="text-center">
                             {{ $ranking->display_subtest_scores[$subtest['id']]['formatted'] ?? number_format((float) ($ranking->subtest_scores[$subtest['id']] ?? 0), 2, ',', '.') }}
                         </td>
                     @endforeach
                     <td class="text-center">{{ $score }}</td>
-                    <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
+                    @if($showScoreMaximum ?? true)
+                        <td class="text-center">{{ $maxScore > 0 ? $maxScore : '-' }}</td>
+                    @endif
                     <td class="text-center">{{ $status }}</td>
                     <td class="text-center">
                         {{ $ranking->finished_at ? $ranking->finished_at->format('H:i') : '-' }}
@@ -102,7 +112,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ 11 + count($subtests ?? []) }}" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
+                    <td colspan="{{ (($schoolLeaderboard ?? false) ? 8 : 11) - (($showScoreMaximum ?? true) ? 0 : 1) + count($subtests ?? []) }}" class="text-center">Belum ada peserta yang menyelesaikan tryout ini</td>
                 </tr>
             @endforelse
         </tbody>
