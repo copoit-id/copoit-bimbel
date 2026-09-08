@@ -28,6 +28,9 @@ class AiQuestionGeneratorBillingController extends Controller
             $plans = $this->gatewayRequest('get', 'plans', ['scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR])->json() ?? [];
             $status = $this->gatewayRequest('get', 'subscription', [
                 'scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
+                // Kredit AI dipakai bersama oleh AI Learning Tools dan
+                // Generator Soal; scope hanya membedakan katalog paket.
+                'include_all_scopes' => true,
                 'external_user_id' => (string) $request->user()->getAuthIdentifier(),
             ])->json() ?? [];
 
