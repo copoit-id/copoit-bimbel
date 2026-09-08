@@ -71,4 +71,34 @@ class AdminQuestionGeneratorQuotaServiceTest extends TestCase
             && $request->data()['scope'] === AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR
             && $request->data()['external_user_id'] === '42');
     }
+
+    public function test_quota_page_uses_total_usage_for_a_clear_progress_overview(): void
+    {
+        config()->set('services.ai_gateway.url', 'https://gateway.test/api/ai-gateway/discussion');
+        config()->set('services.ai_gateway.key', 'test-key');
+        Http::fake([
+            'https://gateway.test/api/ai-gateway/plans*' => Http::response([]),
+            'https://gateway.test/api/ai-gateway/subscription*' => Http::response([
+                'subscriptions' => [
+                    ['token_limit' => 10000, 'tokens_used' => 2500],
+                    ['token_limit' => 5000, 'tokens_used' => 1250],
+                ],
+            ]),
+        ]);
+        $user = new User;
+        $user->forceFill(['id' => 42, 'name' => 'Admin Test', 'email' => 'admin@example.test']);
+        $request = \Illuminate\Http\Request::create('/admin/ai-question-generator/quota', 'GET');
+        $request->setUserResolver(fn (): User => $user);
+
+        $view = app(AiQuestionGeneratorBillingController::class)->index($request);
+        $overview = $view->getData()['quotaOverview'];
+
+        $this->assertSame(15000, $overview['token_limit']);
+        $this->assertSame(3750, $overview['tokens_used']);
+        $this->assertSame(11250, $overview['remaining_tokens']);
+        $this->assertSame(25, $overview['usage_percentage']);
+        $this->assertSame(2, $overview['active_package_count']);
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/ai-gateway/subscription')
+            && str_contains($request->url(), 'include_all_scopes=1'));
+    }
 }
