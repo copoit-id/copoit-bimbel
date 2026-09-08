@@ -85,6 +85,7 @@ class AdminQuestionGeneratorQuotaService
     {
         $payload = $this->gatewayRequest('get', 'subscription', [
             'scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
+            'include_all_scopes' => true,
             'external_user_id' => (string) $user->getAuthIdentifier(),
         ]);
 

@@ -42,7 +42,7 @@
     <div class="rounded-xl border border-border bg-white p-6">
         <div class="mb-4">
             <h3 class="text-lg font-semibold text-gray-900">Daftar Paket</h3>
-            <p class="mt-1 text-sm text-gray-500">Token wajib dibatasi. Harga 0 = gratis dan langsung aktif saat diklaim. {{ $activeScope === 'admin_question_generator' ? 'Paket Generator Soal selalu lifetime.' : 'Chat 0 = unlimited. Masa aktif 0 = tidak kedaluwarsa.' }}</p>
+            <p class="mt-1 text-sm text-gray-500">Token wajib dibatasi. Harga 0 = gratis dan langsung aktif saat diklaim. Semua paket AI berupa kredit lifetime tanpa masa aktif.</p>
         </div>
 
         <div class="space-y-4">
@@ -61,9 +61,7 @@
                             </div>
                             <p class="mt-1 text-sm text-gray-500">
                                 {{ $plan->slug }} · {{ $plan->isFree() ? 'Gratis' : 'Rp '.number_format($plan->price, 0, ',', '.') }}
-                                @if($activeScope !== 'admin_question_generator')
-                                    / {{ $plan->duration_days === 0 ? 'tanpa masa aktif' : $plan->duration_days.' hari' }}
-                                @endif
+                                / tanpa masa aktif
                             </p>
                         </div>
                         @php($planHasHistory = $plan->subscriptions_count > 0 || $plan->transactions_count > 0)
@@ -128,9 +126,6 @@
                 <input type="hidden" name="scope" value="{{ $plan->scope }}">
                 <label class="block md:col-span-2"><span class="text-sm font-semibold text-gray-700">Nama Paket</span><input name="name" required value="{{ $plan->name }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
                 <label class="block"><span class="text-sm font-semibold text-gray-700">Harga (Rp)</span><input name="price" type="number" min="0" required value="{{ $plan->price }}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">0 = gratis dan langsung aktif saat diklaim.</span></label>
-                @if($activeScope !== 'admin_question_generator')
-                    <label class="block"><span class="text-sm font-semibold text-gray-700">Masa Aktif (hari)</span><input name="duration_days" type="number" min="0" value="{{ $plan->duration_days }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">Isi 0 untuk tanpa masa aktif.</span></label>
-                @endif
                 <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Token</span><input name="token_limit" type="number" min="1" value="{{ $plan->token_limit }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"></label>
                 <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Chat</span><input name="chat_limit" type="number" min="0" value="{{ $plan->chat_limit }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">{{ $activeScope === 'admin_question_generator' ? 'Tidak dipakai pada generator soal; isi 0.' : 'Isi 0 untuk unlimited; penggunaan berhenti saat token habis.' }}</span></label>
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 md:col-span-2"><input name="is_active" value="1" type="checkbox" @checked($plan->is_active) class="rounded border-gray-300 text-primary focus:ring-primary"> Paket tersedia untuk dibeli atau diklaim</label>
@@ -166,9 +161,6 @@
                     <input name="price" type="number" min="0" value="{{ old('price', 0) }}" required placeholder="0" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10">
                     <span class="mt-1 block text-xs text-gray-500">0 = gratis, tanpa membuka payment gateway.</span>
                 </label>
-                @if($activeScope !== 'admin_question_generator')
-                    <label class="block"><span class="text-sm font-semibold text-gray-700">Masa Aktif (hari)</span><input name="duration_days" type="number" min="0" value="{{ old('duration_days', 30) }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">0 = tidak kedaluwarsa.</span></label>
-                @endif
                 <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Token</span><input name="token_limit" type="number" min="1" value="{{ old('token_limit', 10000) }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">Wajib lebih dari 0; paket berakhir saat token habis.</span></label>
                 <label class="block"><span class="text-sm font-semibold text-gray-700">Limit Chat</span><input name="chat_limit" type="number" min="0" value="{{ old('chat_limit', 0) }}" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10"><span class="mt-1 block text-xs text-gray-500">0 = unlimited selama token masih tersedia.</span></label>
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 md:col-span-2"><input name="is_active" value="1" type="checkbox" checked class="rounded border-gray-300 text-primary focus:ring-primary"> Aktifkan paket setelah dibuat</label>
