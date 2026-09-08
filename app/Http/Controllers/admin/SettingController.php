@@ -20,7 +20,6 @@ class SettingController extends Controller
     {
         $request->validate(['recipient' => ['required', 'email', 'max:255']]);
         $profile = ClientProfile::query()->first();
-        $email = MailSafety::email($profile?->smtp_email);
         $recipient = MailSafety::email($request->input('recipient'));
         try {
             $password = $profile?->smtp_app_password;
@@ -28,14 +27,35 @@ class SettingController extends Controller
             return back()->with('error', 'Sandi aplikasi SMTP yang tersimpan tidak dapat dibaca. Simpan ulang sandi aplikasi Anda.')
                 ->with('active_tab', 'smtp');
         }
+        $email = MailSafety::email($profile?->smtp_email)
+            ?: MailSafety::email(config('mail.mailers.smtp.username'))
+            ?: MailSafety::email(config('mail.from.address'));
+        $password = $password ?: config('mail.mailers.smtp.password');
         if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.')->with('active_tab', 'smtp');
         // Test hanya mengirim satu plain-text message kecil. Batasi koneksi agar UI
         // tidak menunggu lama saat host atau App Password keliru.
-        $encryption = strtolower((string) ($profile->smtp_encryption ?: 'tls'));
+        $configuredScheme = strtolower((string) config('mail.mailers.smtp.scheme'));
+        $encryption = strtolower((string) ($profile?->smtp_encryption ?: ($configuredScheme === 'smtps' ? 'ssl' : 'tls')));
+        $environmentHost = config('mail.mailers.smtp.host');
+        $environmentPort = config('mail.mailers.smtp.port');
+        $host = $profile?->smtp_host ?: $environmentHost ?: 'smtp.gmail.com';
+        $port = $profile?->smtp_port ?: $environmentPort ?: 587;
+
+        // Abaikan konfigurasi Mailpit lama yang tersimpan di database bila
+        // environment deployment sudah memakai SMTP sungguhan.
+        if (
+            in_array($host, ['127.0.0.1', 'localhost'], true)
+            && (int) $port === 2525
+            && ! in_array($environmentHost, ['127.0.0.1', 'localhost', null], true)
+        ) {
+            $host = $environmentHost;
+            $port = $environmentPort ?: 587;
+            $encryption = $configuredScheme === 'smtps' ? 'ssl' : 'tls';
+        }
         config([
             'mail.default' => 'smtp',
-            'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com',
-            'mail.mailers.smtp.port' => $profile->smtp_port ?: 587,
+            'mail.mailers.smtp.host' => $host,
+            'mail.mailers.smtp.port' => $port,
             'mail.mailers.smtp.username' => $email,
             'mail.mailers.smtp.password' => $password,
             'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
