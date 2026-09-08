@@ -63,6 +63,7 @@ class AiQuestionGeneratorBillingController extends Controller
         try {
             $response = $this->gatewayRequest('post', 'checkout', [
                 'plan_id' => $data['plan_id'],
+                'scope' => AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
                 'external_user_id' => (string) $user->getAuthIdentifier(),
                 'customer_name' => (string) $user->name,
                 'customer_email' => (string) $user->email,
