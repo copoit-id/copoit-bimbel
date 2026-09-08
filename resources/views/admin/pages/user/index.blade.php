@@ -185,9 +185,16 @@
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-gray-700">
-                                    {{ $user->participant_destination_display_name ?? '-' }}
-                                </span>
+                                <div class="space-y-1">
+                                    <p class="text-gray-700">
+                                        <span class="text-xs text-gray-500">Pilihan 1:</span>
+                                        {{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}
+                                    </p>
+                                    <p class="text-xs text-gray-600">
+                                        <span class="text-gray-500">Pilihan 2:</span>
+                                        {{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}
+                                    </p>
+                                </div>
                             </td>
                             <td class="px-6 py-4">
                                 @php

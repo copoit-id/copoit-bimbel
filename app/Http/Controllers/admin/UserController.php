@@ -49,6 +49,7 @@ class UserController extends Controller
         $users = User::query()
             ->with([
                 'participantDestinationCategory.parent',
+                'secondParticipantDestinationCategory.parent',
                 'studyGroups:id,name',
                 'userPackageAccess' => fn ($query) => $query
                     ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])

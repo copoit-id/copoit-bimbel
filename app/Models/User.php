@@ -50,9 +50,24 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'birthday' => 'date',
             'password' => 'hashed',
             'admin_expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Keep the public participant-profile field compatible with the actual
+     * users-table column used by the admin and school-admin portals.
+     */
+    public function getDateOfBirthAttribute(): mixed
+    {
+        return $this->birthday;
+    }
+
+    public function setDateOfBirthAttribute(mixed $value): void
+    {
+        $this->attributes['birthday'] = $value;
     }
 
     public static function containsUrlLike(string $value): bool

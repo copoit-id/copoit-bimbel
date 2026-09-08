@@ -60,8 +60,32 @@ class SchoolAdminDashboardController extends Controller
         $this->ensureSchoolAdmin($request);
         $search = trim((string) $request->query('search'));
         $students = User::query()
+            ->select([
+                'id',
+                'name',
+                'email',
+                'phone',
+                'birthday',
+                'education_level',
+                'origin_institution',
+                'major_choice_1',
+                'major_choice_2',
+                'participant_destination_category_id',
+                'participant_destination_source',
+                'participant_destination_institution_name',
+                'participant_destination_program_name',
+                'second_participant_destination_category_id',
+                'second_participant_destination_source',
+                'second_participant_destination_institution_name',
+                'second_participant_destination_program_name',
+            ])
             ->whereIn('id', $this->studentIds($request))
-            ->with(['studyGroups:id,name', 'userPackageAccess' => fn ($query) => $query->active()->with('package:package_id,name')])
+            ->with([
+                'studyGroups:id,name',
+                'participantDestinationCategory.parent',
+                'secondParticipantDestinationCategory.parent',
+                'userPackageAccess' => fn ($query) => $query->active()->with('package:package_id,name'),
+            ])
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $nested) => $nested
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")))
