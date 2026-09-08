@@ -91,8 +91,20 @@ class LatexPdfRenderer
             $html,
         ) ?? $html;
 
-        return preg_replace_callback(
+        $html = preg_replace_callback(
             '/\\\\\((.+?)\\\\\)/s',
+            fn (array $matches): string => $replace($matches[1], false, $matches[0]),
+            $html,
+        ) ?? $html;
+
+        $html = preg_replace_callback(
+            '/(?<!\\\\)\$\$(.+?)\$\$/s',
+            fn (array $matches): string => $replace($matches[1], true, $matches[0]),
+            $html,
+        ) ?? $html;
+
+        return preg_replace_callback(
+            '/(?<!\\\\)\$(?!\$)([^\r\n$]+?)\$(?!\$)/',
             fn (array $matches): string => $replace($matches[1], false, $matches[0]),
             $html,
         ) ?? $html;

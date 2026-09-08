@@ -93,7 +93,7 @@
                         ];
                     }
                 }
-                while (count($mtfStatements) < 2) {
+                while (count($mtfStatements) < 1) {
                     $mtfStatements[] = [
                         'id' => 'stmt_' . (count($mtfStatements) + 1),
                         'text' => '',
@@ -113,7 +113,7 @@
                                 Choice</option>
                             <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
                                 Multiple Answer (Lebih dari 1 benar)</option>
-                            <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
+                            <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>True/False
                             </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
                             <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
@@ -357,7 +357,7 @@
                     <div class="space-y-4 question-type-section" data-question-type="multiple_true_false" style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Multiple True/False</h3>
-                            <p class="text-sm text-gray-600">Isi beberapa pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
+                            <p class="text-sm text-gray-600">Isi satu atau lebih pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
@@ -834,8 +834,8 @@
                 }
 
                 const rows = mtfContainer.querySelectorAll('.mtf-row');
-                if (rows.length <= 2) {
-                    alert('Minimal harus ada dua pernyataan.');
+                if (rows.length <= 1) {
+                    alert('Minimal harus ada satu pernyataan.');
                     return;
                 }
 

@@ -657,7 +657,7 @@ class QuestionController extends Controller
             'mtf_scoring_mode' => 'required|in:fullscore,partial',
             'mtf_score_correct' => 'required|numeric',
             'mtf_score_wrong' => 'required|numeric',
-            'mtf_statements' => 'required|array|min:2',
+            'mtf_statements' => 'required|array|min:1',
             'mtf_statements.*.text' => 'required|string|min:1',
             'mtf_statements.*.correct' => 'required|in:true,false',
         ];

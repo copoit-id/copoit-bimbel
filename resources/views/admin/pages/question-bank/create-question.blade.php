@@ -45,7 +45,7 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('question_type', 'multiple_choice') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -201,10 +201,9 @@ $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssay
                     @php
                         $mtfStatements = old('mtf_statements', [
                             ['id' => 'stmt_1', 'text' => '', 'correct' => 'true'],
-                            ['id' => 'stmt_2', 'text' => '', 'correct' => 'false'],
                         ]);
-                        if (is_array($mtfStatements) && count($mtfStatements) < 2) {
-                            $mtfStatements = array_pad($mtfStatements, 2, ['id' => '', 'text' => '', 'correct' => 'true']);
+                        if (is_array($mtfStatements) && count($mtfStatements) < 1) {
+                            $mtfStatements = array_pad($mtfStatements, 1, ['id' => '', 'text' => '', 'correct' => 'true']);
                         }
                     @endphp
                     <h3 class="text-lg font-semibold text-gray-900">Multiple True / False</h3>

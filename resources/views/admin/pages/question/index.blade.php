@@ -166,7 +166,7 @@
                 'multiple_choice' => 'Multiple Choice',
                 'multiple_answer' => 'Multiple Answer',
                 'multiple_true_false' => 'Multiple True/False',
-                'true_false' => 'Benar/Salah',
+                'true_false' => 'True/False',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
                 'audio' => 'Jawaban Audio',

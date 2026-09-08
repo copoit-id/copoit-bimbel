@@ -10,10 +10,9 @@
     $mtfMeta = is_array($metadata['multiple_true_false'] ?? null) ? $metadata['multiple_true_false'] : [];
     $mtfStatements = old('mtf_statements', $mtfMeta['statements'] ?? [
         ['id' => 'stmt_1', 'text' => '', 'correct' => 'true'],
-        ['id' => 'stmt_2', 'text' => '', 'correct' => 'false'],
     ]);
-    if (is_array($mtfStatements) && count($mtfStatements) < 2) {
-        $mtfStatements = array_pad($mtfStatements, 2, ['id' => '', 'text' => '', 'correct' => 'true']);
+    if (is_array($mtfStatements) && count($mtfStatements) < 1) {
+        $mtfStatements = array_pad($mtfStatements, 1, ['id' => '', 'text' => '', 'correct' => 'true']);
     }
     $expectedAnswers = isset($shortMeta['expected_answers']) && is_array($shortMeta['expected_answers'])
         ? implode("\n", $shortMeta['expected_answers'])
@@ -80,7 +79,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span class="text-red-500">*</span></label>
                         <select name="question_type" id="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'Benar / Salah', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
+                            @foreach (['multiple_choice' => 'Multiple Choice', 'multiple_answer' => 'Multiple Answer (Lebih dari 1 benar)', 'multiple_true_false' => 'Multiple True/False', 'true_false' => 'True/False', 'matching' => 'Pencocokan', 'short_answer' => 'Jawaban Singkat', 'essay' => 'Essay', 'audio' => 'Jawaban Audio'] as $value => $label)
                             <option value="{{ $value }}" @selected($questionType === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
