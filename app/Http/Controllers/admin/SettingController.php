@@ -22,21 +22,30 @@ class SettingController extends Controller
         $profile = ClientProfile::query()->first();
         $email = MailSafety::email($profile?->smtp_email);
         $recipient = MailSafety::email($request->input('recipient'));
-        $password = $profile?->smtp_app_password;
+        try {
+            $password = $profile?->smtp_app_password;
+        } catch (DecryptException) {
+            return back()->with('error', 'Sandi aplikasi SMTP yang tersimpan tidak dapat dibaca. Simpan ulang sandi aplikasi Anda.')
+                ->with('active_tab', 'smtp');
+        }
         if (! $email || ! $recipient || ! $password) return back()->with('error', 'Simpan konfigurasi SMTP lengkap terlebih dahulu.')->with('active_tab', 'smtp');
         // Test hanya mengirim satu plain-text message kecil. Batasi koneksi agar UI
         // tidak menunggu lama saat host atau App Password keliru.
+        $encryption = strtolower((string) ($profile->smtp_encryption ?: 'tls'));
         config([
             'mail.default' => 'smtp',
             'mail.mailers.smtp.host' => $profile->smtp_host ?: 'smtp.gmail.com',
             'mail.mailers.smtp.port' => $profile->smtp_port ?: 587,
             'mail.mailers.smtp.username' => $email,
             'mail.mailers.smtp.password' => $password,
-            'mail.mailers.smtp.scheme' => null,
+            'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
             'mail.mailers.smtp.timeout' => 8,
             'mail.from.address' => $email,
             'mail.from.name' => config('app.name'),
         ]);
+        // Mailer dapat sudah dibuat sebelum konfigurasi dinamis di atas diterapkan.
+        // Purge memaksa Laravel menyusun ulang transport SMTP dari nilai tersimpan.
+        Mail::purge('smtp');
         try {
             Mail::raw('Tes SMTP berhasil. Konfigurasi email Epycentrum aktif.', fn ($message) => $message->to($recipient)->subject('Tes SMTP Epycentrum'));
             return back()->with('success', 'Email tes berhasil dikirim ke '.$recipient.'.')->with('active_tab', 'smtp');
