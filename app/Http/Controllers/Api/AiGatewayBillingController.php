@@ -518,7 +518,12 @@ class AiGatewayBillingController extends Controller
             ->where('status', 'paid')
             ->whereHas('subscription', fn ($query) => $query
                 ->where('external_user_id', $externalUserId)
-                ->where('status', 'pending'))
+                ->where(function ($query): void {
+                    $query->where('status', 'pending')
+                        ->orWhere(fn ($query) => $query
+                            ->where('status', 'active')
+                            ->where('token_limit', '<=', 0));
+                }))
             ->latest('paid_at')
             ->limit(10)
             ->get();
@@ -532,7 +537,7 @@ class AiGatewayBillingController extends Controller
             try {
                 $this->subscriptionService->reconcilePaidTransaction($transaction, [
                     'source' => 'gateway_status_auto',
-                    'reason' => 'Transaksi sudah terverifikasi, tetapi subscription masih pending.',
+                    'reason' => 'Transaksi sudah terverifikasi, tetapi subscription belum memperoleh kredit paket yang valid.',
                 ]);
             } catch (\Throwable $exception) {
                 report($exception);

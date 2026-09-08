@@ -138,6 +138,38 @@ class AiGatewaySubscriptionLifetimeTest extends TestCase
         );
     }
 
+    public function test_reconciliation_restores_credit_for_paid_active_subscription_with_zero_tokens(): void
+    {
+        $plan = $this->createLifetimePlan();
+        $subscription = $this->createPendingSubscription($plan, [
+            'status' => 'active',
+            'token_limit' => 0,
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+        $transaction = $this->createTransaction($plan, $subscription);
+        $transaction->update([
+            'status' => 'paid',
+            'paid_at' => now(),
+            'details' => [
+                'confirmation_source' => 'provider',
+                'activated_subscription_id' => $subscription->id,
+            ],
+        ]);
+
+        app(AiGatewaySubscriptionService::class)->reconcilePaidTransaction($transaction, [
+            'source' => 'gateway_status_auto',
+        ]);
+
+        $subscription->refresh();
+        $this->assertSame($plan->token_limit, $subscription->token_limit);
+        $this->assertNull($subscription->ends_at);
+        $this->assertSame(
+            'gateway_status_auto',
+            data_get($transaction->fresh()->details, 'subscription_reconciliation.source'),
+        );
+    }
+
     private function createLifetimePlan(): AiGatewayPlan
     {
         return AiGatewayPlan::create([
