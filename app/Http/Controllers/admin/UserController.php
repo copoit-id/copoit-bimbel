@@ -36,10 +36,12 @@ class UserController extends Controller
         $roleOptions = $this->getRoleOptions();
         $activeRole = $request->input('role', array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions));
         $search = trim((string) $request->query('search', ''));
-        $status = $request->query('status');
+        $status = $request->has('status') ? $request->query('status') : 'aktif';
 
-        if (! in_array($status, ['aktif', 'nonaktif'], true)) {
+        if ($status === '') {
             $status = null;
+        } elseif (! in_array($status, ['aktif', 'nonaktif'], true)) {
+            $status = 'aktif';
         }
 
         if (! array_key_exists((string) $activeRole, $roleOptions)) {
@@ -141,9 +143,10 @@ class UserController extends Controller
         return view('admin.pages.user.login-as', compact('users', 'search', 'status'));
     }
 
-    public function create()
+    public function create(Request $request): View
     {
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
+        $formRole = $this->requestedFormRole($request, $roleOptions);
         $destinationCategories = $this->getDestinationCategories();
         $parentPortalEnabled = $this->parentPortalEnabled();
         $childOptions = $parentPortalEnabled
@@ -156,6 +159,7 @@ class UserController extends Controller
         return view('admin.pages.user.create', [
             'user' => null,
             'roleOptions' => $roleOptions,
+            'formRole' => $formRole,
             'destinationCategories' => $destinationCategories,
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
@@ -170,7 +174,7 @@ class UserController extends Controller
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
     ) {
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
         $roleSlugs = array_keys($roleOptions);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
@@ -321,11 +325,11 @@ class UserController extends Controller
         return view('admin.pages.user.show', compact('user', 'attendanceSummary', 'paymentSummary', 'schoolAdminView'));
     }
 
-    public function edit($id)
+    public function edit($id): View
     {
         $user = User::with(['children:id,name', 'parents:id,name,email'])->findOrFail($id);
         $this->ensureParentPortalUserIsAvailable($user);
-        $roleOptions = $this->getRoleOptions();
+        $roleOptions = $this->getAssignableRoleOptions();
         $destinationCategories = $this->getDestinationCategories();
         $parentPortalEnabled = $this->parentPortalEnabled();
         $childOptions = $parentPortalEnabled
@@ -345,6 +349,8 @@ class UserController extends Controller
         return view('admin.pages.user.create', [
             'user' => $user,
             'roleOptions' => $roleOptions,
+            'formRole' => $user->role,
+            'roleLocked' => ! array_key_exists($user->role, $roleOptions),
             'destinationCategories' => $destinationCategories,
             'childOptions' => $childOptions,
             'parentOptions' => $parentOptions,
@@ -360,9 +366,12 @@ class UserController extends Controller
         ParticipantDestinationSelectionService $destinationSelectionService,
         TutorProfileService $tutorProfileService
     ) {
-        $this->ensureParentPortalUserIsAvailable(User::findOrFail($id));
-        $roleOptions = $this->getRoleOptions();
-        $roleSlugs = array_keys($roleOptions);
+        $existingUser = User::findOrFail($id);
+        $this->ensureParentPortalUserIsAvailable($existingUser);
+        $roleOptions = $this->getAssignableRoleOptions();
+        $roleSlugs = $existingUser->role === 'admin'
+            ? ['admin']
+            : array_keys($roleOptions);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', new SafeName],
             'email' => 'required|string|email|max:255|unique:users,email,'.$id,
@@ -411,8 +420,8 @@ class UserController extends Controller
                 'birthday' => $validated['birthday'] ?? null,
                 'education_level' => $validated['education_level'] ?? null,
                 'origin_institution' => $validated['origin_institution'] ?? null,
-                'major_choice_1' => $validated['major_choice_1'] ?? null,
-                'major_choice_2' => $validated['major_choice_2'] ?? null,
+                'major_choice_1' => $validated['major_choice_1'] ?? $user->major_choice_1,
+                'major_choice_2' => $validated['major_choice_2'] ?? $user->major_choice_2,
                 'status' => $validated['status'],
                 'role' => $validated['role'],
                 ...$destinationPayload,
@@ -721,8 +730,28 @@ class UserController extends Controller
             ->whereNotIn('slug', ['super_admin', 'admin_demo'])
             ->when(! $this->parentPortalEnabled(), fn ($query) => $query->where('slug', '!=', 'parent'))
             ->orderBy('name')
+            ->get(['name', 'slug'])
+            ->sortBy(fn (Role $role): int => $role->slug === 'user' ? 0 : 1)
             ->pluck('name', 'slug')
             ->toArray();
+    }
+
+    /** @return array<string, string> */
+    private function getAssignableRoleOptions(): array
+    {
+        return collect($this->getRoleOptions())
+            ->except('admin')
+            ->all();
+    }
+
+    /** @param array<string, string> $roleOptions */
+    private function requestedFormRole(Request $request, array $roleOptions): string
+    {
+        $requestedRole = (string) $request->query('role', 'user');
+
+        return array_key_exists($requestedRole, $roleOptions)
+            ? $requestedRole
+            : (array_key_exists('user', $roleOptions) ? 'user' : (string) array_key_first($roleOptions));
     }
 
     private function schoolAdminStudyGroups()
