@@ -20,7 +20,7 @@ class AdminQuestionGeneratorQuotaServiceTest extends TestCase
         $this->assertFalse(app(AdminQuestionGeneratorQuotaService::class)->isConfigured());
     }
 
-    public function test_summary_reads_the_active_generator_subscription_from_gateway(): void
+    public function test_summary_reads_an_active_ai_learning_subscription_from_gateway(): void
     {
         config()->set('services.ai_gateway.url', 'https://gateway.test/api/ai-gateway/discussion');
         config()->set('services.ai_gateway.key', 'test-key');
@@ -29,7 +29,8 @@ class AdminQuestionGeneratorQuotaServiceTest extends TestCase
                 'subscriptions' => [[
                     'token_limit' => 100000,
                     'tokens_used' => 25000,
-                    'plan' => ['name' => 'Generator Soal S'],
+                    'scope' => AiGatewayPlan::SCOPE_LEARNING_TOOLS,
+                    'plan' => ['name' => 'Pembahasan S'],
                 ]],
             ]),
         ]);
@@ -38,11 +39,12 @@ class AdminQuestionGeneratorQuotaServiceTest extends TestCase
 
         $summary = app(AdminQuestionGeneratorQuotaService::class)->summary($user);
 
-        $this->assertSame('Generator Soal S', $summary['plan_name']);
+        $this->assertSame('Pembahasan S', $summary['plan_name']);
         $this->assertSame(75000, $summary['remaining_tokens']);
         $this->assertSame('60–75', $summary['remaining_question_estimate']['label']);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/ai-gateway/subscription')
             && str_contains($request->url(), 'scope=admin_question_generator')
+            && str_contains($request->url(), 'include_all_scopes=1')
             && str_contains($request->url(), 'external_user_id=42'));
     }
 

@@ -278,9 +278,9 @@ class AiGatewaySubscriptionService
     ): AiGatewaySubscription {
         $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
         $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
-        $durationDays = $transaction->plan?->scope === AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR
-            ? 0
-            : max(0, (int) ($transaction->plan?->duration_days ?? 30));
+        // Token AI adalah kredit sekali beli, bukan membership berbasis waktu.
+        // Paket hanya membedakan jumlah token dan target penggunaannya.
+        $durationDays = 0;
         $activeSubscription = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
             ->where('external_user_id', $pendingSubscription->external_user_id)

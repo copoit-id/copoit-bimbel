@@ -104,9 +104,7 @@ class AiGatewayPlanController extends Controller
 
     private function normalizeScopeDefaults(array $data): array
     {
-        if (($data['scope'] ?? null) === AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR) {
-            $data['duration_days'] = 0;
-        }
+        $data['duration_days'] = 0;
 
         return $data;
     }
