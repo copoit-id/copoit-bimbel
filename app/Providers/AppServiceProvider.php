@@ -341,6 +341,9 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.password' => $smtpPassword,
             'mail.mailers.smtp.scheme' => null,
             'mail.mailers.smtp.encryption' => $smtpEncryption ?: null,
+            // Berlaku untuk seluruh email, termasuk forgot password dan SMTP
+            // test, agar request tidak menggantung lama saat port SMTP diblokir.
+            'mail.mailers.smtp.timeout' => 10,
             'mail.from.address' => $smtpEmail,
             'mail.from.name' => MailSafety::header(
                 (string) ($branding['name'] ?? config('app.name')),
