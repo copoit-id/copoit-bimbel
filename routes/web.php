@@ -67,6 +67,7 @@ use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
+use App\Http\Controllers\superadmin\TryoutLoadTestController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
 use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
@@ -484,6 +485,11 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
+    Route::get('/load-test', [TryoutLoadTestController::class, 'index'])->name('load-test.index');
+    Route::post('/load-test', [TryoutLoadTestController::class, 'create'])->middleware('throttle:2,1')->name('load-test.create');
+    Route::get('/load-test/{batch}/users.csv', [TryoutLoadTestController::class, 'download'])->name('load-test.download');
+    Route::post('/load-test/{batch}/reset', [TryoutLoadTestController::class, 'reset'])->middleware('throttle:3,1')->name('load-test.reset');
+    Route::delete('/load-test/{batch}', [TryoutLoadTestController::class, 'destroy'])->middleware('throttle:2,1')->name('load-test.destroy');
     Route::get('/reset-data', [DataResetController::class, 'index'])->name('data-reset.index');
     Route::delete('/reset-data', [DataResetController::class, 'destroy'])->middleware('throttle:3,1')->name('data-reset.destroy');
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');

@@ -74,6 +74,13 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('super-admin.load-test.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.load-test.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-speed-up-line text-[20px]"></i>
+                    <span class="ms-3">Load Test Tryout</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('super-admin.data-reset.index') }}"
                     class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.data-reset.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
                     <i class="ri-delete-bin-6-line text-[20px]"></i>
