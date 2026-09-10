@@ -61,6 +61,7 @@ use App\Http\Controllers\OriginInstitutionLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Http\Controllers\superadmin\AiUsageController;
+use App\Http\Controllers\superadmin\DataResetController;
 use App\Http\Controllers\superadmin\GeneralSettingController;
 use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
@@ -483,6 +484,8 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
+    Route::get('/reset-data', [DataResetController::class, 'index'])->name('data-reset.index');
+    Route::delete('/reset-data', [DataResetController::class, 'destroy'])->middleware('throttle:3,1')->name('data-reset.destroy');
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
     Route::get('/admins/copy-text', [SuperAdminController::class, 'copyText'])->name('admins.copy-text');

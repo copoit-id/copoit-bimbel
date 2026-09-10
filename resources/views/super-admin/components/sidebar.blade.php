@@ -73,6 +73,13 @@
                     <span class="ms-3">Plan & Quota</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('super-admin.data-reset.index') }}"
+                    class="flex items-center py-2 px-4 {{ request()->routeIs('super-admin.data-reset.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group">
+                    <i class="ri-delete-bin-6-line text-[20px]"></i>
+                    <span class="ms-3">Reset Data</span>
+                </a>
+            </li>
         </ul>
     </div>
 </aside>
