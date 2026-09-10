@@ -10,7 +10,7 @@ class SuperAdminDataResetService
     public const CATEGORIES = [
         'tryouts' => ['label' => 'Tryout lengkap', 'description' => 'Tryout, subtest, soal, dan hasil tryout yang terkait.'],
         'attempts' => ['label' => 'Pengerjaan peserta', 'description' => 'Jawaban, nilai, peringkat, waktu tambahan, dan artefak AI belajar.'],
-        'packages' => ['label' => 'Paket', 'description' => 'Paket tanpa transaksi, isi paket, akses peserta, dan pengaturan booking.'],
+        'packages' => ['label' => 'Paket', 'description' => 'Paket, isi paket, akses peserta, booking, serta transaksi pembayaran yang terkait.'],
         'materials' => ['label' => 'Materi', 'description' => 'Materi, kategori, akses, dan progres materi peserta.'],
         'participants' => ['label' => 'Peserta', 'description' => 'Akun peserta tanpa transaksi pembayaran; akun bertansaksi dipertahankan demi audit keuangan.'],
     ];
@@ -33,7 +33,7 @@ class SuperAdminDataResetService
             }
 
             if (in_array('packages', $categories, true)) {
-                $this->clearPackagesWithoutPayments();
+                $this->clearPackages();
                 $deleted[] = self::CATEGORIES['packages']['label'];
             }
 
@@ -66,27 +66,14 @@ class SuperAdminDataResetService
         $this->deleteTables(['ai_learning_artifacts', 'essay_correction_jobs', 'user_answer_details', 'user_answers', 'leaderboards', 'proctoring_snapshots', 'tryout_user_time_adjustments', 'user_tryout_accesses']);
     }
 
-    private function clearPackagesWithoutPayments(): void
+    private function clearPackages(): void
     {
         if (! Schema::hasTable('packages')) {
             return;
         }
 
-        $packageIds = DB::table('packages')
-            ->when(Schema::hasTable('payments'), function ($query): void {
-                $query->whereNotIn('package_id', DB::table('payments')->select('package_id')->whereNotNull('package_id'));
-            })
-            ->pluck('package_id');
-
-        if ($packageIds->isEmpty()) {
-            return;
-        }
-
-        foreach (['schedule_booking_requests', 'booking_cohorts', 'package_booking_rules', 'package_materials', 'detail_packages', 'user_package_access'] as $table) {
-            $this->deleteTable($table, fn ($query) => $query->whereIn('package_id', $packageIds));
-        }
-
-        DB::table('packages')->whereIn('package_id', $packageIds)->delete();
+        $this->deleteTables(['schedule_booking_requests', 'booking_cohort_participants', 'booking_cohorts', 'package_booking_rules', 'package_materials', 'detail_packages', 'user_package_access']);
+        $this->deleteTable('packages');
     }
 
     /** @param list<string> $tables */

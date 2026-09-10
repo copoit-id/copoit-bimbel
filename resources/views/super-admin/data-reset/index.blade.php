@@ -14,7 +14,7 @@
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
             <div class="flex gap-3">
                 <i class="ri-error-warning-line text-xl text-amber-600"></i>
-                <div><p class="font-semibold text-amber-900">Tindakan permanen</p><p class="mt-1 text-sm text-amber-800">Data yang dipilih beserta relasi operasionalnya akan dihapus. Pengaturan, role, plan, akun admin/Super Admin, serta riwayat pembayaran tetap dipertahankan.</p></div>
+                <div><p class="font-semibold text-amber-900">Tindakan permanen</p><p class="mt-1 text-sm text-amber-800">Data yang dipilih beserta relasi operasionalnya akan dihapus. Saat memilih Paket, transaksi pembayaran paket tersebut juga ikut terhapus. Pengaturan, role, plan, serta akun admin/Super Admin tidak dihapus.</p></div>
             </div>
         </div>
 
