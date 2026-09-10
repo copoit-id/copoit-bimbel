@@ -670,12 +670,12 @@ class PackageController extends Controller
 
     public function storeTryout(Request $request, $package_id)
     {
-        $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'type_tryout' => ['required', Rule::in(array_keys($this->packageTryoutTypeOptions()))],
             'duration_total' => 'required|integer|min:1',
-            'passing_score_total' => 'required|numeric|min:0|max:100',
+            'passing_score_total' => 'required|numeric|min:0|max:999.99',
             'passing_type_twk' => 'nullable|in:score,percentage',
             'passing_type_tiu' => 'nullable|in:score,percentage',
             'passing_type_tkp' => 'nullable|in:score,percentage',
@@ -692,7 +692,22 @@ class PackageController extends Controller
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
             'order' => 'nullable|integer|min:0',
-        ]);
+        ];
+
+        foreach (['twk', 'tiu', 'tkp', 'general', 'certification'] as $subtest) {
+            $rules['passing_score_'.$subtest] = [
+                'nullable',
+                'numeric',
+                'min:0',
+                Rule::when(
+                    $request->input('passing_type_'.$subtest, 'score') === 'percentage',
+                    ['max:100'],
+                    ['max:999.99']
+                ),
+            ];
+        }
+
+        $request->validate($rules);
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
         // Buat tryout baru

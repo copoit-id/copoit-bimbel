@@ -1167,11 +1167,6 @@ class TryoutController extends Controller
             $rules[$field] = 'nullable|numeric|min:0.01|max:300';
         }
 
-        foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
-            $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
-        }
-
         $passingTypeFields = [
             'twk',
             'tiu',
@@ -1190,8 +1185,28 @@ class TryoutController extends Controller
             'ppt',
         ];
 
-        foreach ($passingTypeFields as $field) {
+        $passingScoreFields = collect($passingTypeFields)
+            ->merge(array_keys(self::UTBK_SUBTESTS))
+            ->merge(
+                collect(array_keys(request()->all()))
+                    ->filter(fn (mixed $field): bool => is_string($field) && Str::startsWith($field, 'passing_score_'))
+                    ->map(fn (string $field): string => Str::after($field, 'passing_score_'))
+            )
+            ->filter()
+            ->unique();
+
+        foreach ($passingScoreFields as $field) {
             $rules['passing_type_'.$field] = 'nullable|in:score,percentage';
+            $rules['passing_score_'.$field] = [
+                'nullable',
+                'numeric',
+                'min:0',
+                Rule::when(
+                    request()->input('passing_type_'.$field, 'score') === 'percentage',
+                    ['max:100'],
+                    ['max:999.99']
+                ),
+            ];
         }
 
         if (request()->boolean('is_for_sale')) {

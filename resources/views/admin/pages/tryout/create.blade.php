@@ -560,7 +560,7 @@
                                             </div>
                                             <div>
                                                 <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                                <input type="number" name="passing_score_{{ $subtestCode }}" min="0" max="100" step="0.1"
+                                                <input type="number" name="passing_score_{{ $subtestCode }}" min="0" max="999.99" step="0.1"
                                                     value="{{ $passingValue }}"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                             </div>
@@ -601,7 +601,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="999.99" step="0.1"
                                         value="{{ $passingValue }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -641,7 +641,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_{{ $slug }}" min="0" max="999.99" step="0.1"
                                         value="{{ $singlePassing }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -673,7 +673,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_twk" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_twk" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'twk')->first()?->passing_score : old('passing_score_twk', 65) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -698,7 +698,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_tiu" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_tiu" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'tiu')->first()?->passing_score : old('passing_score_tiu', 80) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -754,7 +754,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_listening" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_listening" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'listening')->first()?->passing_score : old('passing_score_listening', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -779,7 +779,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_writing" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_writing" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'writing')->first()?->passing_score : old('passing_score_writing', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -804,7 +804,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_reading" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_reading" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'reading')->first()?->passing_score : old('passing_score_reading', 60) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -918,7 +918,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_word" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_word" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_score : old('passing_score_word', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -943,7 +943,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_excel" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_excel" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_score : old('passing_score_excel', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -968,7 +968,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-600 mb-1">Passing Score</label>
-                                    <input type="number" name="passing_score_ppt" min="0" max="100" step="0.1"
+                                    <input type="number" name="passing_score_ppt" min="0" max="999.99" step="0.1"
                                         value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_score : old('passing_score_ppt', 70) }}"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
@@ -996,7 +996,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Passing Score</label>
-                                <input type="number" name="passing_score_word_single" min="0" max="100" step="0.1"
+                                <input type="number" name="passing_score_word_single" min="0" max="999.99" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'word')->first()?->passing_score : old('passing_score_word_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1022,7 +1022,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Passing Score</label>
-                                <input type="number" name="passing_score_excel_single" min="0" max="100" step="0.1"
+                                <input type="number" name="passing_score_excel_single" min="0" max="999.99" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'excel')->first()?->passing_score : old('passing_score_excel_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1048,7 +1048,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Passing Score</label>
-                                <input type="number" name="passing_score_ppt_single" min="0" max="100" step="0.1"
+                                <input type="number" name="passing_score_ppt_single" min="0" max="999.99" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->where('type_subtest', 'ppt')->first()?->passing_score : old('passing_score_ppt_single', 70) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1075,7 +1075,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-600 mb-1">Passing Score</label>
-                                <input type="number" name="passing_score_general" min="0" max="100" step="0.1"
+                                <input type="number" name="passing_score_general" min="0" max="999.99" step="0.1"
                                     value="{{ isset($tryout) ? $tryout->tryoutDetails->first()?->passing_score : old('passing_score_general', 60) }}"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg">
                             </div>
@@ -1393,17 +1393,10 @@
       const scoreInput = root.querySelector(`input[name="${scoreName}"]`);
       if (!scoreInput) return;
 
-      if (!scoreInput.dataset.originalMax) {
-        const originalMax = scoreInput.getAttribute('max') ?? '';
-        scoreInput.dataset.originalMax = originalMax;
-      }
-
       if (selectEl.value === 'percentage') {
         scoreInput.setAttribute('max', '100');
-      } else if (scoreInput.dataset.originalMax) {
-        scoreInput.setAttribute('max', scoreInput.dataset.originalMax);
       } else {
-        scoreInput.removeAttribute('max');
+        scoreInput.setAttribute('max', '999.99');
       }
 
       clampPassingScoreIfNeeded(scoreInput, selectEl.value);
