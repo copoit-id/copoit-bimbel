@@ -934,10 +934,6 @@ class QuestionBankController extends Controller
         $questionType = $request->input('question_type', 'multiple_choice');
         $importTarget = $request->integer('import_for');
 
-        if ($request->filled('question_score')) {
-            $request->merge(['default_weight' => $request->input('question_score')]);
-        }
-
         $baseRules = [
             'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
             'question_text' => ['required', 'string'],
@@ -1031,10 +1027,6 @@ class QuestionBankController extends Controller
     {
         $questionType = $request->input('question_type', 'multiple_choice');
         $importTarget = $request->integer('import_for');
-
-        if ($request->filled('question_score')) {
-            $request->merge(['default_weight' => $request->input('question_score')]);
-        }
 
         $baseRules = [
             'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
