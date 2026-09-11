@@ -54,7 +54,7 @@ class TutorContentVisibilityService
             return false;
         }
 
-        if ($user->isSuperAdmin()) {
+        if ($this->isAdministrativeUser($user)) {
             return false;
         }
 

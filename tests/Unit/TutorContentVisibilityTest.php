@@ -160,6 +160,13 @@ class TutorContentVisibilityTest extends TestCase
         $this->actingAs(User::findOrFail(101));
 
         $this->assertSame(['Bank Tutor Satu'], QuestionBank::query()->pluck('name')->all());
+
+        $this->actingAs(User::findOrFail(103));
+
+        $this->assertSame(
+            ['Bank Tutor Satu', 'Bank Tutor Dua', 'Bank Admin'],
+            QuestionBank::query()->orderBy('id')->pluck('name')->all()
+        );
     }
 
     public function test_direct_content_route_is_rejected_when_the_content_belongs_to_another_tutor(): void
