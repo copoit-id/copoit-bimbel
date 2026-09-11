@@ -313,14 +313,7 @@ class StudentDevelopmentController extends Controller
     {
         return $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'progress_percent' => ['nullable', 'integer', 'between:0,100'],
-            'mastery_score' => ['nullable', 'integer', 'between:0,100'],
-            'discipline_score' => ['nullable', 'integer', 'between:0,100'],
-            'participation_score' => ['nullable', 'integer', 'between:0,100'],
             'summary' => ['required', 'string', 'max:5000'],
-            'strengths' => ['nullable', 'string', 'max:3000'],
-            'improvements' => ['nullable', 'string', 'max:3000'],
-            'next_target' => ['nullable', 'string', 'max:3000'],
         ]);
     }
 

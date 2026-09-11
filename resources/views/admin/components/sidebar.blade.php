@@ -48,7 +48,7 @@
                 </ul></details></li>
             @endif
             @if($canShowTutorScheduleMenu)
-                <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Penjadwalan</span></a></li>
                 <li><a href="{{ route('tutor.leave.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('tutor.leave.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-close-line text-[20px] {{ request()->routeIs('tutor.leave.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengajuan Cuti</span></a></li>
             @endif
             @if($canShowTutorEarningsMenu)

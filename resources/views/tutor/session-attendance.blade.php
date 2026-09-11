@@ -24,12 +24,10 @@
             <h1 class="mt-2 text-2xl font-bold text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Sesi Kelas' }}</h1>
             <p class="text-sm text-gray-500">{{ $session->start_at->locale('id')->translatedFormat('l, d M Y H:i') }}</p>
         </div>
-        <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            {{ $canManageStudentAttendance ? 'Absensi siswa sedang dibuka.' : 'Absensi siswa belum dibuka atau sudah ditutup.' }}
-        </div>
+        <div id="absensi-saya" class="flex flex-wrap items-center justify-end gap-2"><button type="button" class="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90" onclick="openTutorAttendanceModal(@js(route('tutor.attendance.mark', $session)), @js($session->schedule?->title ?? 'Sesi kelas'))">Absensi Saya</button><span class="rounded-lg bg-primary/10 px-4 py-2.5 text-sm text-primary">{{ $canManageStudentAttendance ? 'Absensi peserta sedang dibuka.' : 'Absensi peserta belum dibuka atau sudah ditutup.' }}</span></div>
     </div>
 
-    <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div id="absensi-peserta" class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table class="w-full text-left text-sm text-gray-600">
             <thead class="bg-gray-50 text-xs uppercase text-gray-700">
                 <tr><th class="px-4 py-3">Siswa</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Perbarui</th></tr>
@@ -69,6 +67,8 @@
         </table>
     </div>
 </div>
+
+@include('tutor.partials.attendance-modal')
 
 <div id="student-attendance-modal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="student-attendance-title">
     <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">

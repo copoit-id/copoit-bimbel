@@ -119,7 +119,7 @@
                     <p class="mt-5 border-t border-gray-100 pt-4 text-sm text-gray-500"><i class="ri-time-line mr-1"></i>Menunggu siswa menerima atau membatalkan usulan waktu.</p>
                 @elseif($booking->status === 'approved' && $booking->session)
                     <div class="mt-5 flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4 text-sm text-gray-600">
-                        <a href="{{ route('tutor.schedule.index', ['range' => 'all']) }}" class="font-semibold text-primary hover:underline"><i class="ri-calendar-line mr-1"></i>Lihat di Jadwal Saya</a>
+                        <a href="{{ route('tutor.schedule.index', ['range' => 'all']) }}" class="font-semibold text-primary hover:underline"><i class="ri-calendar-line mr-1"></i>Lihat di Penjadwalan</a>
                         @if($booking->session->location)
                             <span><i class="ri-map-pin-line mr-1 text-primary"></i>{{ $booking->session->location }}</span>
                         @endif
