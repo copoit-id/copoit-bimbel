@@ -7,6 +7,11 @@
                     <span class="sr-only">Open sidebar</span>
                     <i class="ri-menu-line text-lg"></i>
                 </button>
+                <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                    class="hidden sm:inline-flex items-center justify-center rounded-lg p-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
+                    <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                    <i class="ri-side-bar-line text-xl" aria-hidden="true"></i>
+                </button>
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">SA</div>
                     <span class="text-lg font-semibold text-gray-900">Super Admin</span>

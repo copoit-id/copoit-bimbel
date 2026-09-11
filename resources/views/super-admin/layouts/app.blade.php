@@ -7,6 +7,7 @@
     <title>Super Admin - {{ $clientBranding['name'] ?? 'Copoit Academy' }}</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     @vite('resources/css/app.css')
+    <x-ui.persistent-sidebar />
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
@@ -17,7 +18,7 @@
     @include('super-admin.components.navbar')
     @include('super-admin.components.sidebar')
 
-    <main class="responsive-shell pt-20 pl-0 sm:pl-64">
+    <main data-persistent-sidebar-content="padding" class="responsive-shell pt-20 pl-0 sm:pl-64">
         <div class="px-4 py-4 sm:px-6 sm:py-6">
             @yield('content')
         </div>

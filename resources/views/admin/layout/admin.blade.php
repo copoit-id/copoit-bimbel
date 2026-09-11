@@ -32,6 +32,7 @@
     <script defer
         src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_HTML"></script>
     @vite('resources/css/app.css')
+    <x-ui.persistent-sidebar />
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
@@ -53,7 +54,7 @@
     @include('components.flash-alert')
 
 
-    <div class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
+    <div data-persistent-sidebar-content="margin" class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
         @yield('content')
     </div>
 

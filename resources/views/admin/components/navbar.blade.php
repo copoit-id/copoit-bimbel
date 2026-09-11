@@ -47,6 +47,11 @@
                         </path>
                     </svg>
                 </button>
+                <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                    class="hidden sm:inline-flex items-center justify-center rounded-lg p-2 text-sm {{ $headerPrimary ? 'text-white hover:bg-white/10 focus:ring-white/30' : 'text-gray-600 hover:bg-gray-100 focus:ring-gray-200' }} transition-colors focus:outline-none focus:ring-2">
+                    <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                    <i class="ri-side-bar-line text-xl" aria-hidden="true"></i>
+                </button>
                 <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" class="{{ $brandLinkClasses }} {{ $headerPrimary ? 'focus:ring-white/50' : 'focus:ring-primary/30' }}">
                     <span class="{{ $logoContainerClasses }}">
                         <img src="{{ $clientBranding['logo_url'] }}" class="{{ $logoClasses }}"
