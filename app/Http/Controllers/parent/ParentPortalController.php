@@ -17,6 +17,7 @@ use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ParentPortalController extends Controller
 {
+    public function selectChild(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'child_id' => ['required', 'integer'],
+        ]);
+
+        $child = $request->user()->children()
+            ->where('users.id', $data['child_id'])
+            ->where('users.status', 'aktif')
+            ->first();
+
+        abort_unless($child, 403, 'Data anak tidak dapat diakses.');
+
+        $request->session()->put($this->selectedChildSessionKey($request), $child->id);
+
+        return to_route('parent.dashboard');
+    }
+
     public function dashboard(Request $request): View
     {
         [$children, $child] = $this->childrenAndSelectedChild($request);
@@ -182,7 +201,7 @@ class ParentPortalController extends Controller
                 $redirectPath = parse_url((string) ($payload['redirect_url'] ?? ''), PHP_URL_PATH);
 
                 if (is_string($redirectPath) && str_starts_with($redirectPath, '/user/')) {
-                    $payload['redirect_url'] = route('parent.packages', ['anak' => $child->id]);
+                    $payload['redirect_url'] = route('parent.packages');
                 }
 
                 return response()->json($payload, $response->getStatusCode());
@@ -313,11 +332,18 @@ class ParentPortalController extends Controller
         return view('parent.development', compact('children', 'child', 'feedback', 'progress'));
     }
 
-    public function report(Request $request): View
+    public function report(Request $request): View|RedirectResponse
     {
         [$children, $child] = $this->childrenAndSelectedChild($request);
 
-        abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
+        if ($request->query->has('anak')) {
+            return to_route('parent.report');
+        }
+
+        if (! $child) {
+            return to_route('parent.dashboard')
+                ->with('error', 'Pilih atau hubungkan anak terlebih dahulu untuk melihat laporan.');
+        }
         $feedback = $this->feedbackQuery($child)
             ->with(['tentor:id,name,expertise', 'studyGroup:id,name', 'session.schedule:id,title'])
             ->latest()
@@ -333,10 +359,18 @@ class ParentPortalController extends Controller
         ]);
     }
 
-    public function reportAttempt(Request $request, int $tryout, string $attemptToken): View
+    public function reportAttempt(Request $request, int $tryout, string $attemptToken): View|RedirectResponse
     {
         [$children, $child] = $this->childrenAndSelectedChild($request);
-        abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
+
+        if ($request->query->has('anak')) {
+            return to_route('parent.report.attempt', compact('tryout', 'attemptToken'));
+        }
+
+        if (! $child) {
+            return to_route('parent.dashboard')
+                ->with('error', 'Pilih atau hubungkan anak terlebih dahulu untuk melihat detail laporan.');
+        }
 
         abort_unless(
             UserAnswer::query()
@@ -367,12 +401,27 @@ class ParentPortalController extends Controller
             ->where('users.status', 'aktif')
             ->orderBy('users.name')
             ->get(['users.id', 'users.name', 'users.email', 'users.phone', 'users.status']);
-        $selectedChildId = (int) $request->query('anak', $children->first()?->id);
+        $requestedChildId = $request->integer('anak');
+        $selectedChildId = $requestedChildId
+            ?: (int) $request->session()->get($this->selectedChildSessionKey($request), $children->first()?->id);
         $child = $children->firstWhere('id', $selectedChildId);
 
-        abort_unless(! $selectedChildId || $child, 403, 'Data anak tidak dapat diakses.');
+        abort_unless(! $requestedChildId || $child, 403, 'Data anak tidak dapat diakses.');
+
+        if (! $child && $children->isNotEmpty()) {
+            $child = $children->first();
+        }
+
+        if ($child) {
+            $request->session()->put($this->selectedChildSessionKey($request), $child->id);
+        }
 
         return [$children, $child];
+    }
+
+    private function selectedChildSessionKey(Request $request): string
+    {
+        return 'parent.selected_child.'.$request->user()->id;
     }
 
     private function feedbackQuery(User $child): Builder

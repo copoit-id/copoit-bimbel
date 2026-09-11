@@ -71,7 +71,7 @@
             </div>
             <div class="divide-y divide-slate-100">
                 @forelse($assessmentItems as $item)
-                    <a href="{{ route('parent.assessments.detail', ['anak' => $child->id, 'tryout' => $item->tryout_id]) }}" class="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
+                    <a href="{{ route('parent.assessments.detail', ['tryout' => $item->tryout_id]) }}" class="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex min-w-0 items-center gap-3">
                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><i class="ri-file-list-3-line text-lg"></i></span>
                             <div class="min-w-0"><p class="truncate font-semibold text-gray-900 group-hover:text-primary">{{ $item->tryout_name }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->attempt_count }} percobaan · Terakhir {{ \Carbon\Carbon::parse($item->last_finished_at)->translatedFormat('d M Y') }}</p></div>

@@ -6,7 +6,7 @@
 <div class="space-y-5">
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <a href="{{ route('parent.assessments', ['anak' => $child->id]) }}" class="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"><i class="ri-arrow-left-line"></i>Kembali ke riwayat ujian</a>
+            <a href="{{ route('parent.assessments') }}" class="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"><i class="ri-arrow-left-line"></i>Kembali ke riwayat ujian</a>
             <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-900">{{ $tryout->name }}</h1>
             <p class="mt-1 text-sm text-gray-500">Rincian percobaan dan perkembangan {{ $child->name }} pada tryout ini.</p>
         </div>

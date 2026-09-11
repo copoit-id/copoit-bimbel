@@ -161,6 +161,7 @@ Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth
 
 // Parent portal: read-only access to students explicitly linked by Admin.
 Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'module:parent_portal', 'no-cache'])->group(function (): void {
+    Route::post('/pilih-anak', [ParentPortalController::class, 'selectChild'])->name('select-child');
     Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
     Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');

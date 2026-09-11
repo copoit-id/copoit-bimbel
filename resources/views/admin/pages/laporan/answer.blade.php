@@ -6,10 +6,10 @@
 
     $isParentReport = $parentReport ?? false;
     $reportIndexUrl = $isParentReport
-        ? route('parent.report', ['anak' => $child->id])
+        ? route('parent.report')
         : route('admin.laporan.index');
     $reportShowUrl = $isParentReport
-        ? route('parent.assessments.detail', ['anak' => $child->id, 'tryout' => $tryout->tryout_id])
+        ? route('parent.assessments.detail', ['tryout' => $tryout->tryout_id])
         : route('admin.laporan.show', $tryout->tryout_id);
 @endphp
 
@@ -94,7 +94,7 @@
         <div class="mt-5 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Subtest">
             @foreach ($subtests as $subtest)
                 @php $isActive = (int) $subtest['id'] === (int) $activeSubtestId; @endphp
-                <a href="{{ $isParentReport ? route('parent.report.attempt', ['anak' => $child->id, 'tryout' => $tryout->tryout_id, 'attemptToken' => $attemptToken, 'subtest' => $subtest['id']]) : route('admin.laporan.attempt', [$tryout->tryout_id, $attemptToken, 'subtest' => $subtest['id']]) }}"
+                <a href="{{ $isParentReport ? route('parent.report.attempt', ['tryout' => $tryout->tryout_id, 'attemptToken' => $attemptToken, 'subtest' => $subtest['id']]) : route('admin.laporan.attempt', [$tryout->tryout_id, $attemptToken, 'subtest' => $subtest['id']]) }}"
                     role="tab" aria-selected="{{ $isActive ? 'true' : 'false' }}"
                     class="min-w-max rounded-lg border px-4 py-3 text-left transition {{ $isActive ? 'border-primary bg-primary text-white shadow-sm' : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/5' }}">
                     <span class="block text-sm font-semibold">{{ $subtest['name'] }}</span>
