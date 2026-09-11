@@ -49,6 +49,17 @@ class ParentPortalController extends Controller
             ->latest('finished_at')
             ->limit(5)
             ->get();
+        $scoreTrend = UserAnswer::query()
+            ->where('user_id', $child->id)
+            ->where('status', 'completed')
+            ->with('tryout:tryout_id,name')
+            ->latest('finished_at')
+            ->limit(6)
+            ->get()
+            ->sortBy('finished_at')
+            ->values();
+        $scoreTrendMaximum = max(1, (float) $scoreTrend->max('score'));
+        $assessmentSummary = $this->assessmentSummary($child->id);
         $recentFeedback = $this->feedbackQuery($child)
             ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
             ->latest()
@@ -63,6 +74,9 @@ class ParentPortalController extends Controller
             'activePackages',
             'upcomingBookings',
             'recentAnswers',
+            'scoreTrend',
+            'scoreTrendMaximum',
+            'assessmentSummary',
             'recentFeedback',
             'alerts'
         ));
@@ -129,12 +143,8 @@ class ParentPortalController extends Controller
                 ->withQueryString()
             : collect();
         $assessmentSummary = $child
-            ? [
-                'completed' => UserAnswer::query()->where('user_id', $child->id)->where('status', 'completed')->count(),
-                'average_score' => (float) (UserAnswer::query()->where('user_id', $child->id)->where('status', 'completed')->avg('score') ?? 0),
-                'highest_score' => (float) (UserAnswer::query()->where('user_id', $child->id)->where('status', 'completed')->max('score') ?? 0),
-            ]
-            : ['completed' => 0, 'average_score' => 0, 'highest_score' => 0];
+            ? $this->assessmentSummary($child->id)
+            : $this->emptyAssessmentSummary();
 
         return view('parent.assessments', compact('children', 'child', 'answers', 'assessmentSummary'));
     }
@@ -239,6 +249,26 @@ class ParentPortalController extends Controller
         return ['total' => 0, 'present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0, 'rate' => null];
     }
 
+    /** @return array{completed: int, average_score: float, highest_score: float} */
+    private function assessmentSummary(int $childId): array
+    {
+        $answers = UserAnswer::query()
+            ->where('user_id', $childId)
+            ->where('status', 'completed');
+
+        return [
+            'completed' => (clone $answers)->count(),
+            'average_score' => (float) ((clone $answers)->avg('score') ?? 0),
+            'highest_score' => (float) ((clone $answers)->max('score') ?? 0),
+        ];
+    }
+
+    /** @return array{completed: int, average_score: float, highest_score: float} */
+    private function emptyAssessmentSummary(): array
+    {
+        return ['completed' => 0, 'average_score' => 0, 'highest_score' => 0];
+    }
+
     private function alerts(User $child, Collection $packages, array $attendanceSummary): Collection
     {
         $alerts = collect();
@@ -263,6 +293,9 @@ class ParentPortalController extends Controller
             'activePackages' => collect(),
             'upcomingBookings' => collect(),
             'recentAnswers' => collect(),
+            'scoreTrend' => collect(),
+            'scoreTrendMaximum' => 1,
+            'assessmentSummary' => $this->emptyAssessmentSummary(),
             'recentFeedback' => collect(),
             'alerts' => collect(),
         ];

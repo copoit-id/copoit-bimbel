@@ -8,6 +8,7 @@
         ?: ((int) $conversation->student_user_id === auth()->id()
             ? $conversation->tutor?->name
             : $conversation->student?->name);
+    $isParentPortal = $layout === 'parent.layout';
 @endphp
 <div class="{{ $embedded || $conversationList ? 'mx-0 max-w-none' : 'mx-auto max-w-4xl' }}" id="chat-app"
     data-conversation-id="{{ $conversation->id }}"
@@ -21,7 +22,7 @@
         </a>
     @endif
 
-    <section class="{{ $conversationList ? 'grid h-[calc(100vh-9rem)] min-h-[600px] lg:grid-cols-[340px_minmax(0,1fr)]' : '' }} {{ $embedded ? 'flex h-screen flex-col rounded-none border-0 shadow-none' : 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }}">
+    <section class="{{ $conversationList ? 'grid h-[calc(100vh-9rem)] min-h-[600px] lg:grid-cols-[340px_minmax(0,1fr)]' : '' }} {{ $embedded ? 'flex h-screen flex-col rounded-none border-0 shadow-none' : 'overflow-hidden rounded-xl border border-slate-200 bg-white' }} {{ $isParentPortal ? '' : 'shadow-sm' }}">
         @if($conversationList)
             <aside class="flex min-h-0 flex-col border-b border-slate-200 bg-white lg:border-b-0 lg:border-r">
                 <header class="border-b border-slate-100 px-5 py-5">
@@ -71,7 +72,7 @@
                 @php($mine = (int) $message->sender_id === auth()->id())
                 @php($isRead = $mine && $peerLastReadMessageId !== null && (int) $message->id <= $peerLastReadMessageId)
                 <article data-message-id="{{ $message->id }}" class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">
-                    <div class="max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm {{ $mine ? 'rounded-br-md bg-primary text-white' : 'rounded-bl-md bg-white text-slate-700' }}">
+                    <div class="max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm {{ $isParentPortal ? '' : 'shadow-sm' }} {{ $mine ? 'rounded-br-md bg-primary text-white' : 'rounded-bl-md bg-white text-slate-700' }}">
                         @unless($mine)<p class="mb-1 text-xs font-semibold text-primary">{{ $message->sender?->name }}</p>@endunless
                         @if($message->body)<p class="whitespace-pre-wrap break-words">{{ $message->body }}</p>@endif
                         @if($message->attachment_path)
@@ -113,6 +114,7 @@
     if (!app) return;
 
     const conversationId = app.dataset.conversationId;
+    const messageShadowClass = @json($isParentPortal ? '' : ' shadow-sm');
     const currentUserId = Number(app.dataset.currentUserId);
     const messages = document.getElementById('chat-messages');
     const form = document.getElementById('chat-form');
@@ -182,7 +184,7 @@
         row.dataset.messageId = message.id;
         row.className = `flex ${mine ? 'justify-end' : 'justify-start'}`;
         const bubble = document.createElement('div');
-        bubble.className = `max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${mine ? 'rounded-br-md bg-primary text-white' : 'rounded-bl-md bg-white text-slate-700'}`;
+        bubble.className = `max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm${messageShadowClass} ${mine ? 'rounded-br-md bg-primary text-white' : 'rounded-bl-md bg-white text-slate-700'}`;
         if (!mine && message.sender_name) {
             const sender = document.createElement('p');
             sender.className = 'mb-1 text-xs font-semibold text-primary';
