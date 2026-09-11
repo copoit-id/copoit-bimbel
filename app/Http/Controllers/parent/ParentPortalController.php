@@ -7,6 +7,7 @@ use App\Http\Controllers\admin\LaporanController as AdminLaporanController;
 use App\Http\Controllers\user\PackageController as UserPackageController;
 use App\Models\ClassAttendance;
 use App\Models\Package;
+use App\Models\Payment;
 use App\Models\ScheduleBookingRequest;
 use App\Models\StudentFeedback;
 use App\Models\StudentProgressReport;
@@ -117,6 +118,26 @@ class ParentPortalController extends Controller
                 ->withQueryString()
             : collect();
 
+        if ($attendances instanceof \Illuminate\Pagination\AbstractPaginator) {
+            $attendances->through(function (ClassAttendance $attendance): ClassAttendance {
+                $attendance->setAttribute('status_label', match ($attendance->status) {
+                    'present' => 'Hadir',
+                    'late' => 'Terlambat',
+                    'absent' => 'Alpa',
+                    'excused' => 'Izin',
+                    default => ucfirst((string) $attendance->status),
+                });
+                $attendance->setAttribute('status_variant', match ($attendance->status) {
+                    'present' => 'success',
+                    'late', 'excused' => 'warning',
+                    'absent' => 'danger',
+                    default => 'secondary',
+                });
+
+                return $attendance;
+            });
+        }
+
         return view('parent.attendance', [
             'children' => $children,
             'child' => $child,
@@ -131,7 +152,9 @@ class ParentPortalController extends Controller
         $accesses = $child
             ? UserPackageAcces::query()
                 ->where('user_id', $child->id)
-                ->with('package:package_id,name')
+                ->with(['package' => fn (Builder $query) => $query
+                    ->select(['package_id', 'name'])
+                    ->withCount(['materials', 'tryouts', 'classes', 'tesKorans'])])
                 ->withCount(['bookingRequests as completed_booking_count' => fn (Builder $query) => $query->consumesQuota()])
                 ->latest()
                 ->paginate(Pagination::perPage(12), ['*'], 'package_page')
@@ -145,7 +168,35 @@ class ParentPortalController extends Controller
                 ->withQueryString()
             : collect();
 
-        return view('parent.packages', compact('children', 'child', 'accesses', 'payments'));
+        if ($payments instanceof \Illuminate\Pagination\AbstractPaginator) {
+            $payments->through(function (Payment $payment): Payment {
+                $payment->setAttribute('status_label', match ($payment->status) {
+                    Payment::STATUS_SUCCESS => 'Lunas',
+                    Payment::STATUS_PARTIAL => 'Sebagian',
+                    Payment::STATUS_PENDING => 'Menunggu',
+                    Payment::STATUS_FAILED => 'Gagal',
+                    Payment::STATUS_EXPIRED => 'Kedaluwarsa',
+                    default => ucfirst((string) $payment->status),
+                });
+                $payment->setAttribute('status_variant', match ($payment->status) {
+                    Payment::STATUS_SUCCESS => 'success',
+                    Payment::STATUS_PARTIAL, Payment::STATUS_PENDING => 'warning',
+                    Payment::STATUS_FAILED, Payment::STATUS_EXPIRED => 'danger',
+                    default => 'secondary',
+                });
+
+                return $payment;
+            });
+        }
+
+        $packageSummary = $child ? [
+            'total_access' => UserPackageAcces::query()->where('user_id', $child->id)->count(),
+            'active_access' => UserPackageAcces::query()->where('user_id', $child->id)->active()->count(),
+            'transactions' => $child->payments()->count(),
+            'paid_total' => (int) $child->payments()->where('status', Payment::STATUS_SUCCESS)->sum('total_amount'),
+        ] : ['total_access' => 0, 'active_access' => 0, 'transactions' => 0, 'paid_total' => 0];
+
+        return view('parent.packages', compact('children', 'child', 'accesses', 'payments', 'packageSummary'));
     }
 
     public function catalog(Request $request): View
@@ -501,7 +552,7 @@ class ParentPortalController extends Controller
             ]);
     }
 
-    /** @return array{points: array<int, array{x: float, y: float, score: float, label: string, name: string}>, polyline: string, area: string, maximum: float, last_score: float|null, change: float|null, change_label: string, label: string} */
+    /** @return array{points: array<int, array{x: float, y: float, score: float, label: string, name: string}>, labels: array<int, string>, values: array<int, float>, polyline: string, area: string, maximum: float, last_score: float|null, change: float|null, change_label: string, label: string} */
     private function scoreTrendChart(Collection $attempts): array
     {
         $items = $attempts->values();
@@ -538,6 +589,8 @@ class ParentPortalController extends Controller
 
         return [
             'points' => $points,
+            'labels' => collect($points)->pluck('label')->all(),
+            'values' => collect($points)->pluck('score')->all(),
             'polyline' => $polyline,
             'area' => $area,
             'maximum' => $maximum,

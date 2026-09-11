@@ -3,44 +3,34 @@
 @section('title', 'Detail Tryout')
 
 @section('content')
-<div class="space-y-5">
-    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <a href="{{ route('parent.assessments') }}" class="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"><i class="ri-arrow-left-line"></i>Kembali ke riwayat ujian</a>
-            <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-900">{{ $tryout->name }}</h1>
-            <p class="mt-1 text-sm text-gray-500">Rincian percobaan dan perkembangan {{ $child->name }} pada tryout ini.</p>
+    <x-layout.page-header :title="$tryout->name" description="Rincian setiap pengerjaan dan perkembangan nilai {{ $child->name }}."
+        :breadcrumb="[['label' => 'Riwayat Ujian', 'url' => route('parent.assessments')], ['label' => $tryout->name, 'url' => null]]">
+        <x-slot:actions><x-ui.button :href="route('parent.assessments')" variant="outline" icon="ri-arrow-left-line">Kembali</x-ui.button></x-slot:actions>
+    </x-layout.page-header>
+
+    <section class="grid gap-4 sm:grid-cols-3">
+        <x-dashboard.stat-card label="Percobaan Selesai" :value="$attemptSummary['completed']" icon="ri-repeat-2-line" />
+        <x-dashboard.stat-card label="Rata-rata Nilai" :value="number_format($attemptSummary['average_score'], 1)" icon="ri-line-chart-line" color="blue" />
+        <x-dashboard.stat-card label="Nilai Tertinggi" :value="number_format($attemptSummary['highest_score'], 1)" icon="ri-medal-line" color="orange" />
+    </section>
+
+    <div class="mt-6"><x-dashboard.chart-card title="Perkembangan Nilai" :subtitle="$attemptTrendChart['label']" :value="$attemptTrendChart['last_score'] !== null ? number_format($attemptTrendChart['last_score'], 1) : '—'" :trend="$attemptTrendChart['change'] === null ? 'neutral' : ($attemptTrendChart['change'] >= 0 ? 'up' : 'down')" :trend-value="$attemptTrendChart['change_label']" :period-selector="false" chart-id="attempt-trend-chart" chart-type="line" /></div>
+
+    <section class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+        <x-ui.card variant="flat" class="rounded-xl border border-gray-200" padding="none">
+            <div class="border-b border-gray-100 px-5 py-4"><h2 class="text-lg font-semibold text-gray-900">Seluruh Percobaan</h2><p class="mt-1 text-sm text-gray-500">Nilai, akurasi, waktu selesai, dan detail jawaban.</p></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[720px] text-left text-sm text-gray-600"><thead class="bg-gray-50 text-xs uppercase text-gray-600"><tr><th class="px-5 py-3">Selesai</th><th class="px-5 py-3 text-center">Benar</th><th class="px-5 py-3 text-center">Salah</th><th class="px-5 py-3 text-center">Kosong</th><th class="px-5 py-3 text-center">Skor</th><th class="px-5 py-3 text-center">Aksi</th></tr></thead><tbody>@forelse($attempts as $attempt)<tr class="border-t border-gray-100 hover:bg-gray-50/70"><td class="px-5 py-4 font-medium text-gray-800">{{ \Carbon\Carbon::parse($attempt->finished_at)->translatedFormat('d M Y, H:i') }}</td><td class="px-5 py-4 text-center text-green-700">{{ $attempt->correct_answers }}</td><td class="px-5 py-4 text-center text-red-600">{{ $attempt->wrong_answers }}</td><td class="px-5 py-4 text-center">{{ $attempt->unanswered }}</td><td class="px-5 py-4 text-center font-bold text-primary">{{ number_format($attempt->score, 1) }}</td><td class="px-5 py-4 text-center"><x-ui.button :href="route('parent.report.attempt', ['tryout' => $attempt->tryout_id, 'attemptToken' => $attempt->attempt_key])" variant="outline" size="sm" icon="ri-file-search-line">Detail Jawaban</x-ui.button></td></tr>@empty<tr><td colspan="6" class="px-5 py-14 text-center text-gray-500">Belum ada percobaan selesai.</td></tr>@endforelse</tbody></table></div>
+            @if($attempts->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $attempts->links() }}</div>@endif
+        </x-ui.card>
+
+        <div class="space-y-6">
+            <x-ui.card variant="flat" class="rounded-xl border border-gray-200"><x-ui.card.header title="Feedback Tutor" subtitle="Catatan yang dibagikan untuk orang tua" /><div class="divide-y divide-gray-100">@forelse($feedback as $item)<article class="py-4 first:pt-0"><p class="font-semibold text-gray-900">{{ $item->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->tentor?->name ?? 'Tutor' }} · {{ $item->created_at?->translatedFormat('d M Y') }}</p><p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">{{ $item->feedback }}</p></article>@empty<p class="py-8 text-center text-sm text-gray-500">Belum ada feedback tutor.</p>@endforelse</div></x-ui.card>
+            <x-ui.card variant="flat" class="rounded-xl border border-gray-200"><x-ui.card.header title="Laporan Perkembangan" subtitle="Evaluasi berkala dari tutor" /><div class="divide-y divide-gray-100">@forelse($progress as $item)<article class="py-4 first:pt-0"><p class="font-semibold text-gray-900">{{ $item->package?->name ?? 'Perkembangan belajar' }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->period_start?->translatedFormat('d M') }}–{{ $item->period_end?->translatedFormat('d M Y') }}</p><p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">{{ $item->summary }}</p></article>@empty<p class="py-8 text-center text-sm text-gray-500">Belum ada laporan perkembangan.</p>@endforelse</div></x-ui.card>
         </div>
-        <span class="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700"><i class="ri-user-line text-primary"></i>{{ $child->name }}</span>
-    </header>
-
-    <section class="grid gap-3 sm:grid-cols-3">
-        <article class="rounded-xl border border-slate-200 bg-white p-4"><div class="flex items-center justify-between"><span class="text-sm text-gray-500">Percobaan</span><i class="ri-repeat-2-line text-lg text-primary"></i></div><p class="mt-3 text-2xl font-bold text-gray-900">{{ $attemptSummary['completed'] }}</p><p class="mt-1 text-xs text-gray-500">sudah diselesaikan</p></article>
-        <article class="rounded-xl border border-slate-200 bg-white p-4"><div class="flex items-center justify-between"><span class="text-sm text-gray-500">Rata-rata</span><i class="ri-line-chart-line text-lg text-primary"></i></div><p class="mt-3 text-2xl font-bold text-gray-900">{{ number_format($attemptSummary['average_score'], 0) }}</p><p class="mt-1 text-xs text-gray-500">nilai keseluruhan</p></article>
-        <article class="rounded-xl border border-slate-200 bg-white p-4"><div class="flex items-center justify-between"><span class="text-sm text-gray-500">Tertinggi</span><i class="ri-medal-line text-lg text-primary"></i></div><p class="mt-3 text-2xl font-bold text-gray-900">{{ number_format($attemptSummary['highest_score'], 0) }}</p><p class="mt-1 text-xs text-gray-500">pencapaian terbaik</p></article>
     </section>
-
-    <section class="rounded-xl border border-slate-200 bg-white p-5">
-        <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><i class="ri-line-chart-line"></i></span><h2 class="font-bold text-gray-900">Perkembangan nilai</h2></div><p class="mt-2 text-sm text-gray-500">{{ $attemptTrendChart['label'] }}</p></div>@if($attemptTrendChart['last_score'] !== null)<span class="rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">Nilai terakhir {{ number_format($attemptTrendChart['last_score'], 0) }}</span>@endif</div>
-        @if($attemptTrendChart['points'] !== [])
-            <div class="mt-5 overflow-x-auto"><svg class="h-52 min-w-[520px] w-full" viewBox="0 0 640 210" role="img" aria-label="Grafik perkembangan nilai tryout"><defs><linearGradient id="attempt-trend-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#6366f1" stop-opacity=".30"/><stop offset="100%" stop-color="#a855f7" stop-opacity=".02"/></linearGradient></defs><path d="M28 32H612M28 82H612M28 132H612M28 184H612" stroke="#e2e8f0" stroke-width="1" fill="none"/><polygon points="{{ $attemptTrendChart['area'] }}" fill="url(#attempt-trend-fill)"/><polyline points="{{ $attemptTrendChart['polyline'] }}" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>@foreach($attemptTrendChart['points'] as $point)<circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="4" fill="#ffffff" stroke="#4f46e5" stroke-width="3"/><text x="{{ $point['x'] }}" y="204" text-anchor="middle" fill="#94a3b8" font-size="10">{{ $point['label'] }}</text>@endforeach</svg></div>
-        @endif
-    </section>
-
-    <div class="grid gap-5 xl:grid-cols-3">
-        <section class="rounded-xl border border-slate-200 bg-white xl:col-span-2">
-            <div class="border-b border-slate-100 px-5 py-4"><h2 class="font-bold text-gray-900">Seluruh percobaan</h2><p class="mt-1 text-sm text-gray-500">Nilai dan akurasi pada setiap tryout yang diselesaikan.</p></div>
-            <div class="divide-y divide-slate-100">
-                @foreach($attempts as $attempt)
-                    <article class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold text-gray-900">{{ \Carbon\Carbon::parse($attempt->finished_at)->translatedFormat('d F Y, H:i') }}</p><p class="mt-1 text-sm text-gray-500">{{ $attempt->correct_answers }}/{{ $attempt->total_questions }} jawaban benar</p></div><div class="flex items-center gap-3"><span class="rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">{{ number_format($attempt->score, 0) }}</span></div></article>
-                @endforeach
-            </div>
-            @if($attempts->hasPages())<div class="border-t border-slate-100 px-5 py-4">{{ $attempts->links() }}</div>@endif
-        </section>
-
-        <aside class="space-y-5">
-            <section class="rounded-xl border border-slate-200 bg-white p-5"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><i class="ri-message-3-line"></i></span><h2 class="font-bold text-gray-900">Feedback tutor</h2></div><div class="mt-4 space-y-4">@forelse($feedback as $item)<article class="border-l-2 border-primary/30 pl-3"><p class="font-semibold text-gray-800">{{ $item->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->tentor?->name ?? 'Tutor' }} · {{ $item->created_at?->translatedFormat('d M Y') }}</p><p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $item->feedback }}</p></article>@empty<p class="text-sm leading-6 text-gray-500">Belum ada feedback tutor yang dibagikan untuk anak ini.</p>@endforelse</div></section>
-            <section class="rounded-xl border border-slate-200 bg-white p-5"><div class="flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><i class="ri-file-chart-line"></i></span><h2 class="font-bold text-gray-900">Laporan perkembangan</h2></div><div class="mt-4 space-y-4">@forelse($progress as $item)<article class="border-l-2 border-slate-200 pl-3"><p class="font-semibold text-gray-800">{{ $item->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->period_start?->translatedFormat('d M') }}–{{ $item->period_end?->translatedFormat('d M Y') }}</p><p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">{{ $item->summary }}</p></article>@empty<p class="text-sm leading-6 text-gray-500">Belum ada laporan perkembangan dari tutor.</p>@endforelse</div></section>
-        </aside>
-    </div>
-</div>
 @endsection
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>new Chart(document.getElementById('attempt-trend-chart'), { type: 'line', data: { labels: @json($attemptTrendChart['labels']), datasets: [{ data: @json($attemptTrendChart['values']), borderColor: '#1C3259', backgroundColor: 'rgba(28, 50, 89, .10)', fill: true, tension: .38, pointRadius: 4, pointBackgroundColor: '#1C3259' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } } });</script>
+@endpush

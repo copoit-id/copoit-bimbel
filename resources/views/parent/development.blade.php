@@ -3,14 +3,110 @@
 @section('title', 'Perkembangan Belajar')
 
 @section('content')
-<div class="space-y-5" x-data="{ tab: 'progress' }">
-    <header><p class="text-sm font-semibold text-primary">Pemantauan tutor</p><h1 class="mt-1 text-2xl font-bold tracking-tight text-gray-900">Perkembangan belajar</h1><p class="mt-1 text-sm text-gray-500">Laporan progres dan feedback yang dapat dilihat oleh orang tua.</p></header>
+<div class="space-y-6" x-data="{ tab: 'progress' }">
+    <x-layout.page-header
+        title="Perkembangan belajar"
+        description="Pantau evaluasi tutor, kekuatan, dan target belajar {{ $child?->name ?? 'anak' }}."
+    />
+
     @if($child)
-        <div class="inline-flex rounded-xl border border-slate-200 bg-white p-1.5"><button @click="tab = 'progress'" :class="tab === 'progress' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-slate-50'" class="rounded-lg px-4 py-2 text-sm font-semibold transition-colors">Laporan progres</button><button @click="tab = 'feedback'" :class="tab === 'feedback' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-slate-50'" class="rounded-lg px-4 py-2 text-sm font-semibold transition-colors">Feedback tutor</button></div>
+        <div class="inline-flex max-w-full gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-white p-1">
+            <button type="button" @click="tab = 'progress'" :class="tab === 'progress' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50'" class="whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+                <i class="ri-line-chart-line mr-1.5"></i>Laporan progres
+            </button>
+            <button type="button" @click="tab = 'feedback'" :class="tab === 'feedback' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50'" class="whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+                <i class="ri-message-3-line mr-1.5"></i>Feedback tutor
+            </button>
+        </div>
 
-        <section x-show="tab === 'progress'" class="space-y-4">@forelse($progress as $report)<article class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6"><div class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="font-bold text-gray-900">{{ $report->package?->name ?? 'Laporan perkembangan' }}</h2><p class="mt-1 text-sm text-gray-500">{{ $report->tentor?->name ?? 'Tutor' }} · {{ $report->studyGroup?->name ?? 'Personal' }}</p><p class="mt-1 text-xs text-gray-400">{{ $report->period_start?->translatedFormat('d M') }}–{{ $report->period_end?->translatedFormat('d M Y') }}</p></div><span class="w-fit rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">Progres {{ $report->progress_percent ?? '—' }}%</span></div><div class="mt-5 grid gap-3 sm:grid-cols-3">@foreach(['mastery_score'=>'Penguasaan', 'discipline_score'=>'Disiplin', 'participation_score'=>'Partisipasi'] as $field => $label)<div class="rounded-lg border border-slate-100 bg-slate-50 p-3"><p class="text-xs font-medium text-gray-500">{{ $label }}</p><p class="mt-1 text-xl font-bold text-gray-900">{{ $report->{$field} ?? '—' }}@if($report->{$field} !== null)<span class="text-xs font-medium text-gray-400">/100</span>@endif</p></div>@endforeach</div><div class="mt-5 space-y-4 text-sm leading-6 text-gray-600"><div><p class="font-semibold text-gray-800">Ringkasan tutor</p><p class="mt-1 whitespace-pre-line">{{ $report->summary }}</p></div>@if($report->strengths)<div class="border-l-2 border-emerald-300 pl-3"><p class="font-semibold text-gray-800">Kekuatan</p><p class="mt-1 whitespace-pre-line">{{ $report->strengths }}</p></div>@endif@if($report->improvements)<div class="border-l-2 border-amber-300 pl-3"><p class="font-semibold text-gray-800">Perlu ditingkatkan</p><p class="mt-1 whitespace-pre-line">{{ $report->improvements }}</p></div>@endif@if($report->next_target)<div class="border-l-2 border-primary/50 pl-3"><p class="font-semibold text-gray-800">Target berikutnya</p><p class="mt-1 whitespace-pre-line">{{ $report->next_target }}</p></div>@endif</div></article>@empty<div class="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-sm text-gray-500"><i class="ri-line-chart-line mb-2 block text-3xl text-slate-300"></i>Tutor belum membuat laporan progres.</div>@endforelse@if($progress instanceof \Illuminate\Pagination\AbstractPaginator){{ $progress->links() }}@endif</section>
+        <section x-show="tab === 'progress'" class="space-y-4">
+            @forelse($progress as $report)
+                <x-ui.card variant="flat" class="border border-gray-200">
+                    <x-ui.card.header
+                        :title="$report->package?->name ?? 'Laporan perkembangan'"
+                        :subtitle="($report->tentor?->name ?? 'Tutor').' · '.($report->studyGroup?->name ?? 'Personal')"
+                    >
+                        <x-slot:action>
+                            <div class="text-right">
+                                <x-ui.badge variant="primary">Progres {{ $report->progress_percent ?? '—' }}%</x-ui.badge>
+                                <p class="mt-1.5 text-xs text-gray-400">{{ $report->period_start?->translatedFormat('d M') }}–{{ $report->period_end?->translatedFormat('d M Y') }}</p>
+                            </div>
+                        </x-slot:action>
+                    </x-ui.card.header>
+                    <x-ui.card.body class="space-y-5">
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                                <p class="text-xs font-medium text-gray-500">Penguasaan materi</p>
+                                <p class="mt-1 text-xl font-bold text-gray-900">{{ $report->mastery_score ?? '—' }}@if($report->mastery_score !== null)<span class="text-xs font-medium text-gray-400">/100</span>@endif</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                                <p class="text-xs font-medium text-gray-500">Disiplin</p>
+                                <p class="mt-1 text-xl font-bold text-gray-900">{{ $report->discipline_score ?? '—' }}@if($report->discipline_score !== null)<span class="text-xs font-medium text-gray-400">/100</span>@endif</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                                <p class="text-xs font-medium text-gray-500">Partisipasi</p>
+                                <p class="mt-1 text-xl font-bold text-gray-900">{{ $report->participation_score ?? '—' }}@if($report->participation_score !== null)<span class="text-xs font-medium text-gray-400">/100</span>@endif</p>
+                            </div>
+                        </div>
 
-        <section x-show="tab === 'feedback'" x-cloak class="space-y-4">@forelse($feedback as $item)<article class="rounded-xl border border-slate-200 bg-white p-5"><div class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between"><div class="flex gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg text-primary"><i class="ri-message-3-line"></i></span><div><h2 class="font-bold text-gray-900">{{ $item->title }}</h2><p class="mt-1 text-sm text-gray-500">{{ $item->tentor?->name ?? 'Tutor' }} · {{ $item->studyGroup?->name ?? 'Personal' }}</p></div></div><span class="text-xs text-gray-400">{{ $item->created_at?->translatedFormat('d M Y') }}</span></div><p class="mt-4 whitespace-pre-line text-sm leading-7 text-gray-600">{{ $item->feedback }}</p></article>@empty<div class="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center text-sm text-gray-500"><i class="ri-message-3-line mb-2 block text-3xl text-slate-300"></i>Belum ada feedback dari tutor.</div>@endforelse@if($feedback instanceof \Illuminate\Pagination\AbstractPaginator){{ $feedback->links() }}@endif</section>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Ringkasan tutor</p>
+                            <p class="mt-1 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $report->summary ?: 'Tutor belum menambahkan ringkasan.' }}</p>
+                        </div>
+
+                        <div class="grid gap-3 lg:grid-cols-3">
+                            <div class="rounded-lg border border-emerald-100 bg-emerald-50/60 p-4">
+                                <p class="text-sm font-semibold text-emerald-800"><i class="ri-checkbox-circle-line mr-1"></i>Kekuatan</p>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $report->strengths ?: 'Belum ada catatan.' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-amber-100 bg-amber-50/60 p-4">
+                                <p class="text-sm font-semibold text-amber-800"><i class="ri-focus-3-line mr-1"></i>Perlu ditingkatkan</p>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $report->improvements ?: 'Belum ada catatan.' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-primary/15 bg-primary/5 p-4">
+                                <p class="text-sm font-semibold text-primary"><i class="ri-flag-line mr-1"></i>Target berikutnya</p>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $report->next_target ?: 'Belum ada target.' }}</p>
+                            </div>
+                        </div>
+                    </x-ui.card.body>
+                </x-ui.card>
+            @empty
+                <x-ui.card variant="flat" class="border border-dashed border-gray-300">
+                    <div class="px-5 py-14 text-center"><i class="ri-line-chart-line text-4xl text-gray-300"></i><p class="mt-3 font-semibold text-gray-800">Belum ada laporan progres</p><p class="mt-1 text-sm text-gray-500">Laporan yang dibuat tutor akan tampil di sini.</p></div>
+                </x-ui.card>
+            @endforelse
+
+            @if($progress instanceof \Illuminate\Pagination\AbstractPaginator)
+                {{ $progress->links() }}
+            @endif
+        </section>
+
+        <section x-show="tab === 'feedback'" x-cloak class="space-y-4">
+            @forelse($feedback as $item)
+                <x-ui.card variant="flat" class="border border-gray-200">
+                    <x-ui.card.header :title="$item->title" :subtitle="($item->tentor?->name ?? 'Tutor').' · '.($item->studyGroup?->name ?? 'Personal')">
+                        <x-slot:action>
+                            <span class="text-xs text-gray-400">{{ $item->created_at?->translatedFormat('d M Y') }}</span>
+                        </x-slot:action>
+                    </x-ui.card.header>
+                    <x-ui.card.body>
+                        <p class="whitespace-pre-line text-sm leading-7 text-gray-600">{{ $item->feedback }}</p>
+                    </x-ui.card.body>
+                </x-ui.card>
+            @empty
+                <x-ui.card variant="flat" class="border border-dashed border-gray-300">
+                    <div class="px-5 py-14 text-center"><i class="ri-message-3-line text-4xl text-gray-300"></i><p class="mt-3 font-semibold text-gray-800">Belum ada feedback tutor</p><p class="mt-1 text-sm text-gray-500">Catatan evaluasi setiap pertemuan akan tampil di sini.</p></div>
+                </x-ui.card>
+            @endforelse
+
+            @if($feedback instanceof \Illuminate\Pagination\AbstractPaginator)
+                {{ $feedback->links() }}
+            @endif
+        </section>
+    @else
+        <x-ui.card variant="flat" class="border border-dashed border-gray-300">
+            <div class="px-5 py-14 text-center"><i class="ri-user-search-line text-4xl text-gray-300"></i><p class="mt-3 font-semibold text-gray-800">Belum ada anak dipilih</p><p class="mt-1 text-sm text-gray-500">Pilih anak untuk melihat perkembangannya.</p></div>
+        </x-ui.card>
     @endif
 </div>
 @endsection
