@@ -261,9 +261,11 @@ class TutorDashboardController extends Controller
             ]
         );
 
-        return redirect()
-            ->route('tutor.attendance.schedule.show', $session->class_schedule_id)
-            ->with('success', 'Kehadiran Anda berhasil dicatat.');
+        $redirect = $request->input('return_to') === 'schedule_today'
+            ? redirect()->route('tutor.schedule.index', ['range' => 'today'])
+            : redirect()->route('tutor.attendance.schedule.show', $session->class_schedule_id);
+
+        return $redirect->with('success', 'Kehadiran Anda berhasil dicatat.');
     }
 
     public function markStudentAttendance(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): RedirectResponse
@@ -318,7 +320,7 @@ class TutorDashboardController extends Controller
     private function todayScheduleData(int $tentorId): array
     {
         return [
-            'todaySessions' => $this->sessionsFor($tentorId, includeTutorAttendance: false)
+            'todaySessions' => $this->sessionsFor($tentorId)
                 ->whereDate('session_date', now()->toDateString())
                 ->get(),
         ];
