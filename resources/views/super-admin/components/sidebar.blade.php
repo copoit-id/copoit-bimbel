@@ -11,9 +11,8 @@
             <span data-sidebar-brand-mark class="font-bold">SA</span>
             <span class="min-w-0 flex-1">
                 <p class="truncate text-sm font-semibold">{{ $clientBranding['name'] ?? 'Copoit Academy' }}</p>
-                <small class="block truncate text-xs">Pengelolaan Sistem</small>
+                <small class="block truncate text-xs">{{ trim((string) app('view')->getSection('title')) ?: 'Pengelolaan Sistem' }}</small>
             </span>
-            <i class="ri-arrow-up-down-line text-sm text-gray-400" aria-hidden="true"></i>
         </a>
         <div data-sidebar-divider class="border-t"></div>
         <div class="flex items-center justify-between gap-2">

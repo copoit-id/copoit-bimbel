@@ -17,6 +17,7 @@
                 </div>
                 <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500">
                     <span>{{ $clientBranding['name'] ?? 'Copoit Academy' }}</span>
+                    <i class="ri-arrow-right-s-line text-gray-300" aria-hidden="true"></i>
                     <span class="font-medium text-gray-900">{{ $pageTitle }}</span>
                 </div>
             </div>
