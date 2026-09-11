@@ -83,7 +83,7 @@ class AdminNavigationService
         $canShowTutorBookingMenu = $isTutor && (bool) ($branding['booking_schedule_enabled'] ?? false)
             && $this->planModules->allows('booking') && $routeExists('tutor.booking.index');
         $canShowTutorDevelopmentMenu = $isTutor && (bool) ($branding['learning_progress_enabled'] ?? false)
-            && $this->planModules->allows('booking') && $routeExists('tutor.development.index');
+            && $routeExists('tutor.development.index');
         $canShowTutorChatMenu = $isTutor && (bool) ($branding['tutor_chat_enabled'] ?? false)
             && $this->planModules->allows('discussion') && $routeExists('tutor.chat.index');
         $canShowTutorProfileMenu = $isTutor && $this->planModules->allows('profile') && $routeExists('tutor.profile.edit');
