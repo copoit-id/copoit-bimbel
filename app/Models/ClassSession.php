@@ -71,4 +71,9 @@ class ClassSession extends Model
     {
         return $this->hasMany(StudentProgressReport::class, 'class_session_id');
     }
+
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(StudentFeedback::class, 'class_session_id');
+    }
 }

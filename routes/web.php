@@ -437,6 +437,8 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
         Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
         Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+        Route::get('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'createFeedbackForSession'])->name('schedule.feedback.create');
+        Route::post('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'storeFeedbackForSession'])->middleware('throttle:20,1')->name('schedule.feedback.store');
         Route::get('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'createForSession'])->name('schedule.progress.create');
         Route::post('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'storeForSession'])->middleware('throttle:20,1')->name('schedule.progress.store');
         Route::get('jadwal/{session}/laporan-perkembangan/{report}/edit', [TutorStudentDevelopmentController::class, 'editForSession'])->name('schedule.progress.edit');

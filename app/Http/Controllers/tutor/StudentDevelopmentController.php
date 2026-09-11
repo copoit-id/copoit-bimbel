@@ -18,6 +18,32 @@ use Illuminate\View\View;
 
 class StudentDevelopmentController extends Controller
 {
+    public function createFeedbackForSession(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): View
+    {
+        $this->ensureAssignedSession($request, $session);
+        $session->load('studyGroup:id,name');
+        $students = $participantService->participants($session);
+
+        return view('tutor.schedule-feedback-form', compact('session', 'students'));
+    }
+
+    public function storeFeedbackForSession(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $validated = $request->validate(['scope' => ['required', 'in:personal,group'], 'user_id' => ['nullable', 'required_if:scope,personal', 'integer'], 'title' => ['required', 'string', 'max:255'], 'feedback' => ['required', 'string', 'max:5000']]);
+        $userId = null;
+        $groupId = null;
+        if ($validated['scope'] === 'group') {
+            abort_unless($session->study_group_id, 422, 'Sesi ini bukan sesi rombel.');
+            $groupId = $session->study_group_id;
+        } else {
+            $userId = (int) $validated['user_id'];
+            abort_unless($participantService->participants($session)->contains('id', $userId), 403, 'Siswa bukan peserta sesi ini.');
+        }
+        StudentFeedback::query()->create(['tentor_id' => $request->user()->tentorProfile->id, 'user_id' => $userId, 'study_group_id' => $groupId, 'class_session_id' => $session->id, 'scope' => $validated['scope'], 'title' => $validated['title'], 'feedback' => $validated['feedback'], 'is_visible_to_student' => true]);
+
+        return redirect()->route('tutor.schedule.index', ['range' => 'today'])->with('success', 'Feedback berhasil disimpan.');
+    }
     public function createForSession(
         Request $request,
         ClassSession $session,
