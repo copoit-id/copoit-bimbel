@@ -347,7 +347,7 @@ class ParentPortalController extends Controller
             ->where('user_id', $childId)
             ->where('status', 'completed')
             ->whereNotNull('finished_at')
-            ->selectRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR)) as attempt_key, MAX(finished_at) as finished_at, COALESCE(MAX(utbk_total_score), SUM(COALESCE(score, 0))) as score, SUM(COALESCE(correct_answers, 0)) as correct_answers, SUM(COALESCE(total_questions, 0)) as total_questions")
+            ->selectRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR)) as attempt_key, MAX(finished_at) as finished_at, COALESCE(MAX(utbk_total_score), SUM(COALESCE(score, 0))) as score, SUM(COALESCE(correct_answers, 0)) as correct_answers, SUM(COALESCE(correct_answers, 0) + COALESCE(wrong_answers, 0) + COALESCE(unanswered, 0)) as total_questions")
             ->groupByRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR))");
     }
 
