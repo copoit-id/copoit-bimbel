@@ -766,7 +766,7 @@ class UserController extends Controller
 
         return [
             ...$profile,
-            'min_width_class' => $additionalColumns >= 3 ? 'min-w-[1080px]' : 'min-w-[780px]',
+            'min_width_class' => $additionalColumns >= 3 ? 'min-w-[1320px]' : 'min-w-[780px]',
             'empty_colspan' => 6 + $additionalColumns,
         ];
     }

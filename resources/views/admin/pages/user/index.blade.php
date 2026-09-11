@@ -144,7 +144,7 @@
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
                             @if($userTable['shows_student_profile'])
-                            <th scope="col" class="px-6 py-3">Tujuan Belajar</th>
+                            <th scope="col" class="w-[360px] min-w-[360px] px-6 py-3">Tujuan Belajar</th>
                             <th scope="col" class="px-6 py-3">Program & Kelas</th>
                             <th scope="col" class="px-6 py-3">Kehadiran</th>
                             @elseif($userTable['shows_tutor_profile'])
@@ -184,15 +184,15 @@
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
                             @if($userTable['shows_student_profile'])
-                            <td class="px-6 py-4">
+                            <td class="w-[360px] min-w-[360px] px-6 py-4">
                                 <div class="space-y-1">
-                                    <p class="text-gray-700">
-                                        <span class="text-xs text-gray-500">Pilihan 1:</span>
-                                        {{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-gray-700">
+                                        <span class="shrink-0 text-xs text-gray-500">Pilihan 1:</span>
+                                        <span class="truncate">{{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}</span>
                                     </p>
-                                    <p class="text-xs text-gray-600">
-                                        <span class="text-gray-500">Pilihan 2:</span>
-                                        {{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-xs text-gray-600">
+                                        <span class="shrink-0 text-gray-500">Pilihan 2:</span>
+                                        <span class="truncate">{{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}</span>
                                     </p>
                                 </div>
                             </td>
