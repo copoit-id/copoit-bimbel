@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\UserAnswer;
 use App\Models\UserPackageAcces;
 use App\Support\Pagination;
+use App\Support\RichTextSanitizer;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -364,8 +365,26 @@ class ParentPortalController extends Controller
             $attendance = ClassAttendance::query()->where('user_id', $child->id)->get()->keyBy('class_session_id');
             $feedbackBySession = $this->feedbackQuery($child)->whereNotNull('class_session_id')->with('tentor:id,name')->get()->groupBy('class_session_id');
             $sessionIds = $attendance->keys()->merge($feedbackBySession->keys())->unique()->values();
+            $progressBySession = StudentProgressReport::query()
+                ->whereIn('class_session_id', $sessionIds)
+                ->whereNull('user_id')
+                ->with('tentor:id,name')
+                ->get()
+                ->keyBy('class_session_id');
             $sessionTimeline = ClassSession::query()->with(['schedule:id,title', 'studyGroup:id,name'])->whereIn('id', $sessionIds)->latest('start_at')->get()
-                ->map(fn (ClassSession $session) => ['session' => $session, 'attendance' => $attendance->get($session->id), 'feedback' => $feedbackBySession->get($session->id, collect())]);
+                ->map(function (ClassSession $session) use ($attendance, $feedbackBySession, $progressBySession): array {
+                    $feedback = $feedbackBySession->get($session->id, collect());
+                    $progress = $progressBySession->get($session->id);
+
+                    return [
+                        'session' => $session,
+                        'attendance' => $attendance->get($session->id),
+                        'personalFeedback' => $feedback->where('scope', 'personal')->values(),
+                        'groupFeedback' => $feedback->where('scope', 'group')->values(),
+                        'progress' => $progress,
+                        'progressHtml' => $progress ? RichTextSanitizer::sanitize($progress->summary) : null,
+                    ];
+                });
         }
 
         return view('parent.development', compact('children', 'child', 'sessionTimeline'));

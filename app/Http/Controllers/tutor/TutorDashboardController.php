@@ -312,7 +312,7 @@ class TutorDashboardController extends Controller
 
         return ClassSession::query()
             ->with($relations)
-            ->withCount('progressReports')
+            ->withExists(['progressReports as has_session_progress' => fn ($query) => $query->whereNull('user_id')])
             ->where('tentor_id', $tentorId)
             ->orderBy('start_at');
     }
