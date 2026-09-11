@@ -8,13 +8,6 @@
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
-            @if(auth()->user()?->hasPermission('feedback', 'view'))
-                <a href="{{ route('admin.feedback.index') }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
-                    <i class="ri-message-3-line"></i>
-                    Feedback Tryout
-                </a>
-            @endif
             @unless ($tryoutDetail)
                 {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
                 <x-plan-quota-button
@@ -171,16 +164,6 @@
                 <input type="text" name="name" required
                     class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     placeholder="Contoh: Bank Soal TPS TKA">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Sub Bank Dari</label>
-                <select name="parent_id"
-                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20">
-                    <option value="">(Tidak ada - Bank utama)</option>
-                    @foreach ($bankOptions as $option)
-                    <option value="{{ $option->id }}">{{ $option->name }}</option>
-                    @endforeach
-                </select>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>

@@ -64,40 +64,26 @@
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
             @unless ($tryoutDetail)
-            <div class="flex flex-wrap gap-2">
-                @if(auth()->user()?->hasPermission('feedback', 'view'))
-                <a href="{{ route('admin.feedback.index') }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
-                    <i class="ri-message-3-line"></i>
-                    Feedback Tryout
-                </a>
-                @endif
+            <div class="flex flex-wrap items-center gap-2 md:justify-end">
                 @if($clientBranding['ai_question_generator_enabled'] ?? false)
                 <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-violet-600 px-4 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50">
                     <i class="ri-sparkling-2-line"></i>
                     Generate AI
                 </a>
                 @endif
                 <button type="button" id="openImportQuestions"
-                    class="inline-flex items-center gap-2 rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
                     <i class="ri-file-excel-2-line"></i>
                     Import Excel
                 </button>
-                @if(! auth()->user()?->isTutor())
-                    <button type="button" id="openImportPpt"
-                        class="inline-flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50">
-                        <i class="ri-slideshow-3-line"></i>
-                        Import PPT
-                    </button>
-                @endif
                 <button id="openCreateSubBank"
-                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/5">
                     <i class="ri-folder-add-line"></i>
                     Tambah Sub Bank
                 </button>
                 <a href="{{ route('admin.question-bank.questions.create', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                     <i class="ri-add-line"></i>
                     Tambah Soal
                 </a>

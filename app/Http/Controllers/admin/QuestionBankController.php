@@ -57,7 +57,6 @@ class QuestionBankController extends Controller
             'child_banks' => QuestionBank::whereNotNull('parent_id')->count(),
         ];
 
-        $bankOptions = QuestionBank::orderBy('name')->get();
         $visibility = app(\App\Services\TutorContentVisibilityService::class);
         $deletableBankIds = $rootBanks
             ->flatMap(fn (QuestionBank $bank) => collect([$bank])->merge($bank->children))
@@ -69,7 +68,6 @@ class QuestionBankController extends Controller
         return view('admin.pages.question-bank.index', compact(
             'rootBanks',
             'stats',
-            'bankOptions',
             'tryoutDetail',
             'importTarget',
             'bankSort',
