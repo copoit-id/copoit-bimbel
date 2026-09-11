@@ -78,7 +78,7 @@ class TryoutController extends Controller
         $type = strtolower((string) $request->query('type', ''));
         $filterStatus = $request->query('status');
 
-        if (! in_array($filterStatus, ['akan_datang', 'aktif', 'selesai'], true)) {
+        if (! in_array($filterStatus, ['nonaktif', 'akan_datang', 'aktif', 'selesai'], true)) {
             $filterStatus = null;
         }
 
@@ -94,9 +94,15 @@ class TryoutController extends Controller
             ])
             ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
             ->when($type !== '', fn ($query) => $query->where('type_tryout', $type))
-            ->when($filterStatus === 'akan_datang', fn ($query) => $query->where('start_date', '>', now()))
-            ->when($filterStatus === 'selesai', fn ($query) => $query->where('end_date', '<', now()))
+            ->when($filterStatus === 'nonaktif', fn ($query) => $query->where('is_active', false))
+            ->when($filterStatus === 'akan_datang', fn ($query) => $query
+                ->where('is_active', true)
+                ->where('start_date', '>', now()))
+            ->when($filterStatus === 'selesai', fn ($query) => $query
+                ->where('is_active', true)
+                ->where('end_date', '<', now()))
             ->when($filterStatus === 'aktif', fn ($query) => $query
+                ->where('is_active', true)
                 ->where(function ($activeQuery): void {
                     $activeQuery->whereNull('start_date')->orWhere('start_date', '<=', now());
                 })
@@ -107,15 +113,67 @@ class TryoutController extends Controller
             ->paginate(\App\Support\Pagination::perPage(10))
             ->withQueryString();
 
-        $tryouts->getCollection()->each(function ($tryout) {
+        $tryouts->getCollection()->each(function (Tryout $tryout): void {
             $tryout->tryoutDetails->each(function ($detail) {
                 $detail->setAttribute('subtest_name', $detail->display_name);
             });
+            $tryout->setAttribute('admin_status', $this->adminStatus($tryout));
         });
 
         $packages = Package::all();
 
         return view('admin.pages.tryout.index', compact('tryouts', 'packages', 'search', 'type', 'filterStatus'));
+    }
+
+    /**
+     * Build the admin-facing operational and schedule states from one source.
+     *
+     * @return array{filter: string, operational: array{label: string, classes: string, icon: string}, period: array{filter: string, label: string, classes: string, icon: string}}
+     */
+    private function adminStatus(Tryout $tryout): array
+    {
+        $period = match (true) {
+            $tryout->start_date?->isFuture() => [
+                'filter' => 'akan_datang',
+                'label' => 'Akan datang',
+                'classes' => 'bg-amber-100 text-amber-700',
+                'icon' => 'ri-time-line',
+            ],
+            $tryout->end_date?->isPast() => [
+                'filter' => 'selesai',
+                'label' => 'Periode berakhir',
+                'classes' => 'bg-gray-100 text-gray-700',
+                'icon' => 'ri-calendar-close-line',
+            ],
+            default => [
+                'filter' => 'aktif',
+                'label' => 'Sedang berjalan',
+                'classes' => 'bg-emerald-100 text-emerald-700',
+                'icon' => 'ri-calendar-check-line',
+            ],
+        };
+
+        if (! $tryout->is_active) {
+            return [
+                'filter' => 'nonaktif',
+                'operational' => [
+                    'label' => 'Nonaktif',
+                    'classes' => 'bg-red-100 text-red-700',
+                    'icon' => 'ri-pause-circle-line',
+                ],
+                'period' => $period,
+            ];
+        }
+
+        return [
+            'filter' => $period['filter'],
+            'operational' => [
+                'label' => 'Aktif',
+                'classes' => 'bg-green-100 text-green-700',
+                'icon' => 'ri-checkbox-circle-line',
+            ],
+            'period' => $period,
+        ];
     }
 
     private const UTBK_SINGLE_TYPES = [
@@ -228,14 +286,14 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 ...$certificateConfiguration,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'is_active' => $request->boolean('is_active'),
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
                 ...$saleData,
-                'is_displayed' => $request->has('is_displayed'),
+                'is_displayed' => $request->boolean('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
@@ -361,14 +419,14 @@ class TryoutController extends Controller
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
                 ...$certificateConfiguration,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'is_active' => $request->boolean('is_active'),
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
                 ...$saleData,
-                'is_displayed' => $request->has('is_displayed'),
+                'is_displayed' => $request->boolean('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
@@ -1129,6 +1187,7 @@ class TryoutController extends Controller
                 ]
                 : ['prohibited'],
             'is_active' => 'boolean',
+            'is_displayed' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
             'scoring_method' => ['nullable', Rule::in(['normal', 'irt', 'irt_utbk', 'toefl_itp'])],

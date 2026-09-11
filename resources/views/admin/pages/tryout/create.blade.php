@@ -229,7 +229,7 @@
                             <input type="checkbox" name="is_displayed" value="1" {{ $isDisplayedChecked ? 'checked' : '' }} class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
                             <span>
                                 <span class="block text-sm font-semibold text-gray-800">Tampilkan di user</span>
-                                <span class="block text-xs text-gray-500 mt-1">Jika mati, tryout tidak muncul di katalog user.</span>
+                                <span class="block text-xs text-gray-500 mt-1">Hanya mengatur katalog user; tidak mencabut akses langsung atau akses dari paket yang sudah diberikan.</span>
                             </span>
                         </label>
                         <label class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -286,6 +286,22 @@
                     </div>
                 </div>
 
+                <div class="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                    <label for="is_active" class="flex cursor-pointer items-start gap-3">
+                        <input type="checkbox" id="is_active" name="is_active" value="1" {{ $isActiveChecked ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
+                        <span class="tryout-toggle-track relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
+                            <span class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
+                        </span>
+                        <span>
+                            <span class="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                                Status operasional: Tryout aktif
+                                <x-ui.tooltip>Jika dimatikan, peserta tidak dapat membuka atau mengerjakan tryout, termasuk peserta yang memiliki akses langsung maupun dari paket.</x-ui.tooltip>
+                            </span>
+                            <span class="mt-1 block text-xs text-gray-600">Status aktif berbeda dengan periode. Atur kapan tryout berjalan pada tanggal mulai dan selesai di bawah.</span>
+                        </span>
+                    </label>
+                </div>
+
                 <!-- Schedule -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6" data-tour="tryout.schedule">
                     <div>
@@ -293,7 +309,7 @@
                         <input type="datetime-local" id="start_date" name="start_date"
                             value="{{ old('start_date', isset($tryout) ? $tryout->start_date?->format('Y-m-d\TH:i') : null) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar tryout dapat dimulai kapan saja.</p>
+                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar periode tryout dapat dimulai kapan saja.</p>
                     </div>
 
                     <div>
@@ -301,7 +317,7 @@
                         <input type="datetime-local" id="end_date" name="end_date"
                             value="{{ old('end_date', isset($tryout) ? $tryout->end_date?->format('Y-m-d\TH:i') : null) }}"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar tryout tidak memiliki batas waktu. IRT tanpa tanggal selesai dirilis manual oleh admin.</p>
+                        <p class="mt-1 text-xs text-gray-500">Kosongkan agar periode tryout tidak memiliki batas waktu. IRT tanpa tanggal selesai dirilis manual oleh admin.</p>
                     </div>
                 </div>
 
@@ -343,20 +359,6 @@
 
                 <!-- Options -->
                 <div class="space-y-4">
-                    <label class="flex items-center gap-3">
-                        <input type="checkbox" id="is_active" name="is_active" value="1" {{
-                            $isActiveChecked ? 'checked' : '' }} class="sr-only peer tryout-toggle-input">
-                        <span
-                            class="tryout-toggle-track relative inline-flex h-6 w-11 items-center rounded-full border border-gray-300 bg-white transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 peer-checked:bg-primary peer-checked:border-primary">
-                            <span
-                                class="tryout-toggle-knob inline-block h-5 w-5 translate-x-0 rounded-full border border-gray-300 bg-white transition-transform"></span>
-                        </span>
-                        <span class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            Tryout Aktif
-                            <x-ui.tooltip>Tryout tidak akan tampil di user jika dinonaktifkan.</x-ui.tooltip>
-                        </span>
-                    </label>
-
                     @if($certificateManagementEnabled)
                         <div id="certificateTemplateField" class="{{ $isCertificationChecked ? '' : 'hidden' }} rounded-lg border border-primary/20 bg-primary/5 p-4">
                             <label for="certificate_template_id" class="mb-1 block text-sm font-semibold text-gray-800">Template Sertifikat</label>

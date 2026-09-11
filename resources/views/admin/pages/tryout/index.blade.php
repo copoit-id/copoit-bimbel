@@ -44,9 +44,10 @@
                     <select name="status"
                         class="border border-gray-300 rounded-lg px-4 py-2 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                         <option value="">Semua Status</option>
+                        <option value="nonaktif" @selected($filterStatus === 'nonaktif')>Nonaktif</option>
                         <option value="akan_datang" @selected($filterStatus === 'akan_datang')>Akan Datang</option>
-                        <option value="aktif" @selected($filterStatus === 'aktif')>Aktif</option>
-                        <option value="selesai" @selected($filterStatus === 'selesai')>Selesai</option>
+                        <option value="aktif" @selected($filterStatus === 'aktif')>Sedang Berjalan</option>
+                        <option value="selesai" @selected($filterStatus === 'selesai')>Periode Berakhir</option>
                     </select>
                 </div>
                 <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 w-full sm:w-auto">
@@ -69,7 +70,7 @@
         <div class="tryout-card bg-white px-5 py-5 rounded-lg border border-gray-200 h-full flex flex-col"
             data-name="{{ strtolower($tryout->name) }}" data-type="{{ strtoupper($tryout->type_tryout) }}"
             data-assessment="{{ $tryout->assessment_type ?? 'standard' }}"
-            data-status="{{ $tryout->start_date?->isFuture() ? 'akan_datang' : ($tryout->end_date?->isPast() ? 'selesai' : 'aktif') }}">
+            data-status="{{ $tryout->admin_status['filter'] }}">
             @php
                 $scoringLabel = $tryout->requiresIrtScoring()
                     ? 'IRT'
@@ -120,16 +121,19 @@
                     <p class="font-medium">Subtest:</p>
                     <p class="font-light">{{ $tryout->tryoutDetails->count() }} Bagian</p>
                 </span>
-                <span class="flex items-center justify-between">
-                    <p class="font-medium">Status:</p>
-                    @if($tryout->start_date?->isFuture())
-                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Akan Datang</span>
-                    @elseif($tryout->end_date?->isPast()) <span
-                        class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Selesai
+                <span class="flex items-center justify-between gap-2">
+                    <p class="font-medium">Status sistem:</p>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 {{ $tryout->admin_status['operational']['classes'] }} rounded-full text-xs whitespace-nowrap">
+                        <i class="{{ $tryout->admin_status['operational']['icon'] }}"></i>
+                        {{ $tryout->admin_status['operational']['label'] }}
+                    </span>
                 </span>
-                @else
-                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
-                @endif
+                <span class="flex items-center justify-between gap-2">
+                    <p class="font-medium">Periode:</p>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 {{ $tryout->admin_status['period']['classes'] }} rounded-full text-xs whitespace-nowrap">
+                        <i class="{{ $tryout->admin_status['period']['icon'] }}"></i>
+                        {{ $tryout->admin_status['period']['label'] }}
+                    </span>
                 </span>
             </div>
 
