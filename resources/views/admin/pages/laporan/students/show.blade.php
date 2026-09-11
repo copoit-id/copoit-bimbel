@@ -1,11 +1,12 @@
-@extends('admin.layout.admin')
+@extends(($parentReport ?? false) ? 'parent.layout' : 'admin.layout.admin')
 
 @section('title', 'Rekap Tryout Siswa')
 
 @section('content')
+    @php($isParentReport = $parentReport ?? false)
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 class="text-2xl font-bold text-gray-900">Rekap Tryout Siswa</h1><p class="mt-1 text-sm text-gray-500">{{ $student->name }} · {{ $student->email }}</p></div>
-        <a href="{{ route('admin.school.student-tryouts.index') }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"><i class="ri-arrow-left-line"></i>Kembali</a>
+        <div class="flex gap-2"><a href="{{ $isParentReport ? route('parent.dashboard') : route('admin.school.student-tryouts.index') }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"><i class="ri-arrow-left-line"></i>Kembali</a>@if($isParentReport)<x-ui.button type="button" icon="ri-printer-line" onclick="window.print()">Cetak</x-ui.button>@endif</div>
     </div>
 
     @if(count($chartData['subtests']) > 0)
@@ -29,15 +30,31 @@
 
     <section class="mt-6 rounded-xl border border-border bg-white p-5 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-900">Tryout Terakhir yang Diselesaikan</h2>
-        <div class="mt-5 overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm text-gray-600"><thead class="bg-gray-50 text-xs uppercase"><tr><th class="px-4 py-3">Tryout</th><th class="px-4 py-3">Attempt</th><th class="px-4 py-3">Selesai</th><th class="px-4 py-3 text-center">Skor</th></tr></thead><tbody>
+        <div class="mt-5 overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm text-gray-600"><thead class="bg-gray-50 text-xs uppercase"><tr><th class="px-4 py-3">Tryout</th><th class="px-4 py-3">Attempt</th><th class="px-4 py-3">Selesai</th><th class="px-4 py-3 text-center">Skor</th>@if($isParentReport)<th class="px-4 py-3 text-right">Aksi</th>@endif</tr></thead><tbody>
             @forelse($attempts as $attempt)
-                <tr class="border-t border-gray-100"><td class="px-4 py-3 font-semibold text-gray-900">{{ $attempt->tryout?->name ?? 'Tryout' }}</td><td class="px-4 py-3">{{ $attempt->attempt_token }}</td><td class="px-4 py-3">{{ $attempt->finished_at?->translatedFormat('d M Y, H:i') ?? '-' }}</td><td class="px-4 py-3 text-center">{{ $attempt->score }}</td></tr>
+                <tr class="border-t border-gray-100"><td class="px-4 py-3 font-semibold text-gray-900">{{ $attempt->tryout?->name ?? 'Tryout' }}</td><td class="px-4 py-3">{{ $attempt->attempt_token }}</td><td class="px-4 py-3">{{ $attempt->finished_at?->translatedFormat('d M Y, H:i') ?? '-' }}</td><td class="px-4 py-3 text-center">{{ $attempt->score }}</td>@if($isParentReport)<td class="px-4 py-3 text-right"><x-ui.button :href="route('parent.report.attempt', ['tryout' => $attempt->tryout_id, 'attemptToken' => $attempt->attempt_token])" variant="outline" size="sm" icon="ri-file-search-line">Detail</x-ui.button></td>@endif</tr>
             @empty
-                <tr><td colspan="4" class="px-4 py-10 text-center">Belum ada data.</td></tr>
+                <tr><td colspan="{{ $isParentReport ? 5 : 4 }}" class="px-4 py-10 text-center">Belum ada data.</td></tr>
             @endforelse
         </tbody></table></div>
     </section>
+    @if($isParentReport)
+        <section class="mt-6 rounded-xl border border-border bg-white p-5 sm:p-6"><h2 class="text-lg font-semibold text-gray-900">Feedback Tutor</h2><div class="mt-4 divide-y divide-gray-100">@forelse($feedback as $item)<article class="py-4 first:pt-0"><p class="font-semibold text-gray-800">{{ $item->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->tentor?->name ?? 'Tutor' }} · {{ $item->created_at?->translatedFormat('d M Y') }}</p><p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">{{ $item->feedback }}</p></article>@empty<p class="py-8 text-center text-sm text-gray-500">Belum ada feedback tutor.</p>@endforelse</div></section>
+    @endif
 @endsection
+
+@if($isParentReport)
+    @push('styles')
+        <style>
+            @media print {
+                header, aside, nav, .no-print { display: none !important; }
+                body { background: #fff !important; }
+                main { padding: 0 !important; }
+                .rounded-xl { break-inside: avoid; }
+            }
+        </style>
+    @endpush
+@endif
 
 @push('scripts')
     @if(count($chartData['subtests']) > 0)

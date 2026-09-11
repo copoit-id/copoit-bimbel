@@ -22,11 +22,28 @@
     }
 @endphp
 
-<aside id="logo-sidebar"
+<aside id="logo-sidebar" data-persistent-sidebar data-login-as-sidebar="{{ session('admin_login_as') ? 'true' : 'false' }}"
     class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} left-0 z-[99997] md:z-[99996] w-64 {{ session('admin_login_as') ? 'h-[calc(100vh-52px)]' : 'h-screen' }} {{ session('admin_login_as') ? 'pt-[68px]' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
-        <p class="{{ $sectionLabelClass }} text-sm">Home</p>
+        <a href="{{ route('user.dashboard.index') }}" data-sidebar-brand>
+            <span data-sidebar-brand-mark>
+                <img src="{{ $clientBranding['logo_url'] }}" class="h-full w-full object-contain p-1" alt="{{ $clientBranding['name'] }}" />
+            </span>
+            <span class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold">{{ $clientBranding['name'] }}</p>
+                <small class="block truncate text-xs">{{ trim((string) app('view')->getSection('title')) ?: 'Portal Belajar' }}</small>
+            </span>
+        </a>
+        <div data-sidebar-divider class="border-t"></div>
+        <div class="flex items-center justify-between gap-2">
+            <p data-sidebar-section-label class="{{ $sectionLabelClass }} text-xs font-medium uppercase tracking-[0.12em]">Home</p>
+            <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg {{ $sidebarPrimary ? 'text-white/80 hover:bg-white/10 focus:ring-white/30' : 'text-gray-500 hover:bg-gray-100 focus:ring-gray-200' }} transition-colors focus:outline-none focus:ring-2">
+                <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                <i class="ri-arrow-left-s-line text-xl" data-persistent-sidebar-toggle-icon aria-hidden="true"></i>
+            </button>
+        </div>
         <ul class="font-medium space-y-1">
             @if($canShowDashboard)
             <li>

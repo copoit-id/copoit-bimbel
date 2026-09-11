@@ -76,14 +76,8 @@ class AdminNavigationService
             && $routeExists('admin.update-notifications.index');
         $canShowTutorScheduleMenu = $isTutor && $this->planModules->allows('schedule') && $routeExists('tutor.schedule.index');
         $canShowTutorDashboard = $isTutor && $routeExists('tutor.dashboard');
-        $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu && $this->planModules->allows('attendance')
-            && $routeExists('tutor.attendance.index');
         $canShowTutorEarningsMenu = $isTutor && $this->planModules->allows('tutor_payroll')
             && $routeExists('tutor.earnings.index');
-        $canShowTutorBookingMenu = $isTutor && (bool) ($branding['booking_schedule_enabled'] ?? false)
-            && $this->planModules->allows('booking') && $routeExists('tutor.booking.index');
-        $canShowTutorDevelopmentMenu = $isTutor && (bool) ($branding['learning_progress_enabled'] ?? false)
-            && $this->planModules->allows('booking') && $routeExists('tutor.development.index');
         $canShowTutorChatMenu = $isTutor && (bool) ($branding['tutor_chat_enabled'] ?? false)
             && $this->planModules->allows('discussion') && $routeExists('tutor.chat.index');
         $canShowTutorProfileMenu = $isTutor && $this->planModules->allows('profile') && $routeExists('tutor.profile.edit');
@@ -129,10 +123,7 @@ class AdminNavigationService
             'canShowUpdateNotificationsMenu' => $canShowUpdateNotificationsMenu,
             'canShowTutorDashboard' => $canShowTutorDashboard,
             'canShowTutorScheduleMenu' => $canShowTutorScheduleMenu,
-            'canShowTutorAttendanceMenu' => $canShowTutorAttendanceMenu,
             'canShowTutorEarningsMenu' => $canShowTutorEarningsMenu,
-            'canShowTutorBookingMenu' => $canShowTutorBookingMenu,
-            'canShowTutorDevelopmentMenu' => $canShowTutorDevelopmentMenu,
             'canShowTutorChatMenu' => $canShowTutorChatMenu,
             'canShowTutorProfileMenu' => $canShowTutorProfileMenu,
             'canShowTutorLeaveMenu' => $canShowTutorLeaveMenu,
@@ -154,11 +145,8 @@ class AdminNavigationService
                 || $isClassScheduleActive || ($canShowLegacyClassMenu && $routeIs('admin.class.*'))
                 || $routeIs('admin.tryout.*', 'admin.question.*', 'admin.tes-koran.*') || $isMaterialManagementActive,
             'isTutorDashboardActive' => $isTutor && $routeIs('tutor.dashboard'),
-            'isTutorScheduleActive' => $isTutor && $routeIs('tutor.schedule.*'),
-            'isTutorAttendanceActive' => $isTutor && $routeIs('tutor.attendance.*'),
+            'isTutorScheduleActive' => $isTutor && $routeIs('tutor.schedule.*', 'tutor.booking.*'),
             'isTutorEarningsActive' => $isTutor && $routeIs('tutor.earnings.*'),
-            'isTutorBookingActive' => $isTutor && $routeIs('tutor.booking.*'),
-            'isTutorDevelopmentActive' => $isTutor && $routeIs('tutor.development.*'),
             'isTutorChatActive' => $isTutor && $routeIs('tutor.chat.*'),
             'isTutorProfileActive' => $isTutor && $routeIs('tutor.profile.*'),
             'isTesKoranActive' => $routeIs('admin.tes-koran.*'),

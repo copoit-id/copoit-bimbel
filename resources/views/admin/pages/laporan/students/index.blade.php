@@ -30,6 +30,7 @@
                         <th class="px-5 py-3">Siswa</th>
                         <th class="px-5 py-3 text-center">Total Pengerjaan</th>
                         <th class="px-5 py-3 text-center">Selesai</th>
+                        <th class="px-5 py-3 text-center">Rata-rata Skor</th>
                         <th class="px-5 py-3">Aktivitas Tryout Terakhir</th>
                         <th class="px-5 py-3 text-center">Aksi</th>
                     </tr>
@@ -40,11 +41,12 @@
                             <td class="px-5 py-4"><p class="font-semibold text-gray-900">{{ $student->name }}</p><p class="mt-0.5 text-xs text-gray-500">{{ $student->email }}</p></td>
                             <td class="px-5 py-4 text-center font-semibold text-gray-800">{{ $student->tryout_attempts_count }}</td>
                             <td class="px-5 py-4 text-center font-semibold text-primary">{{ $student->completed_tryout_attempts_count }}</td>
+                            <td class="px-5 py-4 text-center font-semibold text-gray-800">{{ $student->average_tryout_score === null ? '—' : number_format((float) $student->average_tryout_score, 1, ',', '.') }}</td>
                             <td class="px-5 py-4">{{ $student->last_tryout_at ? \Carbon\Carbon::parse($student->last_tryout_at)->translatedFormat('d M Y, H:i') : '-' }}</td>
                             <td class="px-5 py-4 text-center"><a href="{{ route('admin.school.student-tryouts.show', $student) }}" class="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-bar-chart-2-line"></i> Detail</a></td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-5 py-12 text-center text-sm text-gray-500">Belum ada siswa dengan data tryout.</td></tr>
+                        <tr><td colspan="6" class="px-5 py-12 text-center text-sm text-gray-500">Belum ada siswa dengan data tryout.</td></tr>
                     @endforelse
                 </tbody>
             </table>

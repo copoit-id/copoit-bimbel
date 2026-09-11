@@ -11,6 +11,7 @@ use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
+use App\ViewModels\QuestionFormViewData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -65,13 +66,13 @@ class QuestionController extends Controller
         return $questionDownloadService->download($tryout, $questions, $type);
     }
 
-    public function create($tryout_detail_id)
+    public function create($tryout_detail_id, QuestionFormViewData $questionFormViewData)
     {
         try {
             $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
             $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
-            return view('admin.pages.question.create', compact('tryout', 'tryout_detail'));
+            return view('admin.pages.question.create', $questionFormViewData->forTryout($tryout, $tryout_detail));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Data tidak ditemukan');
@@ -252,7 +253,7 @@ class QuestionController extends Controller
         }
     }
 
-    public function edit($tryout_detail_id, $question_id)
+    public function edit($tryout_detail_id, $question_id, QuestionFormViewData $questionFormViewData)
     {
         try {
             $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
@@ -263,7 +264,7 @@ class QuestionController extends Controller
                 ->where('tryout_detail_id', $tryout_detail_id)
                 ->firstOrFail();
 
-            return view('admin.pages.question.create', compact('tryout', 'tryout_detail', 'question'));
+            return view('admin.pages.question.create', $questionFormViewData->forTryout($tryout, $tryout_detail, $question));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Data tidak ditemukan: ' . $e->getMessage());

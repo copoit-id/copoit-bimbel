@@ -90,7 +90,7 @@
                     <label for="passing_score_total" class="block text-sm font-medium text-gray-700 mb-2">Passing
                             Score <span class="text-red-500">*</span></label>
                         <input type="number" id="passing_score_total" name="passing_score_total"
-                            value="{{ old('passing_score_total', 65) }}" min="0" max="100" step="0.01" required
+                            value="{{ old('passing_score_total', 65) }}" min="0" max="999.99" step="0.01" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             placeholder="65.00">
                     </div>

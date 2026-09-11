@@ -1,8 +1,25 @@
-<aside id="logo-sidebar" x-ignore
+<aside id="logo-sidebar" x-ignore data-persistent-sidebar
     class="fixed top-0 left-0 z-40 w-64 h-screen {{ !empty($isPickerMode) ? 'pt-36' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
-        <p class="{{ $sectionLabelClass }} text-sm">Menu</p>
+        <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" data-sidebar-brand>
+            <span data-sidebar-brand-mark>
+                <img src="{{ $clientBranding['logo_url'] }}" class="h-full w-full object-contain p-1" alt="{{ $clientBranding['name'] }}" />
+            </span>
+            <span class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold">{{ $clientBranding['name'] }}</p>
+                <small class="block truncate text-xs">{{ trim((string) app('view')->getSection('title')) ?: ($isTutor ? 'Panel Tutor' : 'Panel Manajemen') }}</small>
+            </span>
+        </a>
+        <div data-sidebar-divider class="border-t"></div>
+        <div class="flex items-center justify-between gap-2">
+            <p data-sidebar-section-label class="{{ $sectionLabelClass }} text-xs font-medium uppercase tracking-[0.12em]">Menu</p>
+            <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg {{ $sidebarPrimary ? 'text-white/80 hover:bg-white/10 focus:ring-white/30' : 'text-gray-500 hover:bg-gray-100 focus:ring-gray-200' }} transition-colors focus:outline-none focus:ring-2">
+                <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                <i class="ri-arrow-left-s-line text-xl" data-persistent-sidebar-toggle-icon aria-hidden="true"></i>
+            </button>
+        </div>
         <ul class="space-y-1 font-medium">
             @if($canShowTutorDashboard)
                 <li><a href="{{ route('tutor.dashboard') }}" class="flex items-center py-2 px-4 {{ $isTutorDashboardActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-home-line text-[20px] {{ $isTutorDashboardActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Dashboard</span></a></li>
@@ -25,26 +42,17 @@
                     @if($canShowClassScheduleMenu)<li><a href="{{ route('admin.class-schedules.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isClassScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Kelas & Jadwal</span></a></li>@endif
                     @if($canShowLegacyClassMenu)<li><a href="{{ route('admin.class.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.class.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Manajemen Kelas</span></a></li>@endif
                     @if($featureVisibility['tryout'])<li><a href="{{ route('admin.tryout.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.tryout.*') || request()->routeIs('admin.question.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>{{ $isTutorContentIsolated ? 'Tryout Saya & Admin' : 'Manajemen Tryout' }}</span></a></li>@endif
-                    @if($canShowStudyGroupMenu)<li><a href="{{ route('admin.study-groups.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.study-groups.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Rombel / Grup Belajar</span></a></li>@endif
+                    @if($canShowStudyGroupMenu)<li><a href="{{ route('admin.study-groups.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ request()->routeIs('admin.study-groups.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Rombongan Belajar</span></a></li>@endif
                     @if($canShowMaterialMenu)<li><a href="{{ route('admin.material.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isMaterialManagementActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>{{ $isTutorContentIsolated ? 'Materi Saya & Admin' : 'Manajemen Materi' }}</span></a></li>@endif
                     @if($featureVisibility['tes_koran'])<li><a href="{{ route('admin.tes-koran.index') }}" class="flex items-center py-2 pl-12 pr-4 {{ $isTesKoranActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><span>Tes Koran</span></a></li>@endif
                 </ul></details></li>
             @endif
             @if($canShowTutorScheduleMenu)
-                <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
+                <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Penjadwalan</span></a></li>
                 <li><a href="{{ route('tutor.leave.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('tutor.leave.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-close-line text-[20px] {{ request()->routeIs('tutor.leave.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengajuan Cuti</span></a></li>
-                @if($canShowTutorAttendanceMenu)
-                <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
-                @endif
             @endif
             @if($canShowTutorEarningsMenu)
                 <li><a href="{{ route('tutor.earnings.index') }}" class="flex items-center py-2 px-4 {{ $isTutorEarningsActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-money-dollar-circle-line text-[20px] {{ $isTutorEarningsActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Penghasilan</span></a></li>
-            @endif
-            @if($canShowTutorBookingMenu)
-                <li><a href="{{ route('tutor.booking.index') }}" class="flex items-center py-2 px-4 {{ $isTutorBookingActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-schedule-line text-[20px] {{ $isTutorBookingActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Booking</span></a></li>
-            @endif
-            @if($canShowTutorDevelopmentMenu)
-                <li><a href="{{ route('tutor.development.index') }}" class="flex items-center py-2 px-4 {{ $isTutorDevelopmentActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-line-chart-line text-[20px] {{ $isTutorDevelopmentActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Perkembangan</span></a></li>
             @endif
             @if($canShowTutorChatMenu)
                 <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span>@if($tutorChatUnreadCount > 0)<span class="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{{ $tutorChatUnreadCount > 99 ? '99+' : $tutorChatUnreadCount }}</span>@endif</a></li>

@@ -60,15 +60,17 @@
             color="blue"
         />
         
-        <x-dashboard.stat-card
-            label="Packages Sold"
-            :value="number_format($summary['active_packages'])"
-            icon="ri-shopping-bag-3-line"
-            :trend="$packageTrend['direction']"
-            :trend-value="$packageTrend['value']"
-            trend-label="from last period"
-            color="orange"
-        />
+        @unless($schoolDashboard ?? false)
+            <x-dashboard.stat-card
+                label="Packages Sold"
+                :value="number_format($summary['active_packages'])"
+                icon="ri-shopping-bag-3-line"
+                :trend="$packageTrend['direction']"
+                :trend-value="$packageTrend['value']"
+                trend-label="from last period"
+                color="orange"
+            />
+        @endunless
     </div>
 
     {{-- Charts Section --}}

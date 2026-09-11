@@ -4,17 +4,128 @@ namespace App\Http\Controllers\tutor;
 
 use App\Http\Controllers\Controller;
 use App\Models\ScheduleBookingRequest;
+use App\Models\ClassSession;
 use App\Models\StudentFeedback;
 use App\Models\StudentProgressReport;
 use App\Models\StudyGroup;
+use App\Services\ClassAttendanceParticipantService;
+use App\Support\RichTextSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StudentDevelopmentController extends Controller
 {
+    public function createFeedbackForSession(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): View
+    {
+        $this->ensureAssignedSession($request, $session);
+        $session->load('studyGroup:id,name');
+        $students = $participantService->participants($session);
+
+        return view('tutor.schedule-feedback-form', compact('session', 'students'));
+    }
+
+    public function storeFeedbackForSession(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $validated = $request->validate(['scope' => ['required', 'in:personal,group'], 'user_id' => ['nullable', 'required_if:scope,personal', 'integer'], 'title' => ['required', 'string', 'max:255'], 'feedback' => ['required', 'string', 'max:5000']]);
+        $userId = null;
+        $groupId = null;
+        if ($validated['scope'] === 'group') {
+            abort_unless($session->study_group_id, 422, 'Sesi ini bukan sesi rombel.');
+            $groupId = $session->study_group_id;
+        } else {
+            $userId = (int) $validated['user_id'];
+            abort_unless($participantService->participants($session)->contains('id', $userId), 403, 'Siswa bukan peserta sesi ini.');
+        }
+        StudentFeedback::query()->create(['tentor_id' => $request->user()->tentorProfile->id, 'user_id' => $userId, 'study_group_id' => $groupId, 'class_session_id' => $session->id, 'scope' => $validated['scope'], 'title' => $validated['title'], 'feedback' => $validated['feedback'], 'is_visible_to_student' => true]);
+
+        return redirect()->route('tutor.schedule.index', ['range' => 'today'])->with('success', 'Feedback berhasil disimpan.');
+    }
+    public function createForSession(Request $request, ClassSession $session): View
+    {
+        $this->ensureAssignedSession($request, $session);
+        $report = StudentProgressReport::query()
+            ->where('class_session_id', $session->id)
+            ->where('tentor_id', $request->user()->tentorProfile->id)
+            ->whereNull('user_id')
+            ->first();
+
+        return view('tutor.schedule-progress-form', compact('session', 'report'));
+    }
+
+    public function storeForSession(Request $request, ClassSession $session): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $validated = $this->validateSessionProgress($request);
+        $tentorId = $request->user()->tentorProfile->id;
+        $report = DB::transaction(function () use ($session, $tentorId, $validated): StudentProgressReport {
+            ClassSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+
+            return StudentProgressReport::query()->firstOrCreate(
+                [
+                    'class_session_id' => $session->id,
+                    'tentor_id' => $tentorId,
+                    'user_id' => null,
+                ],
+                [
+                    'study_group_id' => $session->study_group_id,
+                    'period_start' => $session->session_date,
+                    'period_end' => $session->session_date,
+                    'summary' => RichTextSanitizer::sanitize($validated['summary']),
+                ]
+            );
+        });
+
+        if (! $report->wasRecentlyCreated) {
+            return redirect()->route('tutor.schedule.progress.edit', [$session, $report])
+                ->with('success', 'Progress sesi ini sudah ada. Silakan perbarui progress tersebut.');
+        }
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Progress sesi berhasil disimpan.');
+    }
+
+    public function editForSession(Request $request, ClassSession $session, StudentProgressReport $report): View
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+
+        return view('tutor.schedule-progress-form', [
+            'session' => $session,
+            'report' => $report,
+        ]);
+    }
+
+    public function updateForSession(Request $request, ClassSession $session, StudentProgressReport $report): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+
+        $validated = $this->validateSessionProgress($request);
+        $report->update([
+            'summary' => RichTextSanitizer::sanitize($validated['summary']),
+            'period_start' => $session->session_date,
+            'period_end' => $session->session_date,
+        ]);
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Catatan progress berhasil diperbarui.');
+    }
+
+    public function destroyForSession(Request $request, ClassSession $session, StudentProgressReport $report): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+        $report->delete();
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Catatan progress berhasil dihapus.');
+    }
+
     public function index(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
@@ -175,6 +286,27 @@ class StudentDevelopmentController extends Controller
         }
 
         return [$parts[0], $parts[1], $parts[2], $parts[3]];
+    }
+
+    private function ensureAssignedSession(Request $request, ClassSession $session): void
+    {
+        abort_unless((int) $session->tentor_id === (int) $request->user()->tentorProfile?->id, 403);
+    }
+
+    private function ensureSessionReport(Request $request, ClassSession $session, StudentProgressReport $report): void
+    {
+        abort_unless(
+            (int) $report->class_session_id === (int) $session->id
+            && (int) $report->tentor_id === (int) $request->user()->tentorProfile?->id,
+            404
+        );
+    }
+
+    private function validateSessionProgress(Request $request): array
+    {
+        return $request->validate([
+            'summary' => ['required', 'string', 'max:5000'],
+        ]);
     }
 
     private function authorizeStudentTarget(

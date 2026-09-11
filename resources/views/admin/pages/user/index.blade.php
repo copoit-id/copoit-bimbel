@@ -134,7 +134,7 @@
         <!-- User Table -->
         <div>
             <div class="relative overflow-x-auto">
-                <table class="min-w-[1180px] w-full text-sm text-left rtl:text-right text-gray-500">
+                <table class="{{ $userTable['min_width_class'] }} w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 w-12">
@@ -143,10 +143,15 @@
                             </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
-                            <th scope="col" class="px-6 py-3">Tujuan Belajar</th>
+                            @if($userTable['shows_student_profile'])
+                            <th scope="col" class="w-[360px] min-w-[360px] px-6 py-3">Tujuan Belajar</th>
                             <th scope="col" class="px-6 py-3">Program & Kelas</th>
                             <th scope="col" class="px-6 py-3">Kehadiran</th>
-                            <th scope="col" class="px-6 py-3">Role</th>
+                            @elseif($userTable['shows_tutor_profile'])
+                            <th scope="col" class="px-6 py-3">Profil Tutor</th>
+                            @elseif($userTable['shows_children'])
+                            <th scope="col" class="px-6 py-3">Anak Terhubung</th>
+                            @endif
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
                             <th scope="col" class="sticky right-0 z-20 w-[220px] min-w-[220px] border-l border-gray-200 bg-gray-50 px-6 py-3 text-center shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.25)]">Aksi</th>
@@ -178,15 +183,16 @@
                             <td class="px-6 py-4">
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
-                            <td class="px-6 py-4">
+                            @if($userTable['shows_student_profile'])
+                            <td class="w-[360px] min-w-[360px] px-6 py-4">
                                 <div class="space-y-1">
-                                    <p class="text-gray-700">
-                                        <span class="text-xs text-gray-500">Pilihan 1:</span>
-                                        {{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-gray-700">
+                                        <span class="shrink-0 text-xs text-gray-500">Pilihan 1:</span>
+                                        <span class="truncate">{{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}</span>
                                     </p>
-                                    <p class="text-xs text-gray-600">
-                                        <span class="text-gray-500">Pilihan 2:</span>
-                                        {{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-xs text-gray-600">
+                                        <span class="shrink-0 text-gray-500">Pilihan 2:</span>
+                                        <span class="truncate">{{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}</span>
                                     </p>
                                 </div>
                             </td>
@@ -218,21 +224,25 @@
                                     <span class="text-xs text-gray-400">Belum ada data</span>
                                 @endif
                             </td>
+                            @elseif($userTable['shows_tutor_profile'])
                             <td class="px-6 py-4">
-                                @php
-                                $roleClass = match($user->role) {
-                                'admin' => 'bg-red-100 text-red-800',
-                                'admin_demo' => 'bg-amber-100 text-amber-800',
-                                'user' => 'bg-green-100 text-green-800',
-                                'konsultan' => 'bg-blue-100 text-blue-800',
-                                default => 'bg-gray-100 text-gray-800'
-                                };
-                                $roleLabel = $roleOptions[$user->role] ?? \Illuminate\Support\Str::headline($user->role);
-                                @endphp
-                                <span class="px-2 py-1 text-xs font-medium rounded-full {{ $roleClass }}">
-                                    {{ $roleLabel }}
-                                </span>
+                                @if($user->tentorProfile)
+                                    <p class="max-w-56 truncate font-medium text-gray-700" title="{{ $user->tentorProfile->expertise }}">{{ $user->tentorProfile->expertise ?: 'Keahlian belum diisi' }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $user->tentorProfile->education ?: 'Pendidikan belum diisi' }}@if($user->tentorProfile->experience_years) · {{ $user->tentorProfile->experience_years }} th pengalaman @endif</p>
+                                @else
+                                    <span class="text-xs text-gray-400">Profil tutor belum diatur</span>
+                                @endif
                             </td>
+                            @elseif($userTable['shows_children'])
+                            <td class="px-6 py-4">
+                                @if($user->children->isNotEmpty())
+                                    <p class="max-w-56 truncate font-medium text-gray-700" title="{{ $user->children->pluck('name')->implode(', ') }}">{{ $user->children->pluck('name')->implode(', ') }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $user->children_count }} anak terhubung</p>
+                                @else
+                                    <span class="text-xs text-gray-400">Belum ada anak terhubung</span>
+                                @endif
+                            </td>
+                            @endif
                             <td class="px-6 py-4">
                                 @php
                                 $statusClass = match($user->status) {
@@ -256,12 +266,14 @@
                                         <i class="ri-eye-line text-base"></i>
                                         <span class="sr-only">Lihat detail user</span>
                                     </a>
+                                    @if($userTable['shows_student_profile'])
                                     <a href="{{ route('admin.user.report', $user->id) }}"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                                         title="Lihat laporan belajar" aria-label="Lihat laporan belajar">
                                         <i class="ri-bar-chart-line text-base"></i>
                                         <span class="sr-only">Lihat laporan belajar</span>
                                     </a>
+                                    @endif
                                     @if($user->role === 'user')
                                     <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
                                         class="inline-flex"
@@ -305,7 +317,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="{{ $userTable['empty_colspan'] }}" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>

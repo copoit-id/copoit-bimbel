@@ -14,11 +14,11 @@
     </div>
 
     <section class="grid gap-4 sm:grid-cols-2">
-        <article class="rounded-xl border border-gray-200 bg-white p-5">
-            <div class="flex items-start justify-between gap-4"><div><p class="text-sm text-gray-500">Sudah dibayar</p><p class="mt-2 text-2xl font-bold text-emerald-700">Rp {{ number_format((int) ($summary->paid_amount ?? 0), 0, ',', '.') }}</p></div><span class="rounded-lg bg-emerald-50 p-2 text-emerald-600"><i class="ri-checkbox-circle-line text-xl"></i></span></div>
+        <article class="rounded-2xl border border-primary/15 bg-primary/[0.03] p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4"><div><p class="text-sm font-medium text-gray-500">Sudah dibayar</p><p class="mt-2 text-2xl font-bold text-gray-900">Rp {{ number_format((int) ($summary->paid_amount ?? 0), 0, ',', '.') }}</p><p class="mt-2 text-xs font-semibold text-primary">Pembayaran telah diproses</p></div><span class="rounded-xl bg-primary/10 p-3 text-primary"><i class="ri-checkbox-circle-line text-xl"></i></span></div>
         </article>
-        <article class="rounded-xl border border-gray-200 bg-white p-5">
-            <div class="flex items-start justify-between gap-4"><div><p class="text-sm text-gray-500">Menunggu pembayaran</p><p class="mt-2 text-2xl font-bold text-amber-700">Rp {{ number_format((int) ($summary->pending_amount ?? 0), 0, ',', '.') }}</p></div><span class="rounded-lg bg-amber-50 p-2 text-amber-600"><i class="ri-time-line text-xl"></i></span></div>
+        <article class="rounded-2xl border border-primary/15 bg-white p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4"><div><p class="text-sm font-medium text-gray-500">Menunggu pembayaran</p><p class="mt-2 text-2xl font-bold text-gray-900">Rp {{ number_format((int) ($summary->pending_amount ?? 0), 0, ',', '.') }}</p><p class="mt-2 text-xs font-semibold text-primary">Menunggu proses admin</p></div><span class="rounded-xl bg-primary/10 p-3 text-primary"><i class="ri-time-line text-xl"></i></span></div>
         </article>
     </section>
 

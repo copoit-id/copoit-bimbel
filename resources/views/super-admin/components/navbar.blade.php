@@ -1,4 +1,8 @@
-<nav class="fixed top-0 z-50 w-full bg-white border-b border-gray-200">
+@php
+    $pageTitle = trim((string) app('view')->getSection('title')) ?: 'Pengelolaan Sistem';
+@endphp
+
+<nav data-persistent-navbar class="sticky top-0 z-50 w-full bg-white border-b border-gray-200">
     <div class="px-4 py-3 lg:px-6 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -7,9 +11,14 @@
                     <span class="sr-only">Open sidebar</span>
                     <i class="ri-menu-line text-lg"></i>
                 </button>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 sm:hidden">
                     <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">SA</div>
                     <span class="text-lg font-semibold text-gray-900">Super Admin</span>
+                </div>
+                <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500">
+                    <span>{{ $clientBranding['name'] ?? 'Copoit Academy' }}</span>
+                    <i class="ri-arrow-right-s-line text-gray-300" aria-hidden="true"></i>
+                    <span class="font-medium text-gray-900">{{ $pageTitle }}</span>
                 </div>
             </div>
             <div class="flex items-center gap-3">

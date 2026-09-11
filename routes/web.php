@@ -61,11 +61,13 @@ use App\Http\Controllers\OriginInstitutionLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Http\Controllers\superadmin\AiUsageController;
+use App\Http\Controllers\superadmin\DataResetController;
 use App\Http\Controllers\superadmin\GeneralSettingController;
 use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
+use App\Http\Controllers\superadmin\TryoutLoadTestController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
 use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
@@ -159,11 +161,16 @@ Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth
 
 // Parent portal: read-only access to students explicitly linked by Admin.
 Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'module:parent_portal', 'no-cache'])->group(function (): void {
+    Route::post('/pilih-anak', [ParentPortalController::class, 'selectChild'])->name('select-child');
     Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
     Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
+    Route::get('/katalog-belajar', [ParentPortalController::class, 'catalog'])->name('catalog');
+    Route::post('/katalog-belajar/{package}/checkout', [ParentPortalController::class, 'checkoutPackage'])->middleware('throttle:15,1')->name('catalog.checkout');
     Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
+    Route::get('/riwayat-ujian/{tryout}', [ParentPortalController::class, 'assessmentDetail'])->name('assessments.detail');
     Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
+    Route::get('/laporan-cetak/tryout/{tryout}/attempt/{attemptToken}', [ParentPortalController::class, 'reportAttempt'])->name('report.attempt');
     Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
     Route::get('/chat-tutor', [ChatController::class, 'parentIndex'])->name('chat.index');
     Route::get('/chat-tutor/anak/{child}/jadwal/{classSchedule}', [ChatController::class, 'parentShow'])->name('chat.schedule.show');
@@ -430,6 +437,13 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
         Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
         Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+        Route::get('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'createFeedbackForSession'])->name('schedule.feedback.create');
+        Route::post('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'storeFeedbackForSession'])->middleware('throttle:20,1')->name('schedule.feedback.store');
+        Route::get('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'createForSession'])->name('schedule.progress.create');
+        Route::post('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'storeForSession'])->middleware('throttle:20,1')->name('schedule.progress.store');
+        Route::get('jadwal/{session}/laporan-perkembangan/{report}/edit', [TutorStudentDevelopmentController::class, 'editForSession'])->name('schedule.progress.edit');
+        Route::put('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'updateForSession'])->middleware('throttle:20,1')->name('schedule.progress.update');
+        Route::delete('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'destroyForSession'])->middleware('throttle:20,1')->name('schedule.progress.destroy');
     });
     Route::get('penghasilan', [TutorDashboardController::class, 'earnings'])
         ->middleware('module:tutor_payroll')
@@ -447,15 +461,6 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
             ->middleware('throttle:20,1')
             ->name('propose');
-    });
-    Route::prefix('perkembangan')->name('development.')->middleware('client-feature:learning-progress')->group(function () {
-        Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
-        Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
-            ->middleware('throttle:30,1')
-            ->name('feedback.store');
-        Route::post('/progres', [TutorStudentDevelopmentController::class, 'storeProgress'])
-            ->middleware('throttle:30,1')
-            ->name('progress.store');
     });
     Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
@@ -483,6 +488,13 @@ Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'm
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
+    Route::get('/load-test', [TryoutLoadTestController::class, 'index'])->name('load-test.index');
+    Route::post('/load-test', [TryoutLoadTestController::class, 'create'])->middleware('throttle:2,1')->name('load-test.create');
+    Route::get('/load-test/{batch}/users.csv', [TryoutLoadTestController::class, 'download'])->name('load-test.download');
+    Route::post('/load-test/{batch}/reset', [TryoutLoadTestController::class, 'reset'])->middleware('throttle:3,1')->name('load-test.reset');
+    Route::delete('/load-test/{batch}', [TryoutLoadTestController::class, 'destroy'])->middleware('throttle:2,1')->name('load-test.destroy');
+    Route::get('/reset-data', [DataResetController::class, 'index'])->name('data-reset.index');
+    Route::delete('/reset-data', [DataResetController::class, 'destroy'])->middleware('throttle:3,1')->name('data-reset.destroy');
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
     Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
     Route::get('/admins/copy-text', [SuperAdminController::class, 'copyText'])->name('admins.copy-text');
@@ -549,6 +561,7 @@ Route::prefix('{portal}')
             Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
             Route::get('/leaderboard/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('leaderboard.show');
             Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+            Route::get('/laporan/{id}', [LaporanController::class, 'schoolShow'])->name('laporan.show');
             Route::get('/data-tryout-siswa', [LaporanController::class, 'students'])->name('student-tryouts.index');
             Route::get('/data-tryout-siswa/{user}', [LaporanController::class, 'studentDetail'])->name('student-tryouts.show');
         });

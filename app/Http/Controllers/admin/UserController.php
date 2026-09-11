@@ -48,23 +48,28 @@ class UserController extends Controller
             $activeRole = array_key_exists('user', $roleOptions) ? 'user' : array_key_first($roleOptions);
         }
 
+        $userTable = $this->userTableProfile((string) $activeRole);
+
         $users = User::query()
-            ->with([
-                'participantDestinationCategory.parent',
-                'secondParticipantDestinationCategory.parent',
-                'studyGroups:id,name',
-                'userPackageAccess' => fn ($query) => $query
-                    ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])
-                    ->with('package:package_id,name'),
-            ])
-            ->withCount([
-                'userPackageAccess as active_package_access_count' => fn ($query) => $query
-                    ->where('status', 'active')
-                    ->where(fn ($access) => $access->whereNull('end_date')->orWhere('end_date', '>', now())),
-                'classAttendances as attendance_record_count',
-                'classAttendances as attendance_present_count' => fn ($query) => $query
-                    ->whereIn('status', ['present', 'late']),
-            ])
+            ->when($userTable['shows_student_profile'], fn ($query) => $query
+                ->with([
+                    'participantDestinationCategory.parent',
+                    'secondParticipantDestinationCategory.parent',
+                    'studyGroups:id,name',
+                    'userPackageAccess' => fn ($accessQuery) => $accessQuery
+                        ->select(['user_package_access_id', 'user_id', 'package_id', 'status', 'end_date'])
+                        ->with('package:package_id,name'),
+                ])
+                ->withCount([
+                    'classAttendances as attendance_record_count',
+                    'classAttendances as attendance_present_count' => fn ($attendanceQuery) => $attendanceQuery
+                        ->whereIn('status', ['present', 'late']),
+                ]))
+            ->when($userTable['shows_tutor_profile'], fn ($query) => $query
+                ->with('tentorProfile:id,user_id,expertise,education,experience_years,is_active'))
+            ->when($userTable['shows_children'], fn ($query) => $query
+                ->with('children:id,name,email')
+                ->withCount('children'))
             ->where('role', '!=', 'super_admin')
             ->when($activeRole, fn ($query) => $query->where('role', $activeRole))
             ->when($search !== '', function ($query) use ($search): void {
@@ -80,7 +85,7 @@ class UserController extends Controller
             ->paginate(Pagination::perPage(10))
             ->withQueryString();
 
-        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole', 'search', 'status'));
+        return view('admin.pages.user.index', compact('users', 'roleOptions', 'activeRole', 'search', 'status', 'userTable'));
     }
 
     public function exportExcel(): BinaryFileResponse
@@ -734,6 +739,36 @@ class UserController extends Controller
             ->sortBy(fn (Role $role): int => $role->slug === 'user' ? 0 : 1)
             ->pluck('name', 'slug')
             ->toArray();
+    }
+
+    /**
+     * @return array{
+     *     shows_student_profile: bool,
+     *     shows_tutor_profile: bool,
+     *     shows_children: bool,
+     *     min_width_class: string,
+     *     empty_colspan: int
+     * }
+     */
+    private function userTableProfile(string $role): array
+    {
+        $profile = [
+            'shows_student_profile' => $role === 'user',
+            'shows_tutor_profile' => $role === 'tutor',
+            'shows_children' => $role === 'parent',
+        ];
+
+        $additionalColumns = match (true) {
+            $profile['shows_student_profile'] => 3,
+            $profile['shows_tutor_profile'], $profile['shows_children'] => 1,
+            default => 0,
+        };
+
+        return [
+            ...$profile,
+            'min_width_class' => $additionalColumns >= 3 ? 'min-w-[1320px]' : 'min-w-[780px]',
+            'empty_colspan' => 6 + $additionalColumns,
+        ];
     }
 
     /** @return array<string, string> */

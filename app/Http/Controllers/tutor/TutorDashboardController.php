@@ -113,17 +113,22 @@ class TutorDashboardController extends Controller
     {
         $tentor = $request->user()->tentorProfile;
         $scheduleRange = $request->string('range')->toString();
-        $scheduleRange = in_array($scheduleRange, ['week', 'month', 'all'], true) ? $scheduleRange : 'week';
+        $scheduleRange = in_array($scheduleRange, ['today', 'week', 'month', 'all'], true) ? $scheduleRange : 'today';
         $schedule = match ($scheduleRange) {
+            'today' => $this->todayScheduleData($tentor->id),
             'week' => $this->weeklyScheduleData($tentor->id),
             'month' => $this->monthlyScheduleData($tentor->id),
             default => $this->allScheduleData($tentor->id),
         };
-        $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
+        $planModules = app(PlanModuleService::class);
+        $canManageSchedule = $planModules->allows('schedule');
+        $canManageBookings = (bool) config('client.branding.booking_schedule_enabled', false)
+            && $planModules->allows('booking');
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
             'canManageSchedule' => $canManageSchedule,
+            'canManageBookings' => $canManageBookings,
             'scheduleRange' => $scheduleRange,
             ...$schedule,
         ]);
@@ -256,9 +261,11 @@ class TutorDashboardController extends Controller
             ]
         );
 
-        return redirect()
-            ->route('tutor.attendance.schedule.show', $session->class_schedule_id)
-            ->with('success', 'Kehadiran Anda berhasil dicatat.');
+        $redirect = $request->input('return_to') === 'schedule_today'
+            ? redirect()->route('tutor.schedule.index', ['range' => 'today'])
+            : redirect()->route('tutor.attendance.schedule.show', $session->class_schedule_id);
+
+        return $redirect->with('success', 'Kehadiran Anda berhasil dicatat.');
     }
 
     public function markStudentAttendance(Request $request, ClassSession $session, ClassAttendanceParticipantService $participantService): RedirectResponse
@@ -291,7 +298,13 @@ class TutorDashboardController extends Controller
 
     private function sessionsFor(int $tentorId, bool $includeTutorAttendance = true)
     {
-        $relations = ['class:class_id,title', 'schedule:id,title', 'studyGroup:id,name'];
+        $relations = [
+            'class:class_id,title',
+            'schedule:id,title',
+            'studyGroup:id,name',
+            'bookingRequest:id,class_session_id,user_id,status',
+            'bookingRequest.user:id,name',
+        ];
 
         if ($includeTutorAttendance) {
             $relations = [...$relations, 'tutorAttendance', 'schedule.attendanceSetting'];
@@ -299,8 +312,18 @@ class TutorDashboardController extends Controller
 
         return ClassSession::query()
             ->with($relations)
+            ->withExists(['progressReports as has_session_progress' => fn ($query) => $query->whereNull('user_id')])
             ->where('tentor_id', $tentorId)
             ->orderBy('start_at');
+    }
+
+    private function todayScheduleData(int $tentorId): array
+    {
+        return [
+            'todaySessions' => $this->sessionsFor($tentorId)
+                ->whereDate('session_date', now()->toDateString())
+                ->get(),
+        ];
     }
 
     private function weeklyScheduleData(int $tentorId): array

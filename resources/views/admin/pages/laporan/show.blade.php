@@ -9,7 +9,7 @@
     <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <x-breadcrumb>
             <x-slot name="items">
-                <x-breadcrumb-item href="{{ route('admin.laporan.index') }}" title="Laporan Tryout" />
+                <x-breadcrumb-item href="{{ route($schoolReport ? 'admin.school.laporan' : 'admin.laporan.index') }}" title="Laporan Tryout" />
                 <x-breadcrumb-item href="" title="Detail Tryout" />
             </x-slot>
         </x-breadcrumb>

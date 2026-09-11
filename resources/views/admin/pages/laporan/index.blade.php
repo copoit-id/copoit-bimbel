@@ -2,12 +2,16 @@
 @section('title', 'Laporan Tryout')
 @section('content')
 
-<div class="flex justify-between items-center">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <x-breadcrumb>
         <x-slot name="items">
             <x-breadcrumb-item href="" title="Laporan Tryout" />
         </x-slot>
     </x-breadcrumb>
+    <a href="{{ route('admin.laporan.export-excel', request()->only(['search', 'status', 'score_display'])) }}"
+        class="inline-flex items-center justify-center gap-2 rounded-lg bg-green px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700">
+        <i class="ri-file-excel-line"></i> Download Excel
+    </a>
 </div>
 <x-page-desc title="Monitor performa setiap tryout dan akses detail jawaban peserta"></x-page-desc>
 
@@ -147,7 +151,7 @@
                     <td class="px-6 py-4">
                         <div class="flex justify-center items-center gap-2">
                             <div class="flex items-center gap-2">
-                                <a href="{{ route('admin.laporan.show', $tryout->tryout_id) }}"
+                                <a href="{{ route($schoolReport ? 'admin.school.laporan.show' : 'admin.laporan.show', $tryout->tryout_id) }}"
                                     class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
                                     <i class="ri-bar-chart-2-line text-sm"></i>
                                     Statistik

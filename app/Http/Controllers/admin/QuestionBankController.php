@@ -15,6 +15,7 @@ use App\Services\AiQuestionGeneratorService;
 use App\Services\AiReferencePdfService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
+use App\ViewModels\QuestionFormViewData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,7 +57,6 @@ class QuestionBankController extends Controller
             'child_banks' => QuestionBank::whereNotNull('parent_id')->count(),
         ];
 
-        $bankOptions = QuestionBank::orderBy('name')->get();
         $visibility = app(\App\Services\TutorContentVisibilityService::class);
         $deletableBankIds = $rootBanks
             ->flatMap(fn (QuestionBank $bank) => collect([$bank])->merge($bank->children))
@@ -68,7 +68,6 @@ class QuestionBankController extends Controller
         return view('admin.pages.question-bank.index', compact(
             'rootBanks',
             'stats',
-            'bankOptions',
             'tryoutDetail',
             'importTarget',
             'bankSort',
@@ -168,19 +167,21 @@ class QuestionBankController extends Controller
         $questionBank->load(['children' => function ($query) {
             $query->withCount('questions')->latest('created_at')->latest('id');
         }]);
-        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
-            QuestionBank::withCount('questions')->get(['id', 'parent_id'])
-        );
+        $bankHierarchy = QuestionBank::withCount('questions')->get(['id', 'parent_id']);
+        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts($bankHierarchy);
         $bankTotalQuestions = $recursiveQuestionCounts[$questionBank->id] ?? 0;
+        $questionBankIds = $this->descendantBankIds($questionBank->id, $bankHierarchy);
 
-        $questionTypeOptions = $questionBank->questions()
+        $questionTypeOptions = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
             ->select('question_type')
             ->whereNotNull('question_type')
             ->distinct()
             ->orderBy('question_type')
             ->pluck('question_type');
 
-        $questionsQuery = $questionBank->questions()
+        $questionsQuery = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
             ->with(['options', 'creator:id,name,role']);
 
         if ($questionType !== 'all') {
@@ -879,7 +880,7 @@ class QuestionBankController extends Controller
         return $token;
     }
 
-    public function createQuestionForm(Request $request, QuestionBank $questionBank)
+    public function createQuestionForm(Request $request, QuestionBank $questionBank, QuestionFormViewData $questionFormViewData)
     {
         // Cek quota question bank - backend validation
         $quotaCheck = PlanQuotaService::canCreateQuestionBank();
@@ -889,20 +890,12 @@ class QuestionBankController extends Controller
         }
 
         $importTarget = $request->integer('import_for');
-        $matchingPairs = old('matching_pairs', [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ]);
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.create-question', [
-            'bank' => $questionBank,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $questionBank,
+            null,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     /**
@@ -916,27 +909,17 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function editQuestionForm(Request $request, QuestionBankQuestion $question)
+    public function editQuestionForm(Request $request, QuestionBankQuestion $question, QuestionFormViewData $questionFormViewData)
     {
         $importTarget = $request->integer('import_for');
         $question->load('options', 'bank');
 
-        $metadata = is_array($question->metadata) ? $question->metadata : [];
-        $matchingPairs = $metadata['matching_pairs'] ?? [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ];
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.edit-question', [
-            'bank' => $question->bank,
-            'question' => $question,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $question->bank,
+            $question,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     public function storeQuestion(Request $request, QuestionBank $questionBank)
@@ -1488,6 +1471,26 @@ class QuestionBankController extends Controller
         }
 
         return $totals;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function descendantBankIds(int $bankId, $banks): array
+    {
+        $childrenByParent = $banks->groupBy('parent_id');
+        $ids = [];
+        $collect = function (int $id) use (&$collect, &$ids, $childrenByParent): void {
+            $ids[] = $id;
+
+            foreach ($childrenByParent->get($id, collect()) as $child) {
+                $collect((int) $child->id);
+            }
+        };
+
+        $collect($bankId);
+
+        return array_values(array_unique($ids));
     }
 
     private function normalizeImportScore($value, float $fallback = 0): float

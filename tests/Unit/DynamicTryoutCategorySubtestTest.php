@@ -9,6 +9,7 @@ use App\Models\TryoutDetail;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use PHPUnit\Framework\Attributes\RunClassInSeparateProcess;
 use Tests\TestCase;
 
@@ -195,6 +196,39 @@ class DynamicTryoutCategorySubtestTest extends TestCase
             'structure_written_expression',
         ], $details->pluck('type_subtest')->all());
         $this->assertSame([50, 40], $details->pluck('duration')->all());
+    }
+
+    public function test_passing_score_only_has_a_hundred_point_limit_for_percentages(): void
+    {
+        $controller = app(TryoutController::class);
+        $method = new \ReflectionMethod(TryoutController::class, 'tryoutValidationRules');
+        $originalRequest = app('request');
+
+        try {
+            $rawScoreRequest = Request::create('/', 'POST', [
+                'passing_score_twk' => 245,
+                'passing_type_twk' => 'score',
+            ]);
+            app()->instance('request', $rawScoreRequest);
+            $rawScoreRules = $method->invoke($controller);
+
+            $this->assertTrue(Validator::make($rawScoreRequest->all(), [
+                'passing_score_twk' => $rawScoreRules['passing_score_twk'],
+            ])->passes());
+
+            $percentageRequest = Request::create('/', 'POST', [
+                'passing_score_twk' => 101,
+                'passing_type_twk' => 'percentage',
+            ]);
+            app()->instance('request', $percentageRequest);
+            $percentageRules = $method->invoke($controller);
+
+            $this->assertTrue(Validator::make($percentageRequest->all(), [
+                'passing_score_twk' => $percentageRules['passing_score_twk'],
+            ])->fails());
+        } finally {
+            app()->instance('request', $originalRequest);
+        }
     }
 
     public function test_changing_tryout_type_preserves_questions_and_answers_in_the_new_subtest_structure(): void
