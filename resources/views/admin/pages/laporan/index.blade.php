@@ -151,7 +151,7 @@
                     <td class="px-6 py-4">
                         <div class="flex justify-center items-center gap-2">
                             <div class="flex items-center gap-2">
-                                <a href="{{ route('admin.laporan.show', $tryout->tryout_id) }}"
+                                <a href="{{ route($schoolReport ? 'admin.school.laporan.show' : 'admin.laporan.show', $tryout->tryout_id) }}"
                                     class="flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition">
                                     <i class="ri-bar-chart-2-line text-sm"></i>
                                     Statistik

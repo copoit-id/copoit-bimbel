@@ -191,9 +191,16 @@ class LaporanController extends Controller
             'completed_participants' => $this->countDistinctTryoutParticipants(['completed', 'pending_release']),
         ];
 
-        $schoolReport = auth()->user()?->role === 'admin_sekolah';
+        $schoolReport = $request->routeIs('admin.school.laporan*');
 
         return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status', 'scoreDisplay', 'schoolReport'));
+    }
+
+    public function schoolShow(Request $request, int $id)
+    {
+        $this->ensureSchoolAdmin();
+
+        return $this->show($request, $id);
     }
 
     public function exportExcel(Request $request)
@@ -568,6 +575,7 @@ class LaporanController extends Controller
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
 
         $hasSnapshotProctoring = $this->hasSnapshotProctoring($tryout);
+        $schoolReport = $request->routeIs('admin.school.laporan*');
 
         return view('admin.pages.laporan.show', compact(
             'tryout',
@@ -576,7 +584,8 @@ class LaporanController extends Controller
             'subtestDefinitions',
             'leaderboardPackageId',
             'hasSnapshotProctoring',
-            'search'
+            'search',
+            'schoolReport'
         ));
     }
 
@@ -1097,6 +1106,10 @@ class LaporanController extends Controller
             'packages',
         ])
             ->select('tryouts.*')
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereHas(
+                'userAnswers',
+                fn ($answerQuery) => $answerQuery->whereIn('user_id', $schoolStudentIds)
+            ))
             ->selectSub(
                 UserAnswer::query()
                     ->selectRaw('COUNT(DISTINCT user_id)')

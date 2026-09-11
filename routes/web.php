@@ -563,6 +563,7 @@ Route::prefix('{portal}')
             Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
             Route::get('/leaderboard/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('leaderboard.show');
             Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+            Route::get('/laporan/{id}', [LaporanController::class, 'schoolShow'])->name('laporan.show');
             Route::get('/data-tryout-siswa', [LaporanController::class, 'students'])->name('student-tryouts.index');
             Route::get('/data-tryout-siswa/{user}', [LaporanController::class, 'studentDetail'])->name('student-tryouts.show');
         });
