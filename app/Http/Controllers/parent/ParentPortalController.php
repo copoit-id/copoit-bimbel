@@ -17,6 +17,7 @@ use App\Models\UserPackageAcces;
 use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -152,7 +153,7 @@ class ParentPortalController extends Controller
         $accesses = $child
             ? UserPackageAcces::query()
                 ->where('user_id', $child->id)
-                ->with(['package' => fn (Builder $query) => $query
+                ->with(['package' => fn (BelongsTo $query) => $query
                     ->select(['package_id', 'name'])
                     ->withCount(['materials', 'tryouts', 'classes', 'tesKorans'])])
                 ->withCount(['bookingRequests as completed_booking_count' => fn (Builder $query) => $query->consumesQuota()])
