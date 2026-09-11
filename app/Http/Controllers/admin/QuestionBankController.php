@@ -168,19 +168,21 @@ class QuestionBankController extends Controller
         $questionBank->load(['children' => function ($query) {
             $query->withCount('questions')->latest('created_at')->latest('id');
         }]);
-        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
-            QuestionBank::withCount('questions')->get(['id', 'parent_id'])
-        );
+        $bankHierarchy = QuestionBank::withCount('questions')->get(['id', 'parent_id']);
+        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts($bankHierarchy);
         $bankTotalQuestions = $recursiveQuestionCounts[$questionBank->id] ?? 0;
+        $questionBankIds = $this->descendantBankIds($questionBank->id, $bankHierarchy);
 
-        $questionTypeOptions = $questionBank->questions()
+        $questionTypeOptions = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
             ->select('question_type')
             ->whereNotNull('question_type')
             ->distinct()
             ->orderBy('question_type')
             ->pluck('question_type');
 
-        $questionsQuery = $questionBank->questions()
+        $questionsQuery = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
             ->with(['options', 'creator:id,name,role']);
 
         if ($questionType !== 'all') {
@@ -1488,6 +1490,26 @@ class QuestionBankController extends Controller
         }
 
         return $totals;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function descendantBankIds(int $bankId, $banks): array
+    {
+        $childrenByParent = $banks->groupBy('parent_id');
+        $ids = [];
+        $collect = function (int $id) use (&$collect, &$ids, $childrenByParent): void {
+            $ids[] = $id;
+
+            foreach ($childrenByParent->get($id, collect()) as $child) {
+                $collect((int) $child->id);
+            }
+        };
+
+        $collect($bankId);
+
+        return array_values(array_unique($ids));
     }
 
     private function normalizeImportScore($value, float $fallback = 0): float
