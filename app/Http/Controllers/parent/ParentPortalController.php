@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\parent;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\user\PackageController as UserPackageController;
 use App\Models\ClassAttendance;
+use App\Models\Package;
 use App\Models\ScheduleBookingRequest;
 use App\Models\StudentFeedback;
 use App\Models\StudentProgressReport;
@@ -13,10 +15,12 @@ use App\Models\UserPackageAcces;
 use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ParentPortalController extends Controller
 {
@@ -122,6 +126,71 @@ class ParentPortalController extends Controller
             : collect();
 
         return view('parent.packages', compact('children', 'child', 'accesses', 'payments'));
+    }
+
+    public function catalog(Request $request): View
+    {
+        [$children, $child] = $this->childrenAndSelectedChild($request);
+        $ownedPackageIds = $child
+            ? UserPackageAcces::query()
+                ->where('user_id', $child->id)
+                ->active()
+                ->where(fn (Builder $query) => $query->whereNull('end_date')->orWhere('end_date', '>', now()))
+                ->pluck('package_id')
+                ->map(fn (int $id): int => $id)
+                ->all()
+            : [];
+        $catalogPackages = $child
+            ? Package::query()
+                ->active()
+                ->where('is_displayed', true)
+                ->where('enrollment_mode', Package::ENROLLMENT_DIRECT_PURCHASE)
+                ->whereDoesntHave('bookingRule', fn (Builder $query) => $query
+                    ->where('is_enabled', true)
+                    ->where('learning_mode', 'group'))
+                ->withCount(['materials', 'tryouts', 'classes', 'tesKorans'])
+                ->latest()
+                ->paginate(Pagination::perPage(12))
+                ->withQueryString()
+            : collect();
+
+        return view('parent.catalog', compact('children', 'child', 'catalogPackages', 'ownedPackageIds'));
+    }
+
+    public function checkoutPackage(Request $request, Package $package): Response
+    {
+        [, $child] = $this->childrenAndSelectedChild($request);
+        abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
+        abort_unless(
+            $package->status === 'active'
+                && $package->is_displayed
+                && $package->enrollment_mode === Package::ENROLLMENT_DIRECT_PURCHASE,
+            404,
+            'Paket tidak tersedia untuk dibeli.'
+        );
+
+        $guard = auth()->guard();
+        $parent = $guard->user();
+        $guard->setUser($child);
+
+        try {
+            $response = app(UserPackageController::class)->buyPackage($request, $package->package_id);
+
+            if ($response instanceof JsonResponse) {
+                $payload = $response->getData(true);
+                $redirectPath = parse_url((string) ($payload['redirect_url'] ?? ''), PHP_URL_PATH);
+
+                if (is_string($redirectPath) && str_starts_with($redirectPath, '/user/')) {
+                    $payload['redirect_url'] = route('parent.packages', ['anak' => $child->id]);
+                }
+
+                return response()->json($payload, $response->getStatusCode());
+            }
+
+            return $response;
+        } finally {
+            $guard->setUser($parent);
+        }
     }
 
     public function assessments(Request $request): View

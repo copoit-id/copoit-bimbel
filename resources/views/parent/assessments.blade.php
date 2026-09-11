@@ -49,13 +49,13 @@
             @if($assessmentTrendChart['points'] !== [])
                 <div class="mt-5 overflow-x-auto">
                     <svg class="h-52 min-w-[520px] w-full" viewBox="0 0 640 210" role="img" aria-label="Grafik tren nilai tryout">
-                        <defs><linearGradient id="assessment-trend-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="currentColor" stop-opacity=".2"/><stop offset="100%" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+                        <defs><linearGradient id="assessment-trend-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#6366f1" stop-opacity=".30"/><stop offset="100%" stop-color="#a855f7" stop-opacity=".02"/></linearGradient></defs>
                         <path d="M28 32H612M28 82H612M28 132H612M28 184H612" class="stroke-slate-100" stroke-width="1" fill="none"/>
-                        <polygon points="{{ $assessmentTrendChart['area'] }}" class="fill-primary/20"/>
-                        <polyline points="{{ $assessmentTrendChart['polyline'] }}" class="stroke-primary" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <polygon points="{{ $assessmentTrendChart['area'] }}" fill="url(#assessment-trend-fill)"/>
+                        <polyline points="{{ $assessmentTrendChart['polyline'] }}" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
                         @foreach($assessmentTrendChart['points'] as $point)
-                            <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="4" class="fill-white stroke-primary" stroke-width="3"/>
-                            <text x="{{ $point['x'] }}" y="204" text-anchor="middle" class="fill-slate-400" font-size="10">{{ $point['label'] }}</text>
+                            <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="4" fill="#ffffff" stroke="#4f46e5" stroke-width="3"/>
+                            <text x="{{ $point['x'] }}" y="204" text-anchor="middle" fill="#94a3b8" font-size="10">{{ $point['label'] }}</text>
                         @endforeach
                     </svg>
                 </div>

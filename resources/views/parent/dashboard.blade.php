@@ -63,12 +63,12 @@
                 @if($scoreTrendChart['points'] !== [])
                     <div class="mt-5 rounded-xl border border-primary/10 bg-gradient-to-b from-primary/5 to-white px-2 py-3 sm:px-4">
                         <svg viewBox="0 0 640 210" class="h-52 w-full overflow-visible" role="img" aria-label="Grafik tren nilai {{ $child->name }}">
-                            <defs><linearGradient id="parent-score-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="currentColor" stop-opacity=".24"/><stop offset="100%" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+                            <defs><linearGradient id="parent-score-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#6366f1" stop-opacity=".30"/><stop offset="100%" stop-color="#a855f7" stop-opacity=".02"/></linearGradient></defs>
                             <path d="M28 26H612M28 105H612M28 184H612" class="stroke-slate-200" stroke-dasharray="4 6" fill="none"></path>
-                            <polygon points="{{ $scoreTrendChart['area'] }}" class="fill-primary/20"></polygon>
-                            <polyline points="{{ $scoreTrendChart['polyline'] }}" class="fill-none stroke-primary" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></polyline>
+                            <polygon points="{{ $scoreTrendChart['area'] }}" fill="url(#parent-score-area)"></polygon>
+                            <polyline points="{{ $scoreTrendChart['polyline'] }}" fill="none" stroke="#4f46e5" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"></polyline>
                             @foreach($scoreTrendChart['points'] as $point)
-                                <g><circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="6" class="fill-white stroke-primary" stroke-width="4"><title>{{ $point['name'] }} · {{ number_format($point['score'], 1) }}</title></circle><text x="{{ $point['x'] }}" y="{{ $point['y'] - 13 }}" text-anchor="middle" class="fill-slate-600 text-[11px] font-semibold">{{ number_format($point['score'], 0) }}</text><text x="{{ $point['x'] }}" y="204" text-anchor="middle" class="fill-slate-400 text-[10px]">{{ $point['label'] }}</text></g>
+                                <g><circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="6" fill="#ffffff" stroke="#4f46e5" stroke-width="4"><title>{{ $point['name'] }} · {{ number_format($point['score'], 1) }}</title></circle><text x="{{ $point['x'] }}" y="{{ $point['y'] - 13 }}" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">{{ number_format($point['score'], 0) }}</text><text x="{{ $point['x'] }}" y="204" text-anchor="middle" fill="#94a3b8" font-size="10">{{ $point['label'] }}</text></g>
                             @endforeach
                         </svg>
                     </div>

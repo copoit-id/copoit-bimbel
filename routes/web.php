@@ -164,6 +164,8 @@ Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'modu
     Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
     Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
+    Route::get('/katalog-belajar', [ParentPortalController::class, 'catalog'])->name('catalog');
+    Route::post('/katalog-belajar/{package}/checkout', [ParentPortalController::class, 'checkoutPackage'])->middleware('throttle:15,1')->name('catalog.checkout');
     Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
     Route::get('/riwayat-ujian/{tryout}', [ParentPortalController::class, 'assessmentDetail'])->name('assessments.detail');
     Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');

@@ -20,7 +20,8 @@ class ParentNavigationService
         $items = [
             ['route' => 'parent.dashboard', 'icon' => 'ri-home-5-line', 'label' => 'Ringkasan'],
             ['route' => 'parent.attendance', 'icon' => 'ri-calendar-check-line', 'label' => 'Presensi'],
-            ['route' => 'parent.packages', 'icon' => 'ri-bank-card-line', 'label' => 'Paket & Pembayaran'],
+            ['route' => 'parent.catalog', 'icon' => 'ri-store-2-line', 'label' => 'Katalog Belajar'],
+            ['route' => 'parent.packages', 'icon' => 'ri-bank-card-line', 'label' => 'Akses & Pembayaran'],
             ['route' => 'parent.assessments', 'icon' => 'ri-bar-chart-box-line', 'label' => 'Riwayat Ujian'],
         ];
 
