@@ -60,6 +60,7 @@ class ParentPortalController extends Controller
             ->values();
         $scoreTrendMaximum = max(1, (float) $scoreTrend->max('score'));
         $assessmentSummary = $this->assessmentSummary($child->id);
+        $childAccountStatus = $this->childAccountStatus($child);
         $recentFeedback = $this->feedbackQuery($child)
             ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
             ->latest()
@@ -77,6 +78,7 @@ class ParentPortalController extends Controller
             'scoreTrend',
             'scoreTrendMaximum',
             'assessmentSummary',
+            'childAccountStatus',
             'recentFeedback',
             'alerts'
         ));
@@ -206,7 +208,7 @@ class ParentPortalController extends Controller
         $children = $request->user()->children()
             ->where('users.status', 'aktif')
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name', 'users.email', 'users.phone']);
+            ->get(['users.id', 'users.name', 'users.email', 'users.phone', 'users.status']);
         $selectedChildId = (int) $request->query('anak', $children->first()?->id);
         $child = $children->firstWhere('id', $selectedChildId);
 
@@ -269,6 +271,26 @@ class ParentPortalController extends Controller
         return ['completed' => 0, 'average_score' => 0, 'highest_score' => 0];
     }
 
+    /** @return array{label: string, description: string, icon: string, classes: string} */
+    private function childAccountStatus(User $child): array
+    {
+        if ($child->status === 'aktif') {
+            return [
+                'label' => 'Akun aktif',
+                'description' => 'Anak dapat mengikuti program belajar.',
+                'icon' => 'ri-checkbox-circle-line',
+                'classes' => 'bg-emerald-50 text-emerald-700',
+            ];
+        }
+
+        return [
+            'label' => 'Akun nonaktif',
+            'description' => 'Hubungi Admin untuk mengaktifkan kembali akun.',
+            'icon' => 'ri-information-line',
+            'classes' => 'bg-slate-100 text-slate-600',
+        ];
+    }
+
     private function alerts(User $child, Collection $packages, array $attendanceSummary): Collection
     {
         $alerts = collect();
@@ -296,6 +318,7 @@ class ParentPortalController extends Controller
             'scoreTrend' => collect(),
             'scoreTrendMaximum' => 1,
             'assessmentSummary' => $this->emptyAssessmentSummary(),
+            'childAccountStatus' => null,
             'recentFeedback' => collect(),
             'alerts' => collect(),
         ];

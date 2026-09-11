@@ -13,6 +13,7 @@
     @stack('styles')
 </head>
 <body class="min-h-screen bg-slate-50 text-gray-800" data-app-selects>
+    @php($childSelectorRoute = request()->routeIs('parent.chat.schedule.show') ? 'parent.dashboard' : request()->route()?->getName())
     <header class="sticky top-0 z-30 bg-slate-50/95 px-3 pt-3 backdrop-blur sm:px-4">
         <div class="responsive-shell mx-auto flex max-w-[1440px] items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5">
             <a href="{{ route('parent.dashboard') }}" class="flex min-w-0 items-center gap-3">
@@ -24,7 +25,7 @@
                     <label class="sr-only" for="parent-child-selector">Pilih anak</label>
                     <select id="parent-child-selector" onchange="window.location=this.value" class="max-w-36 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-gray-700 focus:border-primary focus:ring-primary sm:max-w-xs">
                         @foreach($children as $listedChild)
-                            <option value="{{ route(request()->route()?->getName(), ['anak' => $listedChild->id]) }}" @selected((int) ($child?->id) === (int) $listedChild->id)>{{ $listedChild->name }}</option>
+                            <option value="{{ route($childSelectorRoute, ['anak' => $listedChild->id]) }}" @selected((int) ($child?->id) === (int) $listedChild->id)>{{ $listedChild->name }}</option>
                         @endforeach
                     </select>
                 @endif

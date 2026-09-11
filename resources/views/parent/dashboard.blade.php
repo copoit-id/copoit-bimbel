@@ -25,16 +25,21 @@
                 <div class="flex items-start gap-4">
                     <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-white">{{ strtoupper(mb_substr($child->name, 0, 1)) }}</span>
                     <div>
-                        <div class="flex flex-wrap items-center gap-2"><h2 class="text-lg font-bold text-gray-900">{{ $child->name }}</h2><span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Akun aktif</span></div>
+                        <div class="flex flex-wrap items-center gap-2"><h2 class="text-lg font-bold text-gray-900">{{ $child->name }}</h2><span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold {{ $childAccountStatus['classes'] }}"><i class="{{ $childAccountStatus['icon'] }}"></i>{{ $childAccountStatus['label'] }}</span></div>
                         <p class="mt-1 text-sm text-gray-500">{{ $activePackages->count() }} paket aktif · {{ $assessmentSummary['completed'] }} ujian telah diselesaikan</p>
                         <div class="mt-4 h-2 max-w-xl overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-primary" style="width: {{ $attendanceSummary['rate'] ?? 0 }}%"></div></div>
                         <p class="mt-2 text-xs font-medium text-gray-500">Konsistensi kehadiran: {{ $attendanceSummary['rate'] ?? '—' }}{{ $attendanceSummary['rate'] !== null ? '%' : '' }}</p>
                     </div>
                 </div>
-                <div class="border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-                    <p class="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">Feedback terbaru</p>
-                    <p class="mt-2 text-2xl font-bold text-gray-900">{{ $recentFeedback->count() }}</p>
-                    <p class="mt-1 text-sm text-gray-500">catatan dari tutor</p>
+                <div class="flex items-center gap-4 border-t border-slate-100 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                    <div class="relative h-20 w-20 shrink-0">
+                        <svg class="h-20 w-20 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                            <path class="fill-none stroke-slate-100" stroke-width="4" d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"></path>
+                            <path class="fill-none stroke-primary" stroke-linecap="round" stroke-width="4" pathLength="100" stroke-dasharray="{{ $attendanceSummary['rate'] ?? 0 }} 100" d="M18 2.5a15.5 15.5 0 1 1 0 31a15.5 15.5 0 1 1 0-31"></path>
+                        </svg>
+                        <span class="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-900">{{ $attendanceSummary['rate'] ?? '—' }}{{ $attendanceSummary['rate'] !== null ? '%' : '' }}</span>
+                    </div>
+                    <div><p class="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">Kehadiran</p><p class="mt-1 text-sm font-semibold text-gray-800">{{ $attendanceSummary['present'] }} sesi hadir</p><p class="mt-1 text-xs leading-5 text-gray-500">{{ $childAccountStatus['description'] }}</p></div>
                 </div>
             </div>
         </section>
@@ -54,7 +59,7 @@
 
         <section class="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
             <article class="rounded-xl border border-slate-200 bg-white p-5">
-                <div class="flex items-start justify-between gap-3"><div><h2 class="font-bold text-gray-900">Tren nilai</h2><p class="mt-1 text-sm text-gray-500">Enam ujian terakhir yang telah diselesaikan.</p></div><a href="{{ route('parent.assessments', ['anak' => $child->id]) }}" class="text-sm font-semibold text-primary hover:underline">Lihat semua</a></div>
+                <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[0.12em] text-primary">Analitik performa</p><h2 class="mt-1 font-bold text-gray-900">Tren nilai</h2><p class="mt-1 text-sm text-gray-500">Enam ujian terakhir yang telah diselesaikan.</p></div><div class="flex items-center gap-3"><span class="rounded-lg bg-primary/10 px-3 py-2 text-right"><span class="block text-[11px] font-semibold text-primary">Rata-rata</span><span class="block text-lg font-bold text-primary">{{ $assessmentSummary['completed'] ? number_format($assessmentSummary['average_score'], 1) : '—' }}</span></span><a href="{{ route('parent.assessments', ['anak' => $child->id]) }}" class="text-sm font-semibold text-primary hover:underline">Lihat semua</a></div></div>
                 @if($scoreTrend->isNotEmpty())
                     <div class="mt-6 flex h-44 items-end gap-3 border-b border-slate-100 px-1 pb-7 sm:gap-5">
                         @foreach($scoreTrend as $result)

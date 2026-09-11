@@ -8,6 +8,7 @@ use App\Models\Material;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Discount;
+use App\Models\DetailPackage;
 use App\Models\AffiliateSetting;
 use App\Models\UserPackageAcces;
 use App\Models\ClassModel;
@@ -2038,7 +2039,6 @@ class PackageController extends Controller
         // Get tryouts for this package with user attempts
         $tryouts = $package->tryouts()
             ->where('tryouts.is_active', true)
-            ->where('tryouts.is_displayed', true)
             ->with([
                 'tryoutDetails.questions',
                 'userAnswers' => function ($query) {
@@ -4660,7 +4660,8 @@ class PackageController extends Controller
         $packageRelations = [
             'package.materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
             'package.classes' => fn ($query) => $query->where('classes.is_displayed', true),
-            'package.tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+            // Konten paket yang sudah dimiliki tidak bergantung pada visibilitas katalog.
+            'package.tryouts' => fn ($query) => $query->where('tryouts.is_active', true),
         ];
         if ($tesKoranEnabled) {
             $packageRelations['package.tesKorans'] = fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true);
@@ -4745,13 +4746,16 @@ class PackageController extends Controller
             ->pluck('tryout_id')
             ->toArray();
 
-        $myTryouts = Tryout::where(function ($query) use ($accessiblePackageIds, $directTryoutIds) {
-            $query->whereHas('packages', function ($packageQuery) use ($accessiblePackageIds) {
-                $packageQuery->whereIn('packages.package_id', $accessiblePackageIds);
-            })->orWhereIn('tryout_id', $directTryoutIds);
-        })
+        $packageTryoutIds = DetailPackage::query()
+            ->whereIn('package_id', $accessiblePackageIds)
+            ->where('detailable_type', Tryout::class)
+            ->pluck('detailable_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+        $accessibleTryoutIds = array_values(array_unique(array_merge($packageTryoutIds, $directTryoutIds)));
+
+        $myTryouts = Tryout::whereIn('tryout_id', $accessibleTryoutIds)
             ->where('is_active', true)
-            ->where('is_displayed', true)
             ->with([
                 'packages' => function ($query) use ($accessiblePackageIds) {
                     $query->whereIn('packages.package_id', $accessiblePackageIds);
@@ -4911,14 +4915,14 @@ class PackageController extends Controller
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
                 'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
-                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true),
                 'tesKorans' => fn ($query) => $query->where('tes_korans.is_active', true)->where('tes_korans.is_displayed', true),
             ]
             : [
                 'materialsThroughDetail' => fn ($query) => $query->where('materials.is_active', true)->where('materials.is_displayed', true),
                 'materialsThroughDetail.categories',
                 'classes' => fn ($query) => $query->where('classes.is_displayed', true)->with('tentor'),
-                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true)->where('tryouts.is_displayed', true),
+                'tryouts' => fn ($query) => $query->where('tryouts.is_active', true),
             ];
 
         $package = Package::with($relations)->findOrFail($packageId);
