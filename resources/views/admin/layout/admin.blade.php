@@ -55,7 +55,7 @@
     @include('components.flash-alert')
 
 
-    <div data-persistent-sidebar-content="margin" class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-4 md:mt-6' }}">
+    <div data-persistent-sidebar-content="margin" class="responsive-shell p-3 sm:p-4 md:p-6 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-2 md:mt-3' }}">
         @yield('content')
     </div>
 

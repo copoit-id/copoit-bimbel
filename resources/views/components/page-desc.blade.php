@@ -17,11 +17,18 @@
     'direction' => null,
 ])
 
+@php
+    $displayTitle = html_entity_decode((string) $title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $displayDescription = $description === null
+        ? null
+        : html_entity_decode((string) $description, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+@endphp
+
 <div class="flex flex-col {{ $direction ?? 'items-start' }} {{ $attributes->get('class', '') }}" {{ $attributes->except('class') }}>
-    <h1 class="text-2xl text-dark font-bold">{{ $title }}</h1>
+    <h1 class="text-2xl text-dark font-bold">{{ $displayTitle }}</h1>
     
-    @if($description)
-        <p class="font-light text-base text-gray-600 mt-1">{{ $description }}</p>
+    @if($displayDescription)
+        <p class="font-light text-base text-gray-600 mt-1">{{ $displayDescription }}</p>
     @endif
     
     @if($name_link && $url_link)
