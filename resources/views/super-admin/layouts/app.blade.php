@@ -17,8 +17,9 @@
 <body class="bg-gray-50" data-app-selects>
     @include('super-admin.components.navbar')
     @include('super-admin.components.sidebar')
+    <x-ui.persistent-sidebar-reopen />
 
-    <main data-persistent-sidebar-content="padding" class="responsive-shell pt-20 pl-0 sm:pl-64">
+    <main data-persistent-sidebar-content="padding" class="responsive-shell pt-4 pl-0 sm:pl-64">
         <div class="px-4 py-4 sm:px-6 sm:py-6">
             @yield('content')
         </div>

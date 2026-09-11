@@ -7,7 +7,23 @@
     class="fixed top-0 left-0 z-40 w-64 h-screen pt-20 transition-transform -translate-x-full sm:translate-x-0 bg-white border-r border-gray-200"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto">
-        <p class="text-[#999999] text-sm">Menu</p>
+        <a href="{{ route('super-admin.admins.index') }}" data-sidebar-brand>
+            <span data-sidebar-brand-mark class="font-bold">SA</span>
+            <span class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold">{{ $clientBranding['name'] ?? 'Copoit Academy' }}</p>
+                <small class="block truncate text-xs">Pengelolaan Sistem</small>
+            </span>
+            <i class="ri-arrow-up-down-line text-sm text-gray-400" aria-hidden="true"></i>
+        </a>
+        <div data-sidebar-divider class="border-t"></div>
+        <div class="flex items-center justify-between gap-2">
+            <p data-sidebar-section-label class="text-[#999999] text-xs font-medium uppercase tracking-[0.12em]">Menu</p>
+            <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
+                <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                <i class="ri-arrow-left-s-line text-xl" data-persistent-sidebar-toggle-icon aria-hidden="true"></i>
+            </button>
+        </div>
         <ul class="space-y-1 font-medium mt-2">
             <li>
                 <a href="{{ route('super-admin.admins.index') }}"

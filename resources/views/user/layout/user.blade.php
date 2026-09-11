@@ -40,8 +40,9 @@
     @include('components.login-as-header')
     @include('user.components.navbar')
     @include('user.components.sidebar')
+    <x-ui.persistent-sidebar-reopen />
 
-    <div data-persistent-sidebar-content="margin" class="responsive-shell p-3 md:p-4 sm:ml-64 pt-4 mt-14">
+    <div data-persistent-sidebar-content="margin" class="responsive-shell p-3 md:p-4 sm:ml-64 pt-4 mt-4">
         @yield('content')
     </div>
     <div data-persistent-sidebar-content="margin" class="sm:ml-64">

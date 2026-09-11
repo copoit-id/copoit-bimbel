@@ -51,10 +51,11 @@
     @include('components.confirm-modal')
     <x-logout-confirm-modal />
     @include('admin.components.sidebar')
+    <x-ui.persistent-sidebar-reopen />
     @include('components.flash-alert')
 
 
-    <div data-persistent-sidebar-content="margin" class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-16 md:mt-10' }}">
+    <div data-persistent-sidebar-content="margin" class="responsive-shell p-4 sm:p-6 md:p-12 sm:ml-64 {{ $isPickerMode ? 'mt-32 md:mt-32' : 'mt-4 md:mt-6' }}">
         @yield('content')
     </div>
 
