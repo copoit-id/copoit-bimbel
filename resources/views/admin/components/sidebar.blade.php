@@ -50,15 +50,9 @@
             @if($canShowTutorScheduleMenu)
                 <li><a href="{{ route('tutor.schedule.index') }}" class="flex items-center py-2 px-4 {{ $isTutorScheduleActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-line text-[20px] {{ $isTutorScheduleActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Jadwal Saya</span></a></li>
                 <li><a href="{{ route('tutor.leave.index') }}" class="flex items-center py-2 px-4 {{ request()->routeIs('tutor.leave.*') ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-close-line text-[20px] {{ request()->routeIs('tutor.leave.*') ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Pengajuan Cuti</span></a></li>
-                @if($canShowTutorAttendanceMenu)
-                <li><a href="{{ route('tutor.attendance.index') }}" class="flex items-center py-2 px-4 {{ $isTutorAttendanceActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-calendar-check-line text-[20px] {{ $isTutorAttendanceActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Absensi Saya</span></a></li>
-                @endif
             @endif
             @if($canShowTutorEarningsMenu)
                 <li><a href="{{ route('tutor.earnings.index') }}" class="flex items-center py-2 px-4 {{ $isTutorEarningsActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-money-dollar-circle-line text-[20px] {{ $isTutorEarningsActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Penghasilan</span></a></li>
-            @endif
-            @if($canShowTutorDevelopmentMenu)
-                <li><a href="{{ route('tutor.development.index') }}" class="flex items-center py-2 px-4 {{ $isTutorDevelopmentActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-line-chart-line text-[20px] {{ $isTutorDevelopmentActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Progres</span></a></li>
             @endif
             @if($canShowTutorChatMenu)
                 <li><a href="{{ route('tutor.chat.index') }}" class="flex items-center py-2 px-4 {{ $isTutorChatActive ? $linkActiveClass : $linkInactiveClass }} rounded-lg group"><i class="ri-chat-3-line text-[20px] {{ $isTutorChatActive ? $iconActiveClass : $iconInactiveClass }}"></i><span class="ms-3">Chat Siswa</span>@if($tutorChatUnreadCount > 0)<span class="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{{ $tutorChatUnreadCount > 99 ? '99+' : $tutorChatUnreadCount }}</span>@endif</a></li>

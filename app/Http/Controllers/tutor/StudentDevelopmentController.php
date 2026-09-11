@@ -4,9 +4,12 @@ namespace App\Http\Controllers\tutor;
 
 use App\Http\Controllers\Controller;
 use App\Models\ScheduleBookingRequest;
+use App\Models\ClassSession;
 use App\Models\StudentFeedback;
 use App\Models\StudentProgressReport;
 use App\Models\StudyGroup;
+use App\Models\UserPackageAcces;
+use App\Services\ClassAttendanceParticipantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,6 +18,108 @@ use Illuminate\View\View;
 
 class StudentDevelopmentController extends Controller
 {
+    public function createForSession(
+        Request $request,
+        ClassSession $session,
+        ClassAttendanceParticipantService $participantService
+    ): View {
+        $this->ensureAssignedSession($request, $session);
+        $packageId = $this->sessionPackageId($session);
+        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk laporan perkembangan.');
+
+        $students = $participantService->participants($session);
+        $reports = StudentProgressReport::query()
+            ->where('class_session_id', $session->id)
+            ->where('tentor_id', $request->user()->tentorProfile->id)
+            ->with('user:id,name')
+            ->latest()
+            ->get();
+
+        return view('tutor.schedule-progress-form', compact('session', 'students', 'reports'));
+    }
+
+    public function storeForSession(
+        Request $request,
+        ClassSession $session,
+        ClassAttendanceParticipantService $participantService
+    ): RedirectResponse {
+        $this->ensureAssignedSession($request, $session);
+        $validated = $this->validateSessionProgress($request);
+        $packageId = $this->sessionPackageId($session);
+        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk laporan perkembangan.');
+
+        $student = $participantService->participants($session)
+            ->firstWhere('id', (int) $validated['user_id']);
+        abort_unless($student, 403, 'Siswa bukan peserta sesi ini.');
+
+        $tentorId = $request->user()->tentorProfile->id;
+        $existing = StudentProgressReport::query()
+            ->where('class_session_id', $session->id)
+            ->where('user_id', $student->id)
+            ->where('tentor_id', $tentorId)
+            ->first();
+        if ($existing) {
+            return redirect()->route('tutor.schedule.progress.edit', [$session, $existing])
+                ->with('success', 'Laporan untuk siswa ini sudah ada. Silakan perbarui laporan tersebut.');
+        }
+
+        $accessId = UserPackageAcces::query()
+            ->where('user_id', $student->id)
+            ->where('package_id', $packageId)
+            ->active()
+            ->latest('user_package_access_id')
+            ->value('user_package_access_id');
+
+        StudentProgressReport::query()->create([
+            'tentor_id' => $tentorId,
+            'user_id' => $student->id,
+            'package_id' => $packageId,
+            'study_group_id' => $session->study_group_id,
+            'user_package_access_id' => $accessId,
+            'class_session_id' => $session->id,
+            'period_start' => $session->session_date,
+            'period_end' => $session->session_date,
+            ...collect($validated)->except('user_id')->all(),
+        ]);
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Laporan perkembangan berhasil disimpan.');
+    }
+
+    public function editForSession(Request $request, ClassSession $session, StudentProgressReport $report): View
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+
+        return view('tutor.schedule-progress-form', [
+            'session' => $session,
+            'students' => collect(),
+            'reports' => collect(),
+            'report' => $report->load('user:id,name'),
+        ]);
+    }
+
+    public function updateForSession(Request $request, ClassSession $session, StudentProgressReport $report): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+
+        $report->update(collect($this->validateSessionProgress($request))->except('user_id')->all());
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Laporan perkembangan berhasil diperbarui.');
+    }
+
+    public function destroyForSession(Request $request, ClassSession $session, StudentProgressReport $report): RedirectResponse
+    {
+        $this->ensureAssignedSession($request, $session);
+        $this->ensureSessionReport($request, $session, $report);
+        $report->delete();
+
+        return redirect()->route('tutor.schedule.progress.create', $session)
+            ->with('success', 'Laporan perkembangan berhasil dihapus.');
+    }
+
     public function index(Request $request): View
     {
         $tentor = $request->user()->tentorProfile;
@@ -175,6 +280,48 @@ class StudentDevelopmentController extends Controller
         }
 
         return [$parts[0], $parts[1], $parts[2], $parts[3]];
+    }
+
+    private function ensureAssignedSession(Request $request, ClassSession $session): void
+    {
+        abort_unless((int) $session->tentor_id === (int) $request->user()->tentorProfile?->id, 403);
+    }
+
+    private function ensureSessionReport(Request $request, ClassSession $session, StudentProgressReport $report): void
+    {
+        abort_unless(
+            (int) $report->class_session_id === (int) $session->id
+            && (int) $report->tentor_id === (int) $request->user()->tentorProfile?->id,
+            404
+        );
+    }
+
+    private function sessionPackageId(ClassSession $session): ?int
+    {
+        $session->loadMissing([
+            'studyGroup:id,package_id',
+            'schedule.packages:package_id',
+            'class.packages:package_id',
+        ]);
+
+        return $session->studyGroup?->package_id
+            ?? $session->schedule?->packages->first()?->package_id
+            ?? $session->class?->packages->first()?->package_id;
+    }
+
+    private function validateSessionProgress(Request $request): array
+    {
+        return $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'progress_percent' => ['nullable', 'integer', 'between:0,100'],
+            'mastery_score' => ['nullable', 'integer', 'between:0,100'],
+            'discipline_score' => ['nullable', 'integer', 'between:0,100'],
+            'participation_score' => ['nullable', 'integer', 'between:0,100'],
+            'summary' => ['required', 'string', 'max:5000'],
+            'strengths' => ['nullable', 'string', 'max:3000'],
+            'improvements' => ['nullable', 'string', 'max:3000'],
+            'next_target' => ['nullable', 'string', 'max:3000'],
+        ]);
     }
 
     private function authorizeStudentTarget(

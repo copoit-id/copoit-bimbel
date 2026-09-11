@@ -76,11 +76,8 @@ class AdminNavigationService
             && $routeExists('admin.update-notifications.index');
         $canShowTutorScheduleMenu = $isTutor && $this->planModules->allows('schedule') && $routeExists('tutor.schedule.index');
         $canShowTutorDashboard = $isTutor && $routeExists('tutor.dashboard');
-        $canShowTutorAttendanceMenu = $canShowTutorScheduleMenu && $this->planModules->allows('attendance')
-            && $routeExists('tutor.attendance.index');
         $canShowTutorEarningsMenu = $isTutor && $this->planModules->allows('tutor_payroll')
             && $routeExists('tutor.earnings.index');
-        $canShowTutorDevelopmentMenu = $isTutor && $routeExists('tutor.development.index');
         $canShowTutorChatMenu = $isTutor && (bool) ($branding['tutor_chat_enabled'] ?? false)
             && $this->planModules->allows('discussion') && $routeExists('tutor.chat.index');
         $canShowTutorProfileMenu = $isTutor && $this->planModules->allows('profile') && $routeExists('tutor.profile.edit');
@@ -126,9 +123,7 @@ class AdminNavigationService
             'canShowUpdateNotificationsMenu' => $canShowUpdateNotificationsMenu,
             'canShowTutorDashboard' => $canShowTutorDashboard,
             'canShowTutorScheduleMenu' => $canShowTutorScheduleMenu,
-            'canShowTutorAttendanceMenu' => $canShowTutorAttendanceMenu,
             'canShowTutorEarningsMenu' => $canShowTutorEarningsMenu,
-            'canShowTutorDevelopmentMenu' => $canShowTutorDevelopmentMenu,
             'canShowTutorChatMenu' => $canShowTutorChatMenu,
             'canShowTutorProfileMenu' => $canShowTutorProfileMenu,
             'canShowTutorLeaveMenu' => $canShowTutorLeaveMenu,
@@ -151,9 +146,7 @@ class AdminNavigationService
                 || $routeIs('admin.tryout.*', 'admin.question.*', 'admin.tes-koran.*') || $isMaterialManagementActive,
             'isTutorDashboardActive' => $isTutor && $routeIs('tutor.dashboard'),
             'isTutorScheduleActive' => $isTutor && $routeIs('tutor.schedule.*', 'tutor.booking.*'),
-            'isTutorAttendanceActive' => $isTutor && $routeIs('tutor.attendance.*'),
             'isTutorEarningsActive' => $isTutor && $routeIs('tutor.earnings.*'),
-            'isTutorDevelopmentActive' => $isTutor && $routeIs('tutor.development.*'),
             'isTutorChatActive' => $isTutor && $routeIs('tutor.chat.*'),
             'isTutorProfileActive' => $isTutor && $routeIs('tutor.profile.*'),
             'isTesKoranActive' => $routeIs('admin.tes-koran.*'),

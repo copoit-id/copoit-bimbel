@@ -437,6 +437,11 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
         Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
         Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+        Route::get('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'createForSession'])->name('schedule.progress.create');
+        Route::post('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'storeForSession'])->middleware('throttle:20,1')->name('schedule.progress.store');
+        Route::get('jadwal/{session}/laporan-perkembangan/{report}/edit', [TutorStudentDevelopmentController::class, 'editForSession'])->name('schedule.progress.edit');
+        Route::put('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'updateForSession'])->middleware('throttle:20,1')->name('schedule.progress.update');
+        Route::delete('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'destroyForSession'])->middleware('throttle:20,1')->name('schedule.progress.destroy');
     });
     Route::get('penghasilan', [TutorDashboardController::class, 'earnings'])
         ->middleware('module:tutor_payroll')
@@ -454,15 +459,6 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
             ->middleware('throttle:20,1')
             ->name('propose');
-    });
-    Route::prefix('perkembangan')->name('development.')->group(function () {
-        Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
-        Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
-            ->middleware('throttle:30,1')
-            ->name('feedback.store');
-        Route::post('/progres', [TutorStudentDevelopmentController::class, 'storeProgress'])
-            ->middleware('throttle:30,1')
-            ->name('progress.store');
     });
     Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');

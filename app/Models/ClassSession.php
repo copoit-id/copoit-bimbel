@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ClassSession extends Model
@@ -64,5 +65,10 @@ class ClassSession extends Model
     public function bookingRequest(): HasOne
     {
         return $this->hasOne(ScheduleBookingRequest::class, 'class_session_id');
+    }
+
+    public function progressReports(): HasMany
+    {
+        return $this->hasMany(StudentProgressReport::class, 'class_session_id');
     }
 }

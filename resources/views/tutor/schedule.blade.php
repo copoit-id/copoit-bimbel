@@ -18,7 +18,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <div class="flex rounded-lg border border-gray-200 bg-white p-1 text-xs font-semibold">
-                @foreach(['week' => 'Minggu ini', 'month' => 'Bulan ini', 'all' => 'Semua'] as $rangeKey => $rangeLabel)
+                @foreach(['today' => 'Hari ini', 'week' => 'Minggu ini', 'month' => 'Bulan ini', 'all' => 'Semua'] as $rangeKey => $rangeLabel)
                     <a href="{{ route('tutor.schedule.index', ['range' => $rangeKey]) }}" class="rounded-md px-3 py-2 {{ $scheduleRange === $rangeKey ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $rangeLabel }}</a>
                 @endforeach
             </div>
@@ -31,7 +31,19 @@
         </div>
     </div>
 
-    @if($scheduleRange === 'week')
+    @if($scheduleRange === 'today')
+        <section class="space-y-4">
+            <div><p class="text-xs font-semibold uppercase tracking-wide text-primary">{{ now()->locale('id')->translatedFormat('l, d F Y') }}</p><h2 class="mt-1 text-xl font-bold text-gray-900">Jadwal hari ini</h2><p class="mt-1 text-sm text-gray-500">Kelola absensi dan laporan perkembangan langsung dari sesi yang dijadwalkan.</p></div>
+            @forelse($todaySessions as $session)
+                <article class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+                    <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"><div><p class="text-sm font-bold text-primary">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' – '.$session->end_at->format('H:i') : '' }} WIB</p><h3 class="mt-1 text-lg font-bold text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Sesi belajar' }}</h3><p class="mt-2 text-sm text-gray-500"><i class="ri-group-line mr-1"></i>{{ $session->studyGroup?->name ?? 'Sesi personal' }}</p>@if($session->location)<p class="mt-1 text-sm text-gray-500"><i class="ri-map-pin-line mr-1"></i>{{ $session->location }}</p>@elseif($session->meeting_url)<a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block text-sm font-semibold text-primary hover:underline"><i class="ri-video-chat-line mr-1"></i>Online meeting</a>@endif</div><span class="w-fit rounded-full px-3 py-1 text-xs font-bold {{ $session->status === 'scheduled' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600' }}">{{ $session->status === 'scheduled' ? 'Terjadwal' : ucfirst($session->status) }}</span></div>
+                    <div class="mt-5 flex flex-wrap gap-2 border-t border-gray-100 pt-4"><a href="{{ route('tutor.attendance.show', $session) }}" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-checkbox-circle-line"></i>Absen</a><a href="{{ route('tutor.schedule.progress.create', $session) }}" class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-line-chart-line"></i>{{ $session->progress_reports_count ? 'Kelola '.$session->progress_reports_count.' laporan' : 'Laporan perkembangan' }}</a></div>
+                </article>
+            @empty
+                <div class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center text-sm text-gray-500"><i class="ri-calendar-event-line mb-3 block text-4xl text-gray-300"></i>Tidak ada jadwal untuk hari ini.</div>
+            @endforelse
+        </section>
+    @elseif($scheduleRange === 'week')
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
         @foreach($weekDates as $dayNumber => $date)
             <section class="flex min-h-[250px] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white">

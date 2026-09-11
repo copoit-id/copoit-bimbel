@@ -113,8 +113,9 @@ class TutorDashboardController extends Controller
     {
         $tentor = $request->user()->tentorProfile;
         $scheduleRange = $request->string('range')->toString();
-        $scheduleRange = in_array($scheduleRange, ['week', 'month', 'all'], true) ? $scheduleRange : 'week';
+        $scheduleRange = in_array($scheduleRange, ['today', 'week', 'month', 'all'], true) ? $scheduleRange : 'today';
         $schedule = match ($scheduleRange) {
+            'today' => $this->todayScheduleData($tentor->id),
             'week' => $this->weeklyScheduleData($tentor->id),
             'month' => $this->monthlyScheduleData($tentor->id),
             default => $this->allScheduleData($tentor->id),
@@ -309,8 +310,18 @@ class TutorDashboardController extends Controller
 
         return ClassSession::query()
             ->with($relations)
+            ->withCount('progressReports')
             ->where('tentor_id', $tentorId)
             ->orderBy('start_at');
+    }
+
+    private function todayScheduleData(int $tentorId): array
+    {
+        return [
+            'todaySessions' => $this->sessionsFor($tentorId, includeTutorAttendance: false)
+                ->whereDate('session_date', now()->toDateString())
+                ->get(),
+        ];
     }
 
     private function weeklyScheduleData(int $tentorId): array
