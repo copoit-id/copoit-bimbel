@@ -143,6 +143,24 @@ class TutorContentVisibilityTest extends TestCase
         $this->assertCount(2, Tryout::query()->get());
     }
 
+    public function test_participant_is_not_scoped_away_from_admin_tryouts_in_isolated_mode(): void
+    {
+        DB::table('client_profile')->insert(['tutor_content_enabled' => true, 'tutor_content_visibility' => 'isolated']);
+        DB::table('users')->insert([
+            ['id' => 101, 'name' => 'Peserta', 'role' => 'user'],
+            ['id' => 103, 'name' => 'Admin', 'role' => 'admin'],
+        ]);
+        DB::table('tryouts')->insert([
+            ['tryout_id' => 1, 'name' => 'Tryout Admin', 'created_by' => 103],
+        ]);
+
+        $participant = User::findOrFail(101);
+        $this->actingAs($participant);
+
+        $this->assertFalse(app(TutorContentVisibilityService::class)->shouldScopeToOwner($participant));
+        $this->assertSame(['Tryout Admin'], Tryout::query()->pluck('name')->all());
+    }
+
     public function test_full_isolation_hides_admin_and_other_tutor_content(): void
     {
         DB::table('client_profile')->insert(['tutor_content_enabled' => true, 'tutor_content_visibility' => 'isolated']);

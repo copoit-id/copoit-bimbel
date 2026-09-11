@@ -50,16 +50,14 @@ class TutorContentVisibilityService
 
     public function shouldScopeToOwner(?User $user): bool
     {
-        if (! $user || ! $this->isIsolated()) {
+        // Isolasi ini hanya membatasi workspace pengelolaan konten tutor.
+        // Peserta tetap harus dapat melihat konten yang sudah diberikan
+        // melalui paket atau akses langsung, apa pun pemilik kontennya.
+        if (! $user || ! $user->isTutor() || ! $this->isIsolated()) {
             return false;
         }
 
-        if ($this->isAdministrativeUser($user)) {
-            return false;
-        }
-
-        return $this->mode() === self::MODE_ISOLATED
-            || ($this->mode() === self::MODE_TUTOR_ISOLATED && $user->isTutor());
+        return true;
     }
 
     public function applyContentVisibilityScope(Builder $query, User $user, string $createdByColumn): void
@@ -102,10 +100,5 @@ class TutorContentVisibilityService
         }
 
         return $ownerId === (int) $user->id;
-    }
-
-    private function isAdministrativeUser(User $user): bool
-    {
-        return in_array($user->role, self::ADMIN_ROLES, true);
     }
 }
