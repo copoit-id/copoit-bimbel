@@ -10,6 +10,7 @@ use App\Models\StudentProgressReport;
 use App\Models\StudyGroup;
 use App\Models\UserPackageAcces;
 use App\Services\ClassAttendanceParticipantService;
+use App\Support\RichTextSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -51,7 +52,7 @@ class StudentDevelopmentController extends Controller
     ): View {
         $this->ensureAssignedSession($request, $session);
         $packageId = $this->sessionPackageId($session);
-        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk laporan perkembangan.');
+        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk catatan progress.');
 
         $students = $participantService->participants($session);
         $reports = StudentProgressReport::query()
@@ -72,7 +73,7 @@ class StudentDevelopmentController extends Controller
         $this->ensureAssignedSession($request, $session);
         $validated = $this->validateSessionProgress($request);
         $packageId = $this->sessionPackageId($session);
-        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk laporan perkembangan.');
+        abort_unless($packageId, 422, 'Paket sesi tidak tersedia untuk catatan progress.');
 
         $student = $participantService->participants($session)
             ->firstWhere('id', (int) $validated['user_id']);
@@ -86,7 +87,7 @@ class StudentDevelopmentController extends Controller
             ->first();
         if ($existing) {
             return redirect()->route('tutor.schedule.progress.edit', [$session, $existing])
-                ->with('success', 'Laporan untuk siswa ini sudah ada. Silakan perbarui laporan tersebut.');
+                ->with('success', 'Catatan progress untuk peserta ini sudah ada. Silakan perbarui catatan tersebut.');
         }
 
         $accessId = UserPackageAcces::query()
@@ -105,11 +106,11 @@ class StudentDevelopmentController extends Controller
             'class_session_id' => $session->id,
             'period_start' => $session->session_date,
             'period_end' => $session->session_date,
-            ...collect($validated)->except('user_id')->all(),
+            ...collect($validated)->except('user_id')->put('summary', RichTextSanitizer::sanitize($validated['summary']))->all(),
         ]);
 
         return redirect()->route('tutor.schedule.progress.create', $session)
-            ->with('success', 'Laporan perkembangan berhasil disimpan.');
+            ->with('success', 'Catatan progress berhasil disimpan.');
     }
 
     public function editForSession(Request $request, ClassSession $session, StudentProgressReport $report): View
@@ -130,10 +131,11 @@ class StudentDevelopmentController extends Controller
         $this->ensureAssignedSession($request, $session);
         $this->ensureSessionReport($request, $session, $report);
 
-        $report->update(collect($this->validateSessionProgress($request))->except('user_id')->all());
+        $validated = $this->validateSessionProgress($request);
+        $report->update(collect($validated)->except('user_id')->put('summary', RichTextSanitizer::sanitize($validated['summary']))->all());
 
         return redirect()->route('tutor.schedule.progress.create', $session)
-            ->with('success', 'Laporan perkembangan berhasil diperbarui.');
+            ->with('success', 'Catatan progress berhasil diperbarui.');
     }
 
     public function destroyForSession(Request $request, ClassSession $session, StudentProgressReport $report): RedirectResponse
@@ -143,7 +145,7 @@ class StudentDevelopmentController extends Controller
         $report->delete();
 
         return redirect()->route('tutor.schedule.progress.create', $session)
-            ->with('success', 'Laporan perkembangan berhasil dihapus.');
+            ->with('success', 'Catatan progress berhasil dihapus.');
     }
 
     public function index(Request $request): View

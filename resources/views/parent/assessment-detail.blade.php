@@ -25,7 +25,6 @@
 
         <div class="space-y-6">
             <x-ui.card variant="flat" class="rounded-xl border border-gray-200"><x-ui.card.header title="Feedback Tutor" subtitle="Catatan yang dibagikan untuk orang tua" /><div class="divide-y divide-gray-100">@forelse($feedback as $item)<article class="py-4 first:pt-0"><p class="font-semibold text-gray-900">{{ $item->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->tentor?->name ?? 'Tutor' }} · {{ $item->created_at?->translatedFormat('d M Y') }}</p><p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">{{ $item->feedback }}</p></article>@empty<p class="py-8 text-center text-sm text-gray-500">Belum ada feedback tutor.</p>@endforelse</div></x-ui.card>
-            <x-ui.card variant="flat" class="rounded-xl border border-gray-200"><x-ui.card.header title="Laporan Perkembangan" subtitle="Evaluasi berkala dari tutor" /><div class="divide-y divide-gray-100">@forelse($progress as $item)<article class="py-4 first:pt-0"><p class="font-semibold text-gray-900">{{ $item->package?->name ?? 'Perkembangan belajar' }}</p><p class="mt-1 text-xs text-gray-500">{{ $item->period_start?->translatedFormat('d M') }}–{{ $item->period_end?->translatedFormat('d M Y') }}</p><p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">{{ $item->summary }}</p></article>@empty<p class="py-8 text-center text-sm text-gray-500">Belum ada laporan perkembangan.</p>@endforelse</div></x-ui.card>
         </div>
     </section>
 @endsection

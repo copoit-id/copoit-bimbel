@@ -335,12 +335,6 @@ class ParentPortalController extends Controller
             ->latest()
             ->limit(5)
             ->get();
-        $progress = StudentProgressReport::query()
-            ->where('user_id', $child->id)
-            ->with(['tentor:id,name,expertise', 'package:package_id,name', 'studyGroup:id,name'])
-            ->latest('period_end')
-            ->limit(3)
-            ->get();
 
         $attemptSummary = [
             'completed' => (int) $attemptSummary->completed,
@@ -355,8 +349,7 @@ class ParentPortalController extends Controller
             'child',
             'attempts',
             'attemptSummary',
-            'feedback',
-            'progress'
+            'feedback'
         ) + [
             'tryout' => $assessment,
             'attemptTrendChart' => $this->scoreTrendChart($attemptTrend),
@@ -366,33 +359,16 @@ class ParentPortalController extends Controller
     public function development(Request $request): View
     {
         [$children, $child] = $this->childrenAndSelectedChild($request);
-        $feedback = $child
-            ? $this->feedbackQuery($child)
-                ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
-                ->latest()
-                ->paginate(Pagination::perPage(10), ['*'], 'feedback_page')
-                ->withQueryString()
-            : collect();
-        $progress = $child
-            ? StudentProgressReport::query()
-                ->where('user_id', $child->id)
-                ->with(['tentor:id,name,expertise', 'package:package_id,name', 'studyGroup:id,name'])
-                ->latest('period_end')
-                ->paginate(Pagination::perPage(10), ['*'], 'progress_page')
-                ->withQueryString()
-            : collect();
-
         $sessionTimeline = collect();
         if ($child) {
             $attendance = ClassAttendance::query()->where('user_id', $child->id)->get()->keyBy('class_session_id');
             $feedbackBySession = $this->feedbackQuery($child)->whereNotNull('class_session_id')->with('tentor:id,name')->get()->groupBy('class_session_id');
-            $progressBySession = StudentProgressReport::query()->where('user_id', $child->id)->whereNotNull('class_session_id')->with('tentor:id,name')->get()->groupBy('class_session_id');
-            $sessionIds = $attendance->keys()->merge($feedbackBySession->keys())->merge($progressBySession->keys())->unique()->values();
+            $sessionIds = $attendance->keys()->merge($feedbackBySession->keys())->unique()->values();
             $sessionTimeline = ClassSession::query()->with(['schedule:id,title', 'studyGroup:id,name'])->whereIn('id', $sessionIds)->latest('start_at')->get()
-                ->map(fn (ClassSession $session) => ['session' => $session, 'attendance' => $attendance->get($session->id), 'feedback' => $feedbackBySession->get($session->id, collect()), 'progress' => $progressBySession->get($session->id, collect())]);
+                ->map(fn (ClassSession $session) => ['session' => $session, 'attendance' => $attendance->get($session->id), 'feedback' => $feedbackBySession->get($session->id, collect())]);
         }
 
-        return view('parent.development', compact('children', 'child', 'feedback', 'progress', 'sessionTimeline'));
+        return view('parent.development', compact('children', 'child', 'sessionTimeline'));
     }
 
     public function report(Request $request): View|RedirectResponse
