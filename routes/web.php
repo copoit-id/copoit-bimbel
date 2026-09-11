@@ -455,7 +455,7 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
             ->middleware('throttle:20,1')
             ->name('propose');
     });
-    Route::prefix('perkembangan')->name('development.')->middleware('client-feature:learning-progress')->group(function () {
+    Route::prefix('perkembangan')->name('development.')->group(function () {
         Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
         Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
             ->middleware('throttle:30,1')
