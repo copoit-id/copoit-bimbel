@@ -51,6 +51,13 @@ class LaporanController extends Controller
                     ->whereColumn('user_id', 'users.id'),
                 'last_tryout_at'
             )
+            ->selectSub(
+                UserAnswer::query()
+                    ->selectRaw('AVG(COALESCE(utbk_total_score, score))')
+                    ->whereColumn('user_id', 'users.id')
+                    ->whereIn('status', ['completed', 'pending_release']),
+                'average_tryout_score'
+            )
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(fn ($studentQuery) => $studentQuery
                     ->where('name', 'like', "%{$search}%")
@@ -184,13 +191,21 @@ class LaporanController extends Controller
             'completed_participants' => $this->countDistinctTryoutParticipants(['completed', 'pending_release']),
         ];
 
-        return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status', 'scoreDisplay'));
+        $schoolReport = auth()->user()?->role === 'admin_sekolah';
+
+        return view('admin.pages.laporan.index', compact('tryouts', 'summary', 'search', 'status', 'scoreDisplay', 'schoolReport'));
     }
 
     public function exportExcel(Request $request)
     {
         $scoreDisplay = $this->scoreDisplayMode($request);
-        $tryouts = $this->buildTryoutReportQuery()->get();
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status');
+        $status = in_array($status, ['active', 'inactive'], true) ? $status : null;
+        $tryouts = $this->buildTryoutReportQuery()
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($status !== null, fn ($query) => $query->where('is_active', $status === 'active'))
+            ->get();
         $this->hydrateTryoutReport($tryouts, $scoreDisplay);
 
         $spreadsheet = new Spreadsheet;
@@ -347,12 +362,22 @@ class LaporanController extends Controller
     public function show(Request $request, $id)
     {
         $search = trim((string) $request->query('search', ''));
+        $schoolStudentIds = $this->schoolStudentIds();
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
                 $query->withCount('questions');
             },
             'packages',
         ])->findOrFail($id);
+
+        abort_unless(
+            $schoolStudentIds === null
+                || UserAnswer::query()
+                    ->where('tryout_id', $tryout->tryout_id)
+                    ->whereIn('user_id', $schoolStudentIds)
+                    ->exists(),
+            404
+        );
 
         $attemptSummaries = UserAnswer::selectRaw('
                 user_id,
@@ -370,6 +395,7 @@ class LaporanController extends Controller
                 MAX(status) as attempt_status
             ')
             ->where('tryout_id', $tryout->tryout_id)
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->whereHas('user', function ($userQuery) use ($search): void {
                     $userQuery->where('name', 'like', "%{$search}%")
@@ -394,6 +420,7 @@ class LaporanController extends Controller
                 SUM(unanswered) as unanswered
             ')
             ->where('tryout_id', $tryout->tryout_id)
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
             ->groupBy('user_id', 'attempt_token', 'tryout_detail_id')
             ->get()
             ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token);
@@ -401,6 +428,7 @@ class LaporanController extends Controller
         $answerStatsBySubtest = UserAnswerDetail::query()
             ->join('user_answers', 'user_answer_details.user_answer_id', '=', 'user_answers.user_answer_id')
             ->where('user_answers.tryout_id', $tryout->tryout_id)
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_answers.user_id', $schoolStudentIds))
             ->selectRaw('
                 user_answers.user_id,
                 user_answers.attempt_token,
@@ -514,6 +542,8 @@ class LaporanController extends Controller
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
 
+        $allParticipants = $participants;
+
         $perPage = Pagination::perPage(10);
         $currentPage = max(1, $request->integer('page', 1));
         $participants = new LengthAwarePaginator(
@@ -529,10 +559,10 @@ class LaporanController extends Controller
 
         $statistics['score_label'] = $scoreDisplayService->present($tryout, 0)['label'];
         $statistics['average_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? $this->formatNumericScore($participants->avg(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $subtests->count())))
+            ? $this->formatNumericScore($allParticipants->avg(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $statistics['total_subtests'])))
             : $this->formatNumericScore($statistics['average_score']);
         $statistics['highest_score_display'] = $scoreDisplayService->usesHundredScale($tryout)
-            ? $this->formatNumericScore($participants->max(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $subtests->count())))
+            ? $this->formatNumericScore($allParticipants->max(fn (array $participant) => $participant['total_correct'] / max(1, $participant['total_correct'] + $participant['total_wrong'] + $participant['total_unanswered']) * 100 * max(1, $statistics['total_subtests'])))
             : $this->formatNumericScore($statistics['highest_score']);
 
         $leaderboardPackageId = optional($tryout->packages->first())->package_id;
@@ -890,6 +920,7 @@ class LaporanController extends Controller
      */
     private function buildTryoutParticipantExport(Tryout $tryout): array
     {
+        $schoolStudentIds = $this->schoolStudentIds();
         $tryout->loadMissing([
             'tryoutDetails' => fn ($query) => $query->withCount('questions'),
         ]);
@@ -908,6 +939,7 @@ class LaporanController extends Controller
         $attemptSummaries = UserAnswer::query()
             ->selectRaw('user_id, attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(score) as total_score, MAX(utbk_total_score) as irt_total_score, MAX(status) as attempt_status')
             ->where('tryout_id', $tryout->tryout_id)
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
             ->groupBy('user_id', 'attempt_token')
             ->orderByDesc('last_activity_at')
             ->with('user:id,name,email')
@@ -916,6 +948,7 @@ class LaporanController extends Controller
         $subtestScores = UserAnswer::query()
             ->selectRaw('user_id, attempt_token, tryout_detail_id, SUM(score) as score')
             ->where('tryout_id', $tryout->tryout_id)
+            ->when($schoolStudentIds !== null, fn ($query) => $query->whereIn('user_id', $schoolStudentIds))
             ->groupBy('user_id', 'attempt_token', 'tryout_detail_id')
             ->get()
             ->groupBy(fn (UserAnswer $answer) => $answer->user_id.'|'.$answer->attempt_token)

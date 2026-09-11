@@ -506,7 +506,11 @@ class LeaderboardController extends Controller
                     $maxScore = $type ? $this->getMaxPossibleScoreForDetail($ranking->tryout_detail_id, $type) : 0;
                     $detail = $ranking->tryoutDetail;
 
-                    if (!$this->isSubtestPassed($detail, $rawScore, $maxScore, $type)) {
+                    $isPassed = $tryout->requiresIrtScoring()
+                        ? $this->isUtbkSubtestPassed($detail, (float) ($ranking->score ?? 0))
+                        : $this->isSubtestPassed($detail, $rawScore, $maxScore, $type);
+
+                    if (! $isPassed) {
                         $allSubtestsPassed = false;
                     }
 
@@ -869,6 +873,23 @@ class LeaderboardController extends Controller
         }
 
         return $rawScore >= $passingScore;
+    }
+
+    /**
+     * IRT/UTBK stores the score scale per subtest. Its passing grade must be
+     * evaluated with the exact same scale used on the participant result page.
+     */
+    private function isUtbkSubtestPassed($detail, float $score): bool
+    {
+        if (! $detail || $detail->passing_score === null) {
+            return false;
+        }
+
+        if (($detail->passing_type ?? 'score') === 'percentage') {
+            return (($score / 1000) * 100) >= (float) $detail->passing_score;
+        }
+
+        return $score >= (float) $detail->passing_score;
     }
 
     private function exportSubtests(Tryout $tryout): Collection

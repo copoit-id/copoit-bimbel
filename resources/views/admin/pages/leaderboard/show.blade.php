@@ -9,20 +9,20 @@
                 <x-breadcrumb-item href="" title="Peringkat Tryout" />
             </x-slot>
         </x-breadcrumb>
-        @unless($schoolLeaderboard)
         <div class="flex gap-2">
             <a href="{{ route('admin.leaderboard.export-excel', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id] + request()->only(['destination_category_id', 'destination_subcategory_id'])) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:bg-green-700">
                 <i class="ri-file-excel-line"></i>
                 Export Excel
             </a>
+            @unless($schoolLeaderboard)
             <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id] + request()->only(['destination_category_id', 'destination_subcategory_id'])) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
                 <i class="ri-file-pdf-line"></i>
                 Export PDF
             </a>
+            @endunless
         </div>
-        @endunless
     </div>
     <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
 
