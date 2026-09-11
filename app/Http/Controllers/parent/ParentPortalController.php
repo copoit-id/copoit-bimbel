@@ -318,54 +318,19 @@ class ParentPortalController extends Controller
         [$children, $child] = $this->childrenAndSelectedChild($request);
 
         abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
-
-        $attendanceSummary = $this->attendanceSummary($child->id);
-        $packages = UserPackageAcces::query()
-            ->where('user_id', $child->id)
-            ->with('package:package_id,name')
-            ->latest()
-            ->limit(10)
-            ->get();
-        $tryoutReports = $this->attemptRowsQuery($child->id)
-            ->orderByDesc('attempts.finished_at')
-            ->get()
-            ->groupBy('tryout_id')
-            ->map(function (Collection $attempts): array {
-                $latest = $attempts->first();
-
-                return [
-                    'tryout_id' => (int) $latest->tryout_id,
-                    'name' => (string) $latest->tryout_name,
-                    'attempt_count' => $attempts->count(),
-                    'latest_score' => (float) $latest->score,
-                    'highest_score' => (float) $attempts->max('score'),
-                    'last_finished_at' => $latest->finished_at,
-                    'attempts' => $attempts->map(fn (object $attempt): array => [
-                        'attempt_key' => (string) $attempt->attempt_key,
-                        'finished_at' => $attempt->finished_at,
-                        'score' => (float) $attempt->score,
-                        'correct_answers' => (int) $attempt->correct_answers,
-                        'wrong_answers' => (int) $attempt->wrong_answers,
-                        'unanswered' => (int) $attempt->unanswered,
-                        'total_questions' => (int) $attempt->total_questions,
-                    ])->values()->all(),
-                ];
-            })
-            ->values();
-        $assessmentSummary = $this->assessmentSummary($child->id);
-        $progress = StudentProgressReport::query()
-            ->where('user_id', $child->id)
-            ->with(['tentor:id,name', 'package:package_id,name'])
-            ->latest('period_end')
-            ->limit(3)
-            ->get();
         $feedback = $this->feedbackQuery($child)
             ->with(['tentor:id,name,expertise', 'studyGroup:id,name', 'session.schedule:id,title'])
             ->latest()
             ->limit(10)
             ->get();
+        $adminReport = app(AdminLaporanController::class)->studentDetail($child, true);
 
-        return view('parent.report', compact('children', 'child', 'attendanceSummary', 'packages', 'tryoutReports', 'assessmentSummary', 'progress', 'feedback'));
+        return view('admin.pages.laporan.students.show', $adminReport->getData() + [
+            'children' => $children,
+            'child' => $child,
+            'feedback' => $feedback,
+            'parentReport' => true,
+        ]);
     }
 
     public function reportAttempt(Request $request, int $tryout, string $attemptToken): View
@@ -382,17 +347,12 @@ class ParentPortalController extends Controller
             404,
             'Detail pengerjaan Tryout tidak ditemukan.'
         );
-        abort_if(
-            UserAnswer::query()
-                ->where('tryout_id', $tryout)
-                ->where('attempt_token', $attemptToken)
-                ->where('user_id', '!=', $child->id)
-                ->exists(),
-            404,
-            'Detail pengerjaan Tryout tidak ditemukan.'
+        $adminReport = app(AdminLaporanController::class)->attemptDetail(
+            $request,
+            $tryout,
+            $attemptToken,
+            $child->id
         );
-
-        $adminReport = app(AdminLaporanController::class)->attemptDetail($request, $tryout, $attemptToken);
 
         return view('admin.pages.laporan.answer', $adminReport->getData() + [
             'children' => $children,

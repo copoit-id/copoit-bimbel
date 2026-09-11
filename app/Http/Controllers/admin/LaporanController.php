@@ -64,11 +64,13 @@ class LaporanController extends Controller
         return view('admin.pages.laporan.students.index', compact('students', 'search'));
     }
 
-    public function studentDetail(User $user)
+    public function studentDetail(User $user, bool $bypassSchoolScope = false)
     {
-        $this->ensureSchoolAdmin();
-        $schoolStudentIds = $this->schoolStudentIds();
-        abort_unless($user->role === 'user' && ($schoolStudentIds === null || $schoolStudentIds->contains($user->id)), 404);
+        if (! $bypassSchoolScope) {
+            $this->ensureSchoolAdmin();
+        }
+        $schoolStudentIds = $bypassSchoolScope ? null : $this->schoolStudentIds();
+        abort_unless($user->role === 'user' && ($bypassSchoolScope || $schoolStudentIds === null || $schoolStudentIds->contains($user->id)), 404);
 
         $answers = UserAnswer::query()
             ->with([
@@ -148,6 +150,7 @@ class LaporanController extends Controller
                     'displays' => $tryoutChart->pluck('display')->all(),
                 ],
             ],
+            'parentReport' => $bypassSchoolScope,
         ]);
     }
 
@@ -610,7 +613,7 @@ class LaporanController extends Controller
             ->with('success', 'Attempt berhasil direset.');
     }
 
-    public function attemptDetail(Request $request, $tryoutId, $attemptToken)
+    public function attemptDetail(Request $request, $tryoutId, $attemptToken, ?int $userId = null)
     {
         $tryout = Tryout::with('tryoutDetails')->findOrFail($tryoutId);
 
@@ -622,6 +625,7 @@ class LaporanController extends Controller
         ])
             ->where('tryout_id', $tryout->tryout_id)
             ->where('attempt_token', $attemptToken)
+            ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
             ->orderBy('tryout_detail_id')
             ->get();
 
