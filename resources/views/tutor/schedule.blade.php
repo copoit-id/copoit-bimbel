@@ -22,6 +22,9 @@
                     <a href="{{ route('tutor.schedule.index', ['range' => $rangeKey]) }}" class="rounded-md px-3 py-2 {{ $scheduleRange === $rangeKey ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $rangeLabel }}</a>
                 @endforeach
             </div>
+            @if($canManageBookings)
+                <a href="{{ route('tutor.booking.index') }}" class="rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white"><i class="ri-calendar-schedule-line mr-1"></i>Booking</a>
+            @endif
             @if($canManageSchedule)
                 <a href="{{ route('tutor.schedule.create') }}" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-add-line mr-1"></i>Tambah sesi</a>
             @endif

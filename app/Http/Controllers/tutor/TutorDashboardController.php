@@ -119,11 +119,15 @@ class TutorDashboardController extends Controller
             'month' => $this->monthlyScheduleData($tentor->id),
             default => $this->allScheduleData($tentor->id),
         };
-        $canManageSchedule = app(PlanModuleService::class)->allows('schedule');
+        $planModules = app(PlanModuleService::class);
+        $canManageSchedule = $planModules->allows('schedule');
+        $canManageBookings = (bool) config('client.branding.booking_schedule_enabled', false)
+            && $planModules->allows('booking');
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
             'canManageSchedule' => $canManageSchedule,
+            'canManageBookings' => $canManageBookings,
             'scheduleRange' => $scheduleRange,
             ...$schedule,
         ]);
