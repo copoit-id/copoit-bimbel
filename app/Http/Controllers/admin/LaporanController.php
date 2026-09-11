@@ -68,9 +68,14 @@ class LaporanController extends Controller
     {
         if (! $bypassSchoolScope) {
             $this->ensureSchoolAdmin();
+            $schoolStudentIds = $this->schoolStudentIds();
+
+            abort_unless(
+                $user->role === 'user'
+                && ($schoolStudentIds === null || $schoolStudentIds->contains($user->id)),
+                404
+            );
         }
-        $schoolStudentIds = $bypassSchoolScope ? null : $this->schoolStudentIds();
-        abort_unless($user->role === 'user' && ($bypassSchoolScope || $schoolStudentIds === null || $schoolStudentIds->contains($user->id)), 404);
 
         $answers = UserAnswer::query()
             ->with([
