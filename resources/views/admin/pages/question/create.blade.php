@@ -1,37 +1,45 @@
-@extends('admin.layout.admin')
-@section('title', isset($question) ? 'Edit Soal' : 'Tambah Soal')
+@extends($questionForm['layout'])
+@section('title', $questionForm['title'])
 @section('content')
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.tryout.index') }}" title="Manajemen Tryout" />
-            <x-breadcrumb-item href="{{ route('admin.question.index', $tryout_detail->tryout_detail_id) }}"
-                title="Soal" />
-            <x-breadcrumb-item href="" title="{{ isset($question) ? 'Edit Soal' : 'Tambah Soal' }}" />
+            @foreach ($questionForm['breadcrumbs'] as $breadcrumb)
+                <x-breadcrumb-item href="{{ $breadcrumb['url'] ?? '' }}" title="{{ $breadcrumb['title'] }}" />
+            @endforeach
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="{{ isset($question) ? 'Edit Soal' : 'Tambah Soal' }} - {{ $tryout->name }}">
+<x-page-desc title="{{ $questionForm['pageTitle'] }}">
     <x-slot name="description">
-        Subtest: {{ $tryout_detail->display_name }} • Durasi: {{ $tryout_detail->duration }} menit
+        {{ $questionForm['description'] }}
     </x-slot>
 </x-page-desc>
 
 <div class="space-y-6">
+    @if ($errors->any())
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <ul class="list-inside list-disc space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
     <div class="bg-white rounded-lg border border-gray-200">
-        <form
-            action="{{ isset($question) ? route('admin.question.update', [$tryout_detail->tryout_detail_id, $question->question_id]) : route('admin.question.store', $tryout_detail->tryout_detail_id) }}"
-            method="POST" enctype="multipart/form-data" novalidate>
+        <form action="{{ $questionForm['action'] }}" method="POST" enctype="multipart/form-data" novalidate>
             @csrf
-            @if(isset($question))
+            @if($questionForm['method'] !== 'POST')
             @method('PUT')
+            @endif
+            @if($questionForm['importTarget'])
+                <input type="hidden" name="import_for" value="{{ $questionForm['importTarget'] }}">
             @endif
 
             @php
             $rawType = old('question_type', isset($question) ? $question->question_type : 'multiple_choice');
-            $currentType = in_array($rawType, ['short_answer', 'essay', 'multiple_true_false']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
-            'multiple_choice' : $rawType);
+            $currentType = $rawType === 'true_false' ? 'multiple_choice' : $rawType;
 
             $metadata = isset($question) ? ($question->metadata ?? []) : [];
 
@@ -103,6 +111,7 @@
                 @endphp
 
                 <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
                         <label for="question_type" class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span
                                 class="text-red-500">*</span></label>
@@ -115,10 +124,19 @@
                                 Multiple Answer (Lebih dari 1 benar)</option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
                             <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
+                            <option value="short_answer" {{ $rawType==='short_answer' ? 'selected' : '' }}>Jawaban Singkat</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
                         <p class="text-xs text-gray-500 mt-2">Pilih tipe soal untuk menampilkan form yang sesuai.</p>
+                    </div>
+                    <div>
+                        <label for="question_score" class="block text-sm font-medium text-gray-700 mb-2">Bobot Nilai</label>
+                        <input type="number" id="question_score" name="question_score" step="0.1" min="0"
+                            value="{{ old('question_score', isset($question) ? $question->default_weight : $questionForm['defaultWeight']) }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <p class="text-xs text-gray-500 mt-2">Digunakan sebagai bobot dasar jika tipe soal tidak memiliki pengaturan skor khusus.</p>
+                    </div>
                     </div>
 
                     <!-- Question Text -->
@@ -127,7 +145,7 @@
                                 class="text-red-500">*</span></label>
                         <textarea id="question_text" name="question_text" required rows="4"
                             class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Masukkan teks soal...">{{ isset($question) ? $question->question_text : old('question_text') }}</textarea>
+                            placeholder="Masukkan teks soal...">{{ old('question_text', isset($question) ? $question->question_text : '') }}</textarea>
                     </div>
 
                     <!-- Audio Upload -->
@@ -155,8 +173,8 @@
                         style="display:none;">
                         <div class="flex justify-between items-center">
                             <h3 class="text-lg font-medium text-gray-800">Pilihan Jawaban</h3>
-                            @if ($tryout->is_toefl !== 1)
-                            @if($tryout_detail->type_subtest !== 'tkp')
+                            @if (! $questionForm['isToefl'])
+                            @if($questionForm['subtestType'] !== 'tkp')
                             <div class="flex items-center" id="customScoreToggle">
                                 <input type="checkbox" id="use_custom_scores" name="use_custom_scores" value="1" {{
                                     (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ?
@@ -223,9 +241,9 @@
                         @php
                         $optionData = null;
                         $isCorrect = false;
-                        if (isset($question) && $question->questionOptions && isset($question->questionOptions[$index]))
+                        if (isset($question) && isset($questionOptions[$index]))
                         {
-                        $optionData = $question->questionOptions[$index];
+                        $optionData = $questionOptions[$index];
                         $isCorrect = $optionData->is_correct == 1;
                         }
                         @endphp
@@ -253,10 +271,10 @@
                                     placeholder="Pilihan {{ $optionKey }}">{{ $optionData ? $optionData->option_text : old('option_' . strtolower($optionKey)) }}</textarea>
                             </div>
                             <div class="custom-score-field w-full sm:w-1/4"
-                                style="{{ ($tryout_detail->type_subtest === 'tkp') || (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ? '' : 'display: none;' }}">
+                                style="{{ ($questionForm['subtestType'] === 'tkp') || (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ? '' : 'display: none;' }}">
                                 <label for="score_{{ strtolower($optionKey) }}"
                                     class="block text-sm font-medium text-gray-700 mb-2">
-                                    @if($tryout_detail->type_subtest === 'tkp')
+                                    @if($questionForm['subtestType'] === 'tkp')
                                     Skor {{ $optionKey }} (1-5)
                                     @else
                                     Skor {{ $optionKey }}
@@ -264,10 +282,10 @@
                                 </label>
                                 <input type="number" id="score_{{ strtolower($optionKey) }}"
                                     name="score_{{ strtolower($optionKey) }}"
-                                    value="{{ $optionData ? $optionData->weight : old('score_' . strtolower($optionKey), $tryout_detail->type_subtest === 'tkp' ? 1 : 0) }}"
+                                    value="{{ $optionData ? $optionData->weight : old('score_' . strtolower($optionKey), $questionForm['subtestType'] === 'tkp' ? 1 : 0) }}"
                                     min="0" max="5" step="0.1"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="{{ $tryout_detail->type_subtest === 'tkp' ? '1-5' : '0' }}">
+                                    placeholder="{{ $questionForm['subtestType'] === 'tkp' ? '1-5' : '0' }}">
                             </div>
                         </div>
                         @endforeach
@@ -503,7 +521,7 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Benar</label>
                                     <input type="number" name="essay_score_correct" step="0.01" min="0"
                                         value="{{ old('essay_score_correct', isset($question) ? $question->essay_score_correct : '') }}"
-                                        placeholder="{{ $tryout_detail->default_weight ?? 1 }}"
+                                        placeholder="{{ $questionForm['defaultWeight'] }}"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                     <p class="text-xs text-gray-500 mt-1">Kosongkan = pakai default weight</p>
                                 </div>
@@ -598,7 +616,7 @@
 
                     <!-- Submit Buttons -->
                     <div class="flex justify-end gap-4 pt-6">
-                        <a href="{{ route('admin.question.index', $tryout_detail->tryout_detail_id) }}"
+                        <a href="{{ $questionForm['cancelUrl'] }}"
                             class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                             Batal
                         </a>
@@ -622,7 +640,7 @@
         const useCustomScores = document.getElementById('use_custom_scores');
         const customScoreFields = document.querySelectorAll('.custom-score-field');
         const customScoreToggle = document.getElementById('customScoreToggle');
-        const tryoutType = '{{ $tryout_detail->type_subtest }}';
+        const tryoutType = @json($questionForm['subtestType']);
         const form = document.querySelector('form');
         const matchingContainer = document.getElementById('matchingPairsContainer');
         const addMatchingPairBtn = document.getElementById('addMatchingPair');

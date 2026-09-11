@@ -15,6 +15,7 @@ use App\Services\AiQuestionGeneratorService;
 use App\Services\AiReferencePdfService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
+use App\ViewModels\QuestionFormViewData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -881,7 +882,7 @@ class QuestionBankController extends Controller
         return $token;
     }
 
-    public function createQuestionForm(Request $request, QuestionBank $questionBank)
+    public function createQuestionForm(Request $request, QuestionBank $questionBank, QuestionFormViewData $questionFormViewData)
     {
         // Cek quota question bank - backend validation
         $quotaCheck = PlanQuotaService::canCreateQuestionBank();
@@ -891,20 +892,12 @@ class QuestionBankController extends Controller
         }
 
         $importTarget = $request->integer('import_for');
-        $matchingPairs = old('matching_pairs', [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ]);
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.create-question', [
-            'bank' => $questionBank,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $questionBank,
+            null,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     /**
@@ -918,27 +911,17 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function editQuestionForm(Request $request, QuestionBankQuestion $question)
+    public function editQuestionForm(Request $request, QuestionBankQuestion $question, QuestionFormViewData $questionFormViewData)
     {
         $importTarget = $request->integer('import_for');
         $question->load('options', 'bank');
 
-        $metadata = is_array($question->metadata) ? $question->metadata : [];
-        $matchingPairs = $metadata['matching_pairs'] ?? [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ];
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.edit-question', [
-            'bank' => $question->bank,
-            'question' => $question,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $question->bank,
+            $question,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     public function storeQuestion(Request $request, QuestionBank $questionBank)
@@ -952,6 +935,10 @@ class QuestionBankController extends Controller
 
         $questionType = $request->input('question_type', 'multiple_choice');
         $importTarget = $request->integer('import_for');
+
+        if ($request->filled('question_score')) {
+            $request->merge(['default_weight' => $request->input('question_score')]);
+        }
 
         $baseRules = [
             'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
@@ -1046,6 +1033,10 @@ class QuestionBankController extends Controller
     {
         $questionType = $request->input('question_type', 'multiple_choice');
         $importTarget = $request->integer('import_for');
+
+        if ($request->filled('question_score')) {
+            $request->merge(['default_weight' => $request->input('question_score')]);
+        }
 
         $baseRules = [
             'question_type' => ['required', 'in:multiple_choice,multiple_answer,multiple_true_false,true_false,matching,essay,short_answer,audio'],
