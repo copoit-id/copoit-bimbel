@@ -60,4 +60,9 @@ class ClassSession extends Model
     {
         return $this->hasOne(TutorAttendance::class);
     }
+
+    public function bookingRequest(): HasOne
+    {
+        return $this->hasOne(ScheduleBookingRequest::class, 'class_session_id');
+    }
 }

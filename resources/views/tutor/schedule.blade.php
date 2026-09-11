@@ -41,6 +41,9 @@
                         <article class="rounded-lg border border-gray-200 bg-white p-3">
                             <p class="text-xs font-semibold text-primary">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' - '.$session->end_at->format('H:i') : '' }}</p>
                             <h2 class="mt-1 text-sm font-bold leading-snug text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</h2>
+                            @if($session->bookingRequest)
+                                <a href="{{ route('tutor.booking.index', ['status' => 'approved']) }}" class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"><i class="ri-calendar-schedule-line"></i>Booking · {{ $session->bookingRequest->user?->name ?? 'Siswa' }}</a>
+                            @endif
                             <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-group-line"></i>{{ $session->studyGroup?->name ?? 'Tanpa rombel' }}</p>
                             @if($session->location)
                                 <p class="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><i class="ri-map-pin-line"></i>{{ $session->location }}</p>
@@ -78,6 +81,7 @@
                         <article class="rounded border border-gray-200 bg-white p-1.5">
                             <p class="text-[10px] font-bold text-primary">{{ $session->start_at->format('H:i') }}</p>
                             <p class="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-tight text-gray-800">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</p>
+                            @if($session->bookingRequest)<p class="mt-0.5 text-[9px] font-semibold text-primary">Booking</p>@endif
                         </article>
                     @endforeach
                 </div>
@@ -87,7 +91,7 @@
     @else
     <div class="space-y-8">
         @forelse($allMonths as $calendarMonth)
-            <section><h2 class="mb-3 text-lg font-bold text-gray-900">{{ $calendarMonth['label'] }}</h2><div class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-gray-200 bg-gray-200">@foreach(['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $dayLabel)<div class="bg-gray-50 px-2 py-2 text-center text-xs font-bold text-gray-500">{{ $dayLabel }}</div>@endforeach @foreach($calendarMonth['dates'] as $date)<section class="min-h-32 bg-white p-2 {{ $date->month === $calendarMonth['month'] ? '' : 'bg-gray-50/70 text-gray-400' }}"><p class="text-xs font-bold">{{ $date->format('d') }}</p><div class="mt-2 space-y-1">@foreach($calendarMonth['sessions']->get($date->toDateString(), collect()) as $session)<article class="rounded border border-gray-200 bg-white p-1.5"><p class="text-[10px] font-bold text-primary">{{ $session->start_at->format('H:i') }}</p><p class="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-tight text-gray-800">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</p></article>@endforeach</div></section>@endforeach</div></section>
+            <section><h2 class="mb-3 text-lg font-bold text-gray-900">{{ $calendarMonth['label'] }}</h2><div class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-gray-200 bg-gray-200">@foreach(['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $dayLabel)<div class="bg-gray-50 px-2 py-2 text-center text-xs font-bold text-gray-500">{{ $dayLabel }}</div>@endforeach @foreach($calendarMonth['dates'] as $date)<section class="min-h-32 bg-white p-2 {{ $date->month === $calendarMonth['month'] ? '' : 'bg-gray-50/70 text-gray-400' }}"><p class="text-xs font-bold">{{ $date->format('d') }}</p><div class="mt-2 space-y-1">@foreach($calendarMonth['sessions']->get($date->toDateString(), collect()) as $session)<article class="rounded border border-gray-200 bg-white p-1.5"><p class="text-[10px] font-bold text-primary">{{ $session->start_at->format('H:i') }}</p><p class="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-tight text-gray-800">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</p>@if($session->bookingRequest)<p class="mt-0.5 text-[9px] font-semibold text-primary">Booking</p>@endif</article>@endforeach</div></section>@endforeach</div></section>
         @empty
             <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">Belum ada jadwal.</div>
         @endforelse

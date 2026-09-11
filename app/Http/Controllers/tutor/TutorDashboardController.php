@@ -291,7 +291,13 @@ class TutorDashboardController extends Controller
 
     private function sessionsFor(int $tentorId, bool $includeTutorAttendance = true)
     {
-        $relations = ['class:class_id,title', 'schedule:id,title', 'studyGroup:id,name'];
+        $relations = [
+            'class:class_id,title',
+            'schedule:id,title',
+            'studyGroup:id,name',
+            'bookingRequest:id,class_session_id,user_id,status',
+            'bookingRequest.user:id,name',
+        ];
 
         if ($includeTutorAttendance) {
             $relations = [...$relations, 'tutorAttendance', 'schedule.attendanceSetting'];
