@@ -11,9 +11,11 @@ use App\Models\User;
 use App\Models\UserAnswer;
 use App\Models\UserPackageAcces;
 use App\Support\Pagination;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ParentPortalController extends Controller
@@ -42,23 +44,17 @@ class ParentPortalController extends Controller
             ->orderBy('scheduled_start_at')
             ->limit(5)
             ->get();
-        $recentAnswers = UserAnswer::query()
-            ->where('user_id', $child->id)
-            ->where('status', 'completed')
-            ->with('tryout:tryout_id,name')
-            ->latest('finished_at')
+        $recentAnswers = $this->attemptRowsQuery($child->id)
+            ->orderByDesc('attempts.finished_at')
             ->limit(5)
             ->get();
-        $scoreTrend = UserAnswer::query()
-            ->where('user_id', $child->id)
-            ->where('status', 'completed')
-            ->with('tryout:tryout_id,name')
-            ->latest('finished_at')
+        $scoreTrend = $this->attemptRowsQuery($child->id)
+            ->orderByDesc('attempts.finished_at')
             ->limit(6)
             ->get()
             ->sortBy('finished_at')
             ->values();
-        $scoreTrendMaximum = max(1, (float) $scoreTrend->max('score'));
+        $scoreTrendChart = $this->scoreTrendChart($scoreTrend);
         $assessmentSummary = $this->assessmentSummary($child->id);
         $childAccountStatus = $this->childAccountStatus($child);
         $recentFeedback = $this->feedbackQuery($child)
@@ -76,7 +72,7 @@ class ParentPortalController extends Controller
             'upcomingBookings',
             'recentAnswers',
             'scoreTrend',
-            'scoreTrendMaximum',
+            'scoreTrendChart',
             'assessmentSummary',
             'childAccountStatus',
             'recentFeedback',
@@ -131,24 +127,98 @@ class ParentPortalController extends Controller
     public function assessments(Request $request): View
     {
         [$children, $child] = $this->childrenAndSelectedChild($request);
-        $answers = $child
-            ? UserAnswer::query()
-                ->where('user_id', $child->id)
-                ->where('status', 'completed')
-                ->with([
-                    'tryout:tryout_id,name',
-                    'tryoutDetail:tryout_detail_id,type_subtest,material_category_id',
-                    'tryoutDetail.materialCategory:category_id,name',
-                ])
-                ->latest('finished_at')
+        $assessmentItems = $child
+            ? DB::query()
+                ->fromSub($this->completedAttemptsQuery($child->id), 'attempts')
+                ->join('tryouts', 'tryouts.tryout_id', '=', 'attempts.tryout_id')
+                ->selectRaw('attempts.tryout_id, tryouts.name as tryout_name, COUNT(*) as attempt_count, AVG(attempts.score) as average_score, MAX(attempts.score) as highest_score, MAX(attempts.finished_at) as last_finished_at, SUM(attempts.correct_answers) as correct_answers, SUM(attempts.total_questions) as total_questions')
+                ->groupBy('attempts.tryout_id', 'tryouts.name')
+                ->orderByDesc('last_finished_at')
                 ->paginate(Pagination::perPage(15))
                 ->withQueryString()
             : collect();
         $assessmentSummary = $child
             ? $this->assessmentSummary($child->id)
             : $this->emptyAssessmentSummary();
+        $assessmentTrend = $child
+            ? $this->attemptRowsQuery($child->id)
+                ->orderByDesc('attempts.finished_at')
+                ->limit(8)
+                ->get()
+                ->reverse()
+                ->values()
+            : collect();
+        $assessmentTrendChart = $this->scoreTrendChart($assessmentTrend);
 
-        return view('parent.assessments', compact('children', 'child', 'answers', 'assessmentSummary'));
+        return view('parent.assessments', compact(
+            'children',
+            'child',
+            'assessmentItems',
+            'assessmentSummary',
+            'assessmentTrendChart'
+        ));
+    }
+
+    public function assessmentDetail(Request $request, int $tryout): View
+    {
+        [$children, $child] = $this->childrenAndSelectedChild($request);
+
+        abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
+
+        $assessment = DB::table('tryouts')
+            ->select(['tryout_id', 'name', 'description'])
+            ->where('tryout_id', $tryout)
+            ->first();
+        abort_unless($assessment, 404, 'Tryout tidak ditemukan.');
+
+        $attemptsQuery = $this->attemptRowsQuery($child->id)
+            ->where('attempts.tryout_id', $tryout);
+        $attemptSummary = DB::query()
+            ->fromSub($this->completedAttemptsQuery($child->id), 'attempts')
+            ->where('attempts.tryout_id', $tryout)
+            ->selectRaw('COUNT(*) as completed, AVG(attempts.score) as average_score, MAX(attempts.score) as highest_score, SUM(attempts.correct_answers) as correct_answers, SUM(attempts.total_questions) as total_questions')
+            ->first();
+        abort_unless((int) ($attemptSummary->completed ?? 0) > 0, 404, 'Riwayat tryout tidak ditemukan.');
+
+        $attemptTrend = (clone $attemptsQuery)
+            ->orderBy('attempts.finished_at')
+            ->limit(12)
+            ->get();
+        $attempts = $attemptsQuery
+            ->orderByDesc('attempts.finished_at')
+            ->paginate(Pagination::perPage(12))
+            ->withQueryString();
+        $feedback = $this->feedbackQuery($child)
+            ->with(['tentor:id,name,expertise', 'studyGroup:id,name'])
+            ->latest()
+            ->limit(5)
+            ->get();
+        $progress = StudentProgressReport::query()
+            ->where('user_id', $child->id)
+            ->with(['tentor:id,name,expertise', 'package:package_id,name', 'studyGroup:id,name'])
+            ->latest('period_end')
+            ->limit(3)
+            ->get();
+
+        $attemptSummary = [
+            'completed' => (int) $attemptSummary->completed,
+            'average_score' => (float) $attemptSummary->average_score,
+            'highest_score' => (float) $attemptSummary->highest_score,
+            'correct_answers' => (int) $attemptSummary->correct_answers,
+            'total_questions' => (int) $attemptSummary->total_questions,
+        ];
+
+        return view('parent.assessment-detail', compact(
+            'children',
+            'child',
+            'attempts',
+            'attemptSummary',
+            'feedback',
+            'progress'
+        ) + [
+            'tryout' => $assessment,
+            'attemptTrendChart' => $this->scoreTrendChart($attemptTrend),
+        ]);
     }
 
     public function development(Request $request): View
@@ -199,8 +269,13 @@ class ParentPortalController extends Controller
             ->latest('period_end')
             ->limit(3)
             ->get();
+        $feedback = $this->feedbackQuery($child)
+            ->with(['tentor:id,name,expertise', 'studyGroup:id,name', 'session.schedule:id,title'])
+            ->latest()
+            ->limit(10)
+            ->get();
 
-        return view('parent.report', compact('children', 'child', 'attendanceSummary', 'packages', 'answers', 'progress'));
+        return view('parent.report', compact('children', 'child', 'attendanceSummary', 'packages', 'answers', 'progress', 'feedback'));
     }
 
     private function childrenAndSelectedChild(Request $request): array
@@ -254,14 +329,90 @@ class ParentPortalController extends Controller
     /** @return array{completed: int, average_score: float, highest_score: float} */
     private function assessmentSummary(int $childId): array
     {
-        $answers = UserAnswer::query()
-            ->where('user_id', $childId)
-            ->where('status', 'completed');
+        $summary = DB::query()
+            ->fromSub($this->completedAttemptsQuery($childId), 'attempts')
+            ->selectRaw('COUNT(*) as completed, AVG(score) as average_score, MAX(score) as highest_score')
+            ->first();
 
         return [
-            'completed' => (clone $answers)->count(),
-            'average_score' => (float) ((clone $answers)->avg('score') ?? 0),
-            'highest_score' => (float) ((clone $answers)->max('score') ?? 0),
+            'completed' => (int) ($summary->completed ?? 0),
+            'average_score' => (float) ($summary->average_score ?? 0),
+            'highest_score' => (float) ($summary->highest_score ?? 0),
+        ];
+    }
+
+    private function completedAttemptsQuery(int $childId): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('user_answers')
+            ->where('user_id', $childId)
+            ->where('status', 'completed')
+            ->whereNotNull('finished_at')
+            ->selectRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR)) as attempt_key, MAX(finished_at) as finished_at, COALESCE(MAX(utbk_total_score), SUM(COALESCE(score, 0))) as score, SUM(COALESCE(correct_answers, 0)) as correct_answers, SUM(COALESCE(total_questions, 0)) as total_questions")
+            ->groupByRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR))");
+    }
+
+    private function attemptRowsQuery(int $childId): \Illuminate\Database\Query\Builder
+    {
+        return DB::query()
+            ->fromSub($this->completedAttemptsQuery($childId), 'attempts')
+            ->join('tryouts', 'tryouts.tryout_id', '=', 'attempts.tryout_id')
+            ->select([
+                'attempts.tryout_id',
+                'attempts.attempt_key',
+                'attempts.finished_at',
+                'attempts.score',
+                'attempts.correct_answers',
+                'attempts.total_questions',
+                'tryouts.name as tryout_name',
+            ]);
+    }
+
+    /** @return array{points: array<int, array{x: float, y: float, score: float, label: string, name: string}>, polyline: string, area: string, maximum: float, last_score: float|null, change: float|null, change_label: string, label: string} */
+    private function scoreTrendChart(Collection $attempts): array
+    {
+        $items = $attempts->values();
+        $maximum = max(100, (float) $items->max('score'));
+        $width = 640;
+        $height = 210;
+        $paddingX = 28;
+        $paddingY = 26;
+        $usableWidth = $width - ($paddingX * 2);
+        $usableHeight = $height - ($paddingY * 2);
+        $denominator = max(1, $items->count() - 1);
+
+        $points = $items->map(function (object $attempt, int $index) use ($denominator, $maximum, $usableWidth, $usableHeight, $paddingX, $paddingY): array {
+            $score = (float) $attempt->score;
+
+            return [
+                'x' => round($paddingX + (($usableWidth / $denominator) * $index), 2),
+                'y' => round($paddingY + ($usableHeight - min(1, max(0, $score / $maximum)) * $usableHeight), 2),
+                'score' => $score,
+                'label' => Carbon::parse($attempt->finished_at)->translatedFormat('d M'),
+                'name' => (string) ($attempt->tryout_name ?? $attempt->tryout?->name ?? 'Tryout'),
+            ];
+        })->all();
+        $polyline = collect($points)->map(fn (array $point): string => $point['x'].','.$point['y'])->implode(' ');
+        $area = $polyline === ''
+            ? ''
+            : $paddingX.','.($height - $paddingY).' '.$polyline.' '.($paddingX + $usableWidth).','.($height - $paddingY);
+        $firstScore = $points[0]['score'] ?? null;
+        $lastPoint = $points !== [] ? $points[array_key_last($points)] : null;
+        $lastScore = $lastPoint['score'] ?? null;
+        $change = $firstScore !== null && $lastScore !== null && count($points) > 1
+            ? $lastScore - $firstScore
+            : null;
+
+        return [
+            'points' => $points,
+            'polyline' => $polyline,
+            'area' => $area,
+            'maximum' => $maximum,
+            'last_score' => $lastScore,
+            'change' => $change,
+            'change_label' => $change === null ? 'Belum cukup data' : (($change >= 0 ? '+' : '').number_format($change, 1)),
+            'label' => $change === null
+                ? 'Selesaikan lebih banyak tryout untuk membaca pola nilai.'
+                : ($change >= 0 ? 'Nilai terakhir meningkat dibanding percobaan pertama.' : 'Nilai terakhir perlu ditingkatkan dibanding percobaan pertama.'),
         ];
     }
 
@@ -316,7 +467,7 @@ class ParentPortalController extends Controller
             'upcomingBookings' => collect(),
             'recentAnswers' => collect(),
             'scoreTrend' => collect(),
-            'scoreTrendMaximum' => 1,
+            'scoreTrendChart' => $this->scoreTrendChart(collect()),
             'assessmentSummary' => $this->emptyAssessmentSummary(),
             'childAccountStatus' => null,
             'recentFeedback' => collect(),

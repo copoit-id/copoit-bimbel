@@ -22,7 +22,6 @@ class ParentNavigationService
             ['route' => 'parent.attendance', 'icon' => 'ri-calendar-check-line', 'label' => 'Presensi'],
             ['route' => 'parent.packages', 'icon' => 'ri-bank-card-line', 'label' => 'Paket & Pembayaran'],
             ['route' => 'parent.assessments', 'icon' => 'ri-bar-chart-box-line', 'label' => 'Riwayat Ujian'],
-            ['route' => 'parent.development', 'icon' => 'ri-line-chart-line', 'label' => 'Perkembangan'],
         ];
 
         if ((bool) config('client.branding.tutor_chat_enabled', false)
@@ -35,7 +34,7 @@ class ParentNavigationService
 
         return array_map(static fn (array $item): array => [
             ...$item,
-            'is_active' => request()->routeIs($item['route']),
+            'is_active' => request()->routeIs($item['route'].'*'),
         ], $items);
     }
 }

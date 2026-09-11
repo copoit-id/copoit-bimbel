@@ -35,14 +35,14 @@
     <x-website-translation-head />
 </head>
 
-<body data-app-selects>
+<body class="min-h-screen bg-slate-50" data-app-selects>
     @include('components.login-as-header')
-    @include('user.components.navbar')
 
-    <div class="responsive-shell px-3 md:px-[150px] mt-14">
-        @yield('content')
-    </div>
-    @include('user.components.footer')
+    <main class="responsive-shell py-6 sm:py-8">
+        <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            @yield('content')
+        </div>
+    </main>
     @include('components.flash-alert')
     <x-logout-confirm-modal />
 
