@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\parent;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\admin\LaporanController as AdminLaporanController;
 use App\Http\Controllers\user\PackageController as UserPackageController;
 use App\Models\ClassAttendance;
 use App\Models\Package;
@@ -325,13 +326,33 @@ class ParentPortalController extends Controller
             ->latest()
             ->limit(10)
             ->get();
-        $answers = UserAnswer::query()
-            ->where('user_id', $child->id)
-            ->where('status', 'completed')
-            ->with('tryout:tryout_id,name')
-            ->latest('finished_at')
-            ->limit(10)
-            ->get();
+        $tryoutReports = $this->attemptRowsQuery($child->id)
+            ->orderByDesc('attempts.finished_at')
+            ->get()
+            ->groupBy('tryout_id')
+            ->map(function (Collection $attempts): array {
+                $latest = $attempts->first();
+
+                return [
+                    'tryout_id' => (int) $latest->tryout_id,
+                    'name' => (string) $latest->tryout_name,
+                    'attempt_count' => $attempts->count(),
+                    'latest_score' => (float) $latest->score,
+                    'highest_score' => (float) $attempts->max('score'),
+                    'last_finished_at' => $latest->finished_at,
+                    'attempts' => $attempts->map(fn (object $attempt): array => [
+                        'attempt_key' => (string) $attempt->attempt_key,
+                        'finished_at' => $attempt->finished_at,
+                        'score' => (float) $attempt->score,
+                        'correct_answers' => (int) $attempt->correct_answers,
+                        'wrong_answers' => (int) $attempt->wrong_answers,
+                        'unanswered' => (int) $attempt->unanswered,
+                        'total_questions' => (int) $attempt->total_questions,
+                    ])->values()->all(),
+                ];
+            })
+            ->values();
+        $assessmentSummary = $this->assessmentSummary($child->id);
         $progress = StudentProgressReport::query()
             ->where('user_id', $child->id)
             ->with(['tentor:id,name', 'package:package_id,name'])
@@ -344,7 +365,40 @@ class ParentPortalController extends Controller
             ->limit(10)
             ->get();
 
-        return view('parent.report', compact('children', 'child', 'attendanceSummary', 'packages', 'answers', 'progress', 'feedback'));
+        return view('parent.report', compact('children', 'child', 'attendanceSummary', 'packages', 'tryoutReports', 'assessmentSummary', 'progress', 'feedback'));
+    }
+
+    public function reportAttempt(Request $request, int $tryout, string $attemptToken): View
+    {
+        [$children, $child] = $this->childrenAndSelectedChild($request);
+        abort_unless($child, 404, 'Anak belum terhubung ke akun ini.');
+
+        abort_unless(
+            UserAnswer::query()
+                ->where('user_id', $child->id)
+                ->where('tryout_id', $tryout)
+                ->where('attempt_token', $attemptToken)
+                ->exists(),
+            404,
+            'Detail pengerjaan Tryout tidak ditemukan.'
+        );
+        abort_if(
+            UserAnswer::query()
+                ->where('tryout_id', $tryout)
+                ->where('attempt_token', $attemptToken)
+                ->where('user_id', '!=', $child->id)
+                ->exists(),
+            404,
+            'Detail pengerjaan Tryout tidak ditemukan.'
+        );
+
+        $adminReport = app(AdminLaporanController::class)->attemptDetail($request, $tryout, $attemptToken);
+
+        return view('admin.pages.laporan.answer', $adminReport->getData() + [
+            'children' => $children,
+            'child' => $child,
+            'parentReport' => true,
+        ]);
     }
 
     private function childrenAndSelectedChild(Request $request): array
@@ -416,7 +470,7 @@ class ParentPortalController extends Controller
             ->where('user_id', $childId)
             ->where('status', 'completed')
             ->whereNotNull('finished_at')
-            ->selectRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR)) as attempt_key, MAX(finished_at) as finished_at, COALESCE(MAX(utbk_total_score), SUM(COALESCE(score, 0))) as score, SUM(COALESCE(correct_answers, 0)) as correct_answers, SUM(COALESCE(correct_answers, 0) + COALESCE(wrong_answers, 0) + COALESCE(unanswered, 0)) as total_questions")
+            ->selectRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR)) as attempt_key, MAX(finished_at) as finished_at, COALESCE(MAX(utbk_total_score), SUM(COALESCE(score, 0))) as score, SUM(COALESCE(correct_answers, 0)) as correct_answers, SUM(COALESCE(wrong_answers, 0)) as wrong_answers, SUM(COALESCE(unanswered, 0)) as unanswered, SUM(COALESCE(correct_answers, 0) + COALESCE(wrong_answers, 0) + COALESCE(unanswered, 0)) as total_questions")
             ->groupByRaw("tryout_id, COALESCE(NULLIF(attempt_token, ''), CAST(user_answer_id AS CHAR))");
     }
 
@@ -431,6 +485,8 @@ class ParentPortalController extends Controller
                 'attempts.finished_at',
                 'attempts.score',
                 'attempts.correct_answers',
+                'attempts.wrong_answers',
+                'attempts.unanswered',
                 'attempts.total_questions',
                 'tryouts.name as tryout_name',
             ]);

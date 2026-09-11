@@ -169,6 +169,7 @@ Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'modu
     Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
     Route::get('/riwayat-ujian/{tryout}', [ParentPortalController::class, 'assessmentDetail'])->name('assessments.detail');
     Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
+    Route::get('/laporan-cetak/tryout/{tryout}/attempt/{attemptToken}', [ParentPortalController::class, 'reportAttempt'])->name('report.attempt');
     Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
     Route::get('/chat-tutor', [ChatController::class, 'parentIndex'])->name('chat.index');
     Route::get('/chat-tutor/anak/{child}/jadwal/{classSchedule}', [ChatController::class, 'parentShow'])->name('chat.schedule.show');

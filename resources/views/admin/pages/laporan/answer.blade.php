@@ -1,20 +1,28 @@
-@extends('admin.layout.admin')
+@extends(($parentReport ?? false) ? 'parent.layout' : 'admin.layout.admin')
 @section('title', 'Detail Jawaban Peserta')
 
 @php
     use Illuminate\Support\Facades\Storage;
+
+    $isParentReport = $parentReport ?? false;
+    $reportIndexUrl = $isParentReport
+        ? route('parent.report', ['anak' => $child->id])
+        : route('admin.laporan.index');
+    $reportShowUrl = $isParentReport
+        ? route('parent.assessments.detail', ['anak' => $child->id, 'tryout' => $tryout->tryout_id])
+        : route('admin.laporan.show', $tryout->tryout_id);
 @endphp
 
 @section('content')
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <x-breadcrumb>
             <x-slot name="items">
-                <x-breadcrumb-item href="{{ route('admin.laporan.index') }}" title="Laporan Tryout" />
-                <x-breadcrumb-item href="{{ route('admin.laporan.show', $tryout->tryout_id) }}" title="{{ $tryout->name }}" />
+                <x-breadcrumb-item href="{{ $reportIndexUrl }}" title="Laporan Tryout" />
+                <x-breadcrumb-item href="{{ $reportShowUrl }}" title="{{ $tryout->name }}" />
                 <x-breadcrumb-item href="" title="Detail Jawaban" />
             </x-slot>
         </x-breadcrumb>
-        <a href="{{ route('admin.laporan.show', $tryout->tryout_id) }}"
+        <a href="{{ $reportShowUrl }}"
             class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50">
             <i class="ri-arrow-left-line"></i>
             Kembali ke Laporan
@@ -86,7 +94,7 @@
         <div class="mt-5 flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Subtest">
             @foreach ($subtests as $subtest)
                 @php $isActive = (int) $subtest['id'] === (int) $activeSubtestId; @endphp
-                <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attemptToken, 'subtest' => $subtest['id']]) }}"
+                <a href="{{ $isParentReport ? route('parent.report.attempt', ['anak' => $child->id, 'tryout' => $tryout->tryout_id, 'attemptToken' => $attemptToken, 'subtest' => $subtest['id']]) : route('admin.laporan.attempt', [$tryout->tryout_id, $attemptToken, 'subtest' => $subtest['id']]) }}"
                     role="tab" aria-selected="{{ $isActive ? 'true' : 'false' }}"
                     class="min-w-max rounded-lg border px-4 py-3 text-left transition {{ $isActive ? 'border-primary bg-primary text-white shadow-sm' : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/5' }}">
                     <span class="block text-sm font-semibold">{{ $subtest['name'] }}</span>
