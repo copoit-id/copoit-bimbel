@@ -10,6 +10,7 @@ use App\Models\RecurringBill;
 use App\Models\StudyGroup;
 use App\Models\User;
 use App\Services\RecurringBillService;
+use App\Services\TutorPackagePaymentService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
@@ -20,17 +21,69 @@ use Illuminate\View\View;
 
 class RecurringBillController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $bills = RecurringBill::withCount(['targets', 'invoices'])
-            ->latest()
-            ->paginate(\App\Support\Pagination::perPage(15));
-        $invoices = BillInvoice::with('user:id,name,email')
-            ->latest()
-            ->limit(10)
-            ->get();
+        $search = trim($request->string('search')->toString());
+        $source = $request->string('source')->toString();
+        $source = in_array($source, [BillInvoice::SOURCE_MANUAL, BillInvoice::SOURCE_SCHEDULE], true) ? $source : null;
+        $invoiceGroups = BillInvoice::query()
+            ->leftJoin('packages', 'packages.package_id', '=', 'bill_invoices.package_id')
+            ->leftJoin('study_groups', 'study_groups.id', '=', 'bill_invoices.study_group_id')
+            ->leftJoin('recurring_bills', 'recurring_bills.id', '=', 'bill_invoices.recurring_bill_id')
+            ->when($source, fn ($query) => $query->where('bill_invoices.billing_source', $source))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($searchQuery) use ($search): void {
+                    $searchQuery->where('bill_invoices.invoice_number', 'like', "%{$search}%")
+                        ->orWhere('bill_invoices.title', 'like', "%{$search}%")
+                        ->orWhere('packages.name', 'like', "%{$search}%")
+                        ->orWhere('study_groups.name', 'like', "%{$search}%")
+                        ->orWhere('recurring_bills.name', 'like', "%{$search}%");
+                });
+            })
+            ->select([
+                'bill_invoices.billing_source',
+                'bill_invoices.recurring_bill_id',
+                'bill_invoices.package_id',
+                'bill_invoices.study_group_id',
+            ])
+            ->selectRaw('MAX(bill_invoices.title) as title')
+            ->selectRaw('MAX(packages.name) as package_name')
+            ->selectRaw('MAX(study_groups.name) as study_group_name')
+            ->selectRaw('MAX(recurring_bills.name) as recurring_bill_name')
+            ->selectRaw('COUNT(*) as invoice_count')
+            ->selectRaw('MAX(bill_invoices.period_start) as latest_period_start')
+            ->groupBy([
+                'bill_invoices.billing_source',
+                'bill_invoices.recurring_bill_id',
+                'bill_invoices.package_id',
+                'bill_invoices.study_group_id',
+            ])
+            ->orderByDesc('latest_period_start')
+            ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'invoice_page')
+            ->withQueryString()
+            ->through(fn (object $invoice): object => $this->presentInvoiceGroupRow($invoice));
 
-        return view('admin.pages.recurring-bill.index', compact('bills', 'invoices'));
+        return view('admin.pages.recurring-bill.index', compact('invoiceGroups', 'search', 'source'));
+    }
+
+    private function presentInvoiceGroupRow(object $invoice): object
+    {
+        $isSchedule = $invoice->billing_source === BillInvoice::SOURCE_SCHEDULE;
+        $invoice->source_label = $isSchedule ? 'Dari jadwal' : 'Manual';
+        $invoice->source_variant = $isSchedule ? 'info' : 'warning';
+        $invoice->group_label = $isSchedule
+            ? 'Pembayaran '.trim(($invoice->package_name ?? 'Paket').' · '.($invoice->study_group_name ?? 'Rombel'))
+            : ($invoice->recurring_bill_name ?? $invoice->title);
+        $invoice->detail_route = $isSchedule
+            ? route('admin.recurring-bills.schedule', [
+                'studyGroup' => $invoice->study_group_id,
+                'package' => $invoice->package_id,
+            ])
+            : ($invoice->recurring_bill_id
+                ? route('admin.recurring-bills.show', $invoice->recurring_bill_id)
+                : null);
+
+        return $invoice;
     }
 
     public function create(): View
@@ -164,17 +217,20 @@ class RecurringBillController extends Controller
             ->with('success', 'Tagihan rutin berhasil dihapus. Invoice yang sudah dibuat tetap tersimpan sebagai riwayat.');
     }
 
-    public function show(RecurringBill $recurringBill): View
+    public function show(Request $request, RecurringBill $recurringBill): View
     {
         $recurringBill->load(['targets.user', 'targets.class']);
+        $range = $this->billingRange($request);
         $paymentTotals = BillInvoicePayment::query()
             ->select('bill_invoice_id', DB::raw('SUM(amount) as paid_amount'))
             ->groupBy('bill_invoice_id');
-        $periods = $recurringBill->invoices()
+        $periodQuery = $recurringBill->invoices()
             ->leftJoinSub($paymentTotals, 'payment_totals', function ($join): void {
                 $join->on('payment_totals.bill_invoice_id', '=', 'bill_invoices.id');
             })
-            ->whereNotNull('bill_invoices.period_start')
+            ->whereNotNull('bill_invoices.period_start');
+        $this->applyBillingRange($periodQuery, $range);
+        $periods = $periodQuery
             ->select([
                 'bill_invoices.period_start',
                 'bill_invoices.period_end',
@@ -186,9 +242,25 @@ class RecurringBillController extends Controller
             ->groupBy('bill_invoices.period_start', 'bill_invoices.period_end', 'bill_invoices.due_date')
             ->orderByDesc('bill_invoices.period_start')
             ->paginate(\App\Support\Pagination::perPage(20))
-            ->withQueryString();
+            ->withQueryString()
+            ->through(function (object $period) use ($recurringBill): object {
+                $period->amount = (int) $period->total_amount;
+                $period->detail_route = route('admin.recurring-bills.periods.show', [$recurringBill, $period->period_start]);
 
-        return view('admin.pages.recurring-bill.period-index', compact('recurringBill', 'periods'));
+                return $this->presentBillingPeriod($period);
+            });
+
+        $billing = [
+            'title' => $recurringBill->name,
+            'description' => $recurringBill->targets->count().' peserta sasaran · '.$recurringBill->frequencyLabel(),
+            'source_label' => 'Manual',
+            'source_variant' => 'warning',
+            'cycle_label' => $recurringBill->frequencyLabel(),
+            'back_route' => route('admin.recurring-bills.index'),
+        ];
+        $periodTabs = $this->billingPeriodTabs('admin.recurring-bills.show', ['recurringBill' => $recurringBill], $range);
+
+        return view('admin.pages.recurring-bill.period-index', compact('billing', 'periods', 'periodTabs'));
     }
 
     public function showPeriod(RecurringBill $recurringBill, string $periodStart): View
@@ -209,10 +281,189 @@ class RecurringBillController extends Controller
 
         abort_if($invoices->isEmpty() && $invoices->currentPage() === 1, 404);
 
-        $period = $invoices->first();
-        $isPeriodDetail = true;
+        $period = $this->presentBillingPeriod($invoices->first());
+        $billing = [
+            'title' => $recurringBill->name,
+            'description' => 'Status setiap peserta dan riwayat penerimaan pada periode tagihan ini.',
+            'source_label' => 'Manual',
+            'source_variant' => 'warning',
+            'cycle_label' => $recurringBill->frequencyLabel(),
+            'back_route' => route('admin.recurring-bills.show', $recurringBill),
+        ];
 
-        return view('admin.pages.recurring-bill.show', compact('recurringBill', 'invoices', 'period', 'isPeriodDetail'));
+        return view('admin.pages.recurring-bill.period-detail', compact('billing', 'invoices', 'period'));
+    }
+
+    public function showSchedulePeriod(StudyGroup $studyGroup, Package $package, string $periodStart, ?int $classSession = null): View
+    {
+        try {
+            $periodStart = Carbon::parse($periodStart)->toDateString();
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        $invoices = BillInvoice::query()
+            ->with([
+                'user:id,name,email',
+                'payments.paidBy:id,name',
+                'package:package_id,name,tutor_payment_frequency',
+                'studyGroup:id,name',
+                'classSession:id,class_schedule_id,tentor_id,session_date,start_at',
+                'classSession.schedule:id,title',
+                'classSession.tentor:id,name',
+            ])
+            ->withSum('payments as paid_amount', 'amount')
+            ->where('billing_source', BillInvoice::SOURCE_SCHEDULE)
+            ->where('study_group_id', $studyGroup->id)
+            ->where('package_id', $package->package_id)
+            ->whereDate('period_start', $periodStart)
+            ->when($classSession, fn ($query) => $query->where('class_session_id', $classSession))
+            ->orderBy('user_id')
+            ->paginate(\App\Support\Pagination::perPage(30))
+            ->withQueryString();
+
+        abort_if($invoices->isEmpty() && $invoices->currentPage() === 1, 404);
+
+        $period = $this->presentBillingPeriod($invoices->first());
+        $billing = [
+            'title' => 'Pembayaran '.$package->name,
+            'description' => 'Status setiap peserta dan riwayat penerimaan pada periode tagihan ini.',
+            'source_label' => 'Dari jadwal',
+            'source_variant' => 'info',
+            'cycle_label' => TutorPackagePaymentService::billingFrequencyLabel($package->tutor_payment_frequency),
+            'back_route' => route('admin.recurring-bills.schedule', [$studyGroup, $package]),
+        ];
+
+        return view('admin.pages.recurring-bill.period-detail', compact('billing', 'invoices', 'period'));
+    }
+
+    public function showSchedule(Request $request, StudyGroup $studyGroup, Package $package): View
+    {
+        $range = $this->billingRange($request);
+        $paymentTotals = BillInvoicePayment::query()
+            ->selectRaw('bill_invoice_id, COALESCE(SUM(amount), 0) as paid_amount')
+            ->groupBy('bill_invoice_id');
+        $periodQuery = BillInvoice::query()
+            ->leftJoinSub($paymentTotals, 'payment_totals', function ($join): void {
+                $join->on('payment_totals.bill_invoice_id', '=', 'bill_invoices.id');
+            })
+            ->where('bill_invoices.billing_source', BillInvoice::SOURCE_SCHEDULE)
+            ->where('bill_invoices.study_group_id', $studyGroup->id)
+            ->where('bill_invoices.package_id', $package->package_id);
+        $this->applyBillingRange($periodQuery, $range);
+        $periods = $periodQuery
+            ->select(['bill_invoices.class_session_id', 'bill_invoices.period_start', 'bill_invoices.period_end', 'bill_invoices.due_date'])
+            ->selectRaw('COUNT(*) as participant_count')
+            ->selectRaw('COALESCE(SUM(bill_invoices.amount), 0) as amount')
+            ->selectRaw('COALESCE(SUM(payment_totals.paid_amount), 0) as paid_amount')
+            ->groupBy('bill_invoices.class_session_id', 'bill_invoices.period_start', 'bill_invoices.period_end', 'bill_invoices.due_date')
+            ->orderByDesc('bill_invoices.period_start')
+            ->paginate(\App\Support\Pagination::perPage(20))
+            ->withQueryString()
+            ->through(function (object $period) use ($studyGroup, $package): object {
+                $period->remaining_amount = max(0, (int) $period->amount - (int) $period->paid_amount);
+                $period->detail_route = route('admin.recurring-bills.schedule-period', [
+                    'studyGroup' => $studyGroup->id,
+                    'package' => $package->package_id,
+                    'periodStart' => $period->period_start,
+                    'classSession' => $period->class_session_id,
+                ]);
+
+                return $this->presentBillingPeriod($period);
+            });
+        $billing = [
+            'title' => 'Pembayaran '.$package->name,
+            'description' => $studyGroup->name.' · Siklus tagihan mengikuti pengaturan paket.',
+            'source_label' => 'Dari jadwal',
+            'source_variant' => 'info',
+            'cycle_label' => TutorPackagePaymentService::billingFrequencyLabel($package->tutor_payment_frequency),
+            'back_route' => route('admin.recurring-bills.index'),
+        ];
+        $periodTabs = $this->billingPeriodTabs('admin.recurring-bills.schedule', ['studyGroup' => $studyGroup, 'package' => $package], $range);
+
+        return view('admin.pages.recurring-bill.period-index', compact('billing', 'periods', 'periodTabs'));
+    }
+
+    private function billingRange(Request $request): string
+    {
+        $range = $request->string('range')->toString();
+
+        return in_array($range, ['all', 'past', 'current', 'future'], true) ? $range : 'all';
+    }
+
+    private function applyBillingRange($query, string $range): void
+    {
+        match ($range) {
+            'past' => $query->whereDate('bill_invoices.period_end', '<', today()->toDateString()),
+            'current' => $query->whereDate('bill_invoices.period_start', '<=', today()->toDateString())
+                ->whereDate('bill_invoices.period_end', '>=', today()->toDateString()),
+            'future' => $query->whereDate('bill_invoices.period_start', '>', today()->toDateString()),
+            default => null,
+        };
+    }
+
+    private function billingPeriodTabs(string $routeName, array $parameters, string $activeRange): array
+    {
+        return collect([
+            'all' => 'Semua',
+            'past' => 'Sudah lewat',
+            'current' => 'Berjalan',
+            'future' => 'Mendatang',
+        ])->map(fn (string $label, string $range): array => [
+            'id' => $range,
+            'label' => $label,
+            'active' => $range === $activeRange,
+            'href' => route($routeName, [...$parameters, 'range' => $range]),
+        ])->values()->all();
+    }
+
+    private function presentBillingPeriod(object $period): object
+    {
+        $start = Carbon::parse($period->period_start);
+        $end = Carbon::parse($period->period_end ?? $period->period_start);
+        $today = today();
+        $isPast = $end->lt($today);
+        $isFuture = $start->gt($today);
+        $period->label = $start->isSameDay($end)
+            ? $start->translatedFormat('d M Y')
+            : $start->translatedFormat('d M Y').' – '.$end->translatedFormat('d M Y');
+        $period->state_label = $isPast ? 'Sudah lewat' : ($isFuture ? 'Mendatang' : 'Berjalan');
+        $period->state_variant = $isPast ? 'secondary' : ($isFuture ? 'info' : 'success');
+        $period->remaining_amount = max(0, (int) $period->amount - (int) $period->paid_amount);
+
+        return $period;
+    }
+
+    /** Keep previously shared schedule URLs usable while the detail flow uses stable route parameters. */
+    public function redirectLegacySchedule(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'study_group_id' => ['required', 'integer', 'exists:study_groups,id'],
+            'package_id' => ['required', 'integer', 'exists:packages,package_id'],
+        ]);
+
+        return to_route('admin.recurring-bills.schedule', [
+            'studyGroup' => $validated['study_group_id'],
+            'package' => $validated['package_id'],
+        ]);
+    }
+
+    /** Keep previously shared period URLs usable while preserving per-session detail when supplied. */
+    public function redirectLegacySchedulePeriod(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'study_group_id' => ['required', 'integer', 'exists:study_groups,id'],
+            'package_id' => ['required', 'integer', 'exists:packages,package_id'],
+            'period_start' => ['required', 'date'],
+            'class_session_id' => ['nullable', 'integer', 'exists:class_sessions,id'],
+        ]);
+
+        return to_route('admin.recurring-bills.schedule-period', [
+            'studyGroup' => $validated['study_group_id'],
+            'package' => $validated['package_id'],
+            'periodStart' => Carbon::parse($validated['period_start'])->toDateString(),
+            'classSession' => $validated['class_session_id'] ?? null,
+        ]);
     }
 
     public function generate(RecurringBill $recurringBill, RecurringBillService $billService): RedirectResponse

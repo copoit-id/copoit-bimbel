@@ -41,3 +41,10 @@ Komponen dasar yang perlu diprioritaskan: `x-ui.input`, `x-ui.input.select`, `x-
 - Jalankan Blade cache dan `git diff --check`.
 - Jalankan build atau validasi Vite yang tidak menimpa perubahan pengguna.
 - Jika browser tersedia, verifikasi interaksi visual pada halaman yang diubah. Jika tidak tersedia, laporkan batasan tersebut secara jujur.
+
+## 5. Hierarki data untuk daftar besar
+
+- Halaman awal untuk data operasional yang memiliki banyak turunan (tagihan, transaksi, jadwal, pesanan, atau laporan) wajib menampilkan unit kerja/ringkasan terlebih dahulu, misalnya tagihan per periode atau jadwal per hari.
+- Jangan langsung menampilkan seluruh data anak seperti peserta, item, atau riwayat transaksi pada halaman awal. Sediakan tombol `Detail` yang membuka konteks induknya beserta data turunannya.
+- Letakkan filter utama pada level ringkasan dan gunakan pagination pada setiap level. Hindari memuat semua data anak hanya untuk menghitung atau menampilkan daftar awal.
+- Tabel ringkasan harus menjawab keputusan utama: konteks, jumlah data anak, nilai total, progres/status, dan aksi detail. Data sensitif atau rinci ditampilkan setelah pengguna memilih konteksnya.

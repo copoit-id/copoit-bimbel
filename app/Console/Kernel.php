@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('essay:check-ai-status')->everyMinute();
         $schedule->command('class-sessions:generate --days=60')->dailyAt('00:10');
         $schedule->command('bills:generate-recurring --months=1')->dailyAt('00:20');
+        $schedule->command('bills:generate-schedule')->dailyAt('00:30');
     }
 
     protected function commands(): void

@@ -12,8 +12,13 @@ class BillInvoice extends Model
 {
     use HasFactory;
 
+    public const SOURCE_MANUAL = 'manual';
+
+    public const SOURCE_SCHEDULE = 'schedule';
+
     protected $fillable = [
         'recurring_bill_id',
+        'billing_source',
         'package_id',
         'user_id',
         'study_group_id',

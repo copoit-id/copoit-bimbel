@@ -600,6 +600,12 @@ Route::prefix('{portal}')
             Route::post('/pengeluaran', [ExpenseController::class, 'store'])->name('expenses.store');
             Route::delete('/pengeluaran/{expense}', [ExpenseController::class, 'destroy'])->name('expenses.destroy');
         });
+        Route::get('tagihan-rutin/jadwal', [RecurringBillController::class, 'redirectLegacySchedule'])->name('recurring-bills.schedule.legacy');
+        Route::get('tagihan-rutin/jadwal/periode', [RecurringBillController::class, 'redirectLegacySchedulePeriod'])->name('recurring-bills.schedule-period.legacy');
+        Route::get('tagihan-rutin/jadwal/{studyGroup}/{package}', [RecurringBillController::class, 'showSchedule'])->name('recurring-bills.schedule');
+        Route::get('tagihan-rutin/jadwal/{studyGroup}/{package}/periode/{periodStart}/{classSession?}', [RecurringBillController::class, 'showSchedulePeriod'])
+            ->whereNumber('classSession')
+            ->name('recurring-bills.schedule-period');
         Route::resource('tagihan-rutin', RecurringBillController::class)
             ->only(['index', 'create', 'store', 'show', 'edit', 'update', 'destroy'])
             ->names('recurring-bills')

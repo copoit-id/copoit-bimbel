@@ -29,6 +29,17 @@ class RecurringBill extends Model
         'is_active' => 'boolean',
     ];
 
+    public function frequencyLabel(): string
+    {
+        return match ($this->frequency) {
+            'daily' => 'Harian',
+            'weekly' => 'Mingguan',
+            'monthly' => 'Bulanan',
+            'yearly' => 'Tahunan',
+            default => '—',
+        };
+    }
+
     public function targets()
     {
         return $this->hasMany(RecurringBillTarget::class);

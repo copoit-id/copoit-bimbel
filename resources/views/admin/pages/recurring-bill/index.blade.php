@@ -1,87 +1,39 @@
 @extends('admin.layout.admin')
 
-@section('title', 'Tagihan Rutin')
+@section('title', 'Tagihan')
 
 @section('content')
-<div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">Tagihan Rutin</h1>
-            <p class="text-sm text-gray-500">Buat tagihan SPP atau iuran yang berulang untuk peserta tertentu.</p>
-        </div>
-        <a href="{{ route('admin.recurring-bills.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
-            <i class="ri-add-line"></i>
-            Buat Tagihan
-        </a>
-    </div>
-
-    <div class="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <table class="w-full text-left text-sm text-gray-600">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-700">
-                    <tr>
-                        <th class="px-4 py-3">Tagihan</th>
-                        <th class="px-4 py-3">Nominal</th>
-                        <th class="px-4 py-3">Periode</th>
-                        <th class="px-4 py-3">Target</th>
-                        <th class="px-4 py-3">Invoice</th>
-                        <th class="px-4 py-3">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($bills as $bill)
-                        <tr class="border-t border-gray-100">
-                            <td class="px-4 py-3">
-                                <p class="font-semibold text-gray-900">{{ $bill->name }}</p>
-                                <p class="text-xs text-gray-500">{{ $bill->is_active ? 'Aktif' : 'Nonaktif' }}</p>
-                            </td>
-                            <td class="px-4 py-3">Rp {{ number_format((float) $bill->amount, 0, ',', '.') }}</td>
-                            <td class="px-4 py-3">{{ ucfirst($bill->frequency) }}</td>
-                            <td class="px-4 py-3">{{ $bill->targets_count }}</td>
-                            <td class="px-4 py-3">{{ $bill->invoices_count }}</td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <a href="{{ route('admin.recurring-bills.show', $bill) }}" class="inline-flex items-center justify-center rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white" title="Detail tagihan" aria-label="Detail tagihan {{ $bill->name }}">
-                                        Detail
-                                    </a>
-                                    <a href="{{ route('admin.recurring-bills.edit', $bill) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400 text-amber-600 transition-colors hover:bg-amber-500 hover:text-white" title="Edit tagihan" aria-label="Edit tagihan {{ $bill->name }}">
-                                        <i class="ri-pencil-line"></i>
-                                    </a>
-                                    <form method="POST" action="{{ route('admin.recurring-bills.destroy', $bill) }}" onsubmit="return confirm(@js('Hapus tagihan rutin ' . $bill->name . '? Invoice yang sudah dibuat tetap tersimpan sebagai riwayat.'));">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-300 text-red-600 transition-colors hover:bg-red-600 hover:text-white" title="Hapus tagihan" aria-label="Hapus tagihan {{ $bill->name }}">
-                                            <i class="ri-delete-bin-line"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">Belum ada tagihan rutin.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 class="font-semibold text-gray-900">Invoice Terbaru</h2>
-            <div class="mt-4 space-y-3">
-                @forelse($invoices as $invoice)
-                    <div class="rounded-lg border border-gray-100 p-3">
-                        <p class="font-medium text-gray-900">{{ $invoice->title }}</p>
-                        <p class="text-xs text-gray-500">{{ $invoice->user->name ?? '-' }} • jatuh tempo {{ $invoice->due_date->format('d M Y') }}</p>
-                        <p class="mt-1 text-sm font-semibold">Rp {{ number_format((float) $invoice->amount, 0, ',', '.') }}</p>
+    <div class="space-y-6">
+        <x-layout.page-header title="Tagihan" description="Satu daftar untuk seluruh tagihan, baik dibuat manual maupun terbentuk dari jadwal paket.">
+            <x-slot:actions>
+                <details class="relative">
+                    <summary class="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"><i class="ri-add-line"></i>Tambah tagihan<i class="ri-arrow-down-s-line"></i></summary>
+                    <div class="absolute right-0 z-20 mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
+                        <a href="{{ route('admin.recurring-bills.create') }}" class="block rounded-lg px-3 py-3 transition hover:bg-gray-50"><span class="block text-sm font-semibold text-gray-900">Buat manual</span><span class="mt-0.5 block text-xs text-gray-500">Atur peserta, nominal, dan periode sendiri.</span></a>
+                        <a href="{{ route('admin.package.index') }}" class="block rounded-lg px-3 py-3 transition hover:bg-gray-50"><span class="block text-sm font-semibold text-gray-900">Dari jadwal paket</span><span class="mt-0.5 block text-xs text-gray-500">Atur paket dan siklus tagihan; invoice mengikuti jadwal secara otomatis.</span></a>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-500">Belum ada invoice.</p>
-                @endforelse
-            </div>
-        </div>
-    </div>
+                </details>
+            </x-slot:actions>
+        </x-layout.page-header>
 
-    {{ $bills->links() }}
-</div>
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+                <div><h2 class="font-bold text-gray-900">Daftar tagihan</h2><p class="mt-1 text-sm text-gray-500">Satu baris mewakili satu tagihan/periode. Buka Detail untuk melihat peserta dan riwayat penerimaan.</p></div>
+                <form method="GET" action="{{ route('admin.recurring-bills.index') }}" class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+                    <x-ui.input name="search" type="search" :value="$search" placeholder="Cari paket, rombel, atau tagihan" class="sm:w-64" />
+                    <select name="source" class="rounded-lg border-gray-300 text-sm focus:border-primary focus:ring-primary"><option value="">Semua sumber</option><option value="schedule" @selected($source === 'schedule')>Dari jadwal</option><option value="manual" @selected($source === 'manual')>Manual</option></select>
+                    <x-ui.button type="submit" variant="secondary">Terapkan</x-ui.button>
+                </form>
+            </div>
+
+            <div class="overflow-x-auto"><table class="min-w-[620px] w-full text-left text-sm"><thead class="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500"><tr><th class="px-5 py-3">Nama tagihan</th><th class="px-5 py-3">Sumber</th><th class="px-5 py-3">Invoice terbit</th><th class="sticky right-0 border-l border-gray-100 bg-gray-50 px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-gray-100 bg-white">
+                @forelse ($invoiceGroups as $invoice)
+                    <tr class="hover:bg-gray-50/70"><td class="px-5 py-4"><p class="font-semibold text-gray-900">{{ $invoice->group_label }}</p></td><td class="px-5 py-4"><x-ui.badge :variant="$invoice->source_variant" size="sm" pill>{{ $invoice->source_label }}</x-ui.badge></td><td class="whitespace-nowrap px-5 py-4 text-gray-700">{{ number_format($invoice->invoice_count) }} invoice</td><td class="sticky right-0 border-l border-gray-100 bg-white px-5 py-4 text-right">@if ($invoice->detail_route)<x-ui.button :href="$invoice->detail_route" variant="outline" size="sm">Detail</x-ui.button>@else<span class="text-xs text-gray-400">Detail tidak tersedia</span>@endif</td></tr>
+                @empty
+                    <tr><td colspan="4" class="px-5 py-14 text-center text-sm text-gray-500">Belum ada tagihan sesuai filter.</td></tr>
+                @endforelse
+            </tbody></table></div>
+            @if ($invoiceGroups->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $invoiceGroups->links() }}</div>@endif
+        </section>
+    </div>
 @endsection

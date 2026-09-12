@@ -44,6 +44,7 @@ class TutorPackagePaymentService
                 $invoices->push(BillInvoice::query()->firstOrCreate(
                     ['payment_scope_key' => $scopeKey],
                     [
+                        'billing_source' => BillInvoice::SOURCE_SCHEDULE,
                         'package_id' => $package->package_id,
                         'study_group_id' => $group->id,
                         'class_session_id' => $package->tutor_payment_frequency === 'per_session' ? $session->id : null,
@@ -62,6 +63,34 @@ class TutorPackagePaymentService
 
             return $invoices;
         }, 3);
+    }
+
+    /**
+     * Buat tagihan untuk sesi yang sudah tiba tanpa menunggu tindakan tutor.
+     * Unique payment_scope_key menjaga proses scheduler aman saat dijalankan ulang.
+     */
+    public function prepareDueInvoices(): int
+    {
+        $prepared = 0;
+
+        ClassSession::query()
+            ->with(['studyGroup.package', 'schedule.packages'])
+            ->whereNotNull('study_group_id')
+            ->whereDate('session_date', '<=', today()->toDateString())
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('id')
+            ->chunkById(50, function (Collection $sessions) use (&$prepared): void {
+                foreach ($sessions as $session) {
+                    if (! $this->isEnabled($this->packageFor($session))) {
+                        continue;
+                    }
+
+                    $this->prepareInvoices($session);
+                    $prepared++;
+                }
+            });
+
+        return $prepared;
     }
 
     public function isEnabled(?Package $package): bool
