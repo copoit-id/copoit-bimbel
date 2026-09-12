@@ -70,7 +70,7 @@
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Peserta Tryout</p>
                 <h3 class="mt-1 text-lg font-semibold text-gray-900">Ringkasan Pengerjaan</h3>
-                <p class="mt-1 text-sm text-gray-500">Menampilkan attempt terakhir setiap peserta beserta hasil seluruh subtest.</p>
+                <p class="mt-1 text-sm text-gray-500">Pilih siswa untuk melihat dan membuka detail attempt yang diinginkan.</p>
             </div>
             <form method="GET" class="flex w-full gap-2 lg:w-auto">
                 <div class="relative flex-1 lg:w-80">
@@ -165,9 +165,9 @@
                             </td>
                             <td class="px-4 py-4">
                                 <div class="flex justify-center gap-2">
-                                    <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"
+                                    <a href="{{ route('admin.laporan.user-attempts', [$tryout->tryout_id, $user->id]) }}"
                                         class="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
-                                        <i class="ri-file-list-3-line"></i> Detail
+                                        <i class="ri-file-list-3-line"></i> Detail & Riwayat
                                     </a>
                                     @if (! in_array($attempt->attempt_status, ['completed', 'pending_release']))
                                         <button type="button" data-open-time-modal
