@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class TutorPackagePaymentService
 {
+    public const BILLING_FREQUENCIES = ['once', 'per_session', 'daily', 'weekly', 'monthly', 'quarterly', 'semiannual', 'yearly'];
+
     /** @return Collection<int, BillInvoice> */
     public function prepareInvoices(ClassSession $session): Collection
     {
@@ -65,13 +67,32 @@ class TutorPackagePaymentService
     public function isEnabled(?Package $package): bool
     {
         return $package !== null
-            && in_array($package->tutor_payment_frequency, ['per_session', 'daily', 'monthly'], true)
+            && in_array($package->tutor_payment_frequency, self::BILLING_FREQUENCIES, true)
             && (int) $package->price > 0;
+    }
+
+    public static function billingFrequencyLabel(?string $frequency, bool $short = false): string
+    {
+        return match ($frequency) {
+            'once' => 'Sekali tagih',
+            'per_session' => $short ? 'pertemuan' : 'Setiap pertemuan',
+            'daily' => $short ? 'hari' : 'Harian',
+            'weekly' => $short ? 'minggu' : 'Mingguan',
+            'monthly' => $short ? 'bulan' : 'Bulanan',
+            'quarterly' => $short ? '3 bulan' : 'Setiap 3 bulan',
+            'semiannual' => $short ? '6 bulan' : 'Setiap 6 bulan',
+            'yearly' => $short ? 'tahun' : 'Setiap 1 tahun',
+            default => '—',
+        };
     }
 
     public function scopeKey(ClassSession $session, Package $package, int $studentId): string
     {
         $period = $this->periodFor($session, $package);
+
+        $periodKey = $package->tutor_payment_frequency === 'once'
+            ? 'once'
+            : $period['start'];
 
         return implode(':', [
             'tutor-package',
@@ -79,9 +100,16 @@ class TutorPackagePaymentService
             $session->study_group_id,
             $studentId,
             $package->tutor_payment_frequency,
-            $period['start'],
+            $periodKey,
             $package->tutor_payment_frequency === 'per_session' ? $session->id : null,
         ]);
+    }
+
+    public function periodStart(ClassSession $session, Package $package): ?string
+    {
+        return $package->tutor_payment_frequency === 'once'
+            ? null
+            : $this->periodFor($session, $package)['start'];
     }
 
     /** @return array{start: string, end: string, due: string} */
@@ -92,10 +120,30 @@ class TutorPackagePaymentService
             : Carbon::parse($session->session_date);
 
         return match ($package->tutor_payment_frequency) {
+            'weekly' => [
+                'start' => $date->copy()->startOfWeek(Carbon::MONDAY)->toDateString(),
+                'end' => $date->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
+                'due' => $date->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
+            ],
             'monthly' => [
                 'start' => $date->copy()->startOfMonth()->toDateString(),
                 'end' => $date->copy()->endOfMonth()->toDateString(),
                 'due' => $date->copy()->endOfMonth()->toDateString(),
+            ],
+            'quarterly' => [
+                'start' => $date->copy()->startOfQuarter()->toDateString(),
+                'end' => $date->copy()->endOfQuarter()->toDateString(),
+                'due' => $date->copy()->endOfQuarter()->toDateString(),
+            ],
+            'semiannual' => [
+                'start' => $date->copy()->month($date->month <= 6 ? 1 : 7)->startOfMonth()->toDateString(),
+                'end' => $date->copy()->month($date->month <= 6 ? 6 : 12)->endOfMonth()->toDateString(),
+                'due' => $date->copy()->month($date->month <= 6 ? 6 : 12)->endOfMonth()->toDateString(),
+            ],
+            'yearly' => [
+                'start' => $date->copy()->startOfYear()->toDateString(),
+                'end' => $date->copy()->endOfYear()->toDateString(),
+                'due' => $date->copy()->endOfYear()->toDateString(),
             ],
             default => [
                 'start' => $date->toDateString(),

@@ -18,8 +18,10 @@ use App\Models\TryoutDetail;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Services\PurchaseAccessDuration;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -36,7 +38,7 @@ class PackageController extends Controller
             ->with('bookingRule:id,package_id,is_enabled')
             ->withCount(['schedules', 'classes', 'tryouts', 'materials'])
             ->latest('package_id')
-            ->paginate(\App\Support\Pagination::perPage(12));
+            ->paginate(Pagination::perPage(12));
 
         return view('admin.pages.package.index', compact('packages'));
     }
@@ -92,7 +94,7 @@ class PackageController extends Controller
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
                 'allow_custom_booking' => 'nullable|boolean',
-                'tutor_payment_frequency' => 'required|in:none,per_session,daily,monthly',
+                'tutor_payment_frequency' => 'required|in:none,once,per_session,daily,weekly,monthly,quarterly,semiannual,yearly',
                 ...$this->bookingValidationRules(),
             ];
 
@@ -125,6 +127,10 @@ class PackageController extends Controller
                 $validated['conditional_requirement'] = null;
                 $validated['free_claim_requirement_type'] = null;
                 $validated['free_claim_tryout_id'] = null;
+                $validated['access_duration_unit'] = 'forever';
+                $validated['access_duration_value'] = null;
+            } else {
+                $validated['tutor_payment_frequency'] = 'none';
             }
             unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed', true);
@@ -169,7 +175,7 @@ class PackageController extends Controller
         }
     }
 
-    public function edit($id): View|\Illuminate\Http\RedirectResponse
+    public function edit($id): View|RedirectResponse
     {
         try {
             $package = Package::query()
@@ -223,7 +229,7 @@ class PackageController extends Controller
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
                 'allow_custom_booking' => 'nullable|boolean',
-                'tutor_payment_frequency' => 'required|in:none,per_session,daily,monthly',
+                'tutor_payment_frequency' => 'required|in:none,once,per_session,daily,weekly,monthly,quarterly,semiannual,yearly',
                 ...$this->bookingValidationRules(),
             ];
 
@@ -256,6 +262,10 @@ class PackageController extends Controller
                 $validated['conditional_requirement'] = null;
                 $validated['free_claim_requirement_type'] = null;
                 $validated['free_claim_tryout_id'] = null;
+                $validated['access_duration_unit'] = 'forever';
+                $validated['access_duration_value'] = null;
+            } else {
+                $validated['tutor_payment_frequency'] = 'none';
             }
             unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed');
@@ -426,7 +436,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = classes.class_id AND package_id = ?) DESC', [ClassModel::class, $package_id])
                 ->orderBy('schedule_time', 'desc')
-                ->paginate(\App\Support\Pagination::perPage(10));
+                ->paginate(Pagination::perPage(10));
 
             $selectedClassCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', ClassModel::class)
@@ -511,7 +521,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = materials.material_id AND package_id = ?) DESC', [Material::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(\App\Support\Pagination::perPage(15));
+                ->paginate(Pagination::perPage(15));
 
             $selectedMaterialCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', Material::class)
@@ -584,7 +594,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tes_korans.id AND package_id = ?) DESC', [TesKoran::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(\App\Support\Pagination::perPage(10));
+                ->paginate(Pagination::perPage(10));
 
             $selectedTesKoranCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', TesKoran::class)
@@ -657,7 +667,7 @@ class PackageController extends Controller
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC', [Tryout::class, $package_id])
                 ->orderBy('created_at', 'desc')
-                ->paginate(\App\Support\Pagination::perPage(10));
+                ->paginate(Pagination::perPage(10));
 
             $selectedTryoutCount = DetailPackage::where('package_id', $package_id)
                 ->where('detailable_type', Tryout::class)

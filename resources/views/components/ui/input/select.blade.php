@@ -22,13 +22,16 @@
     'placeholder' => null,
     'required' => false,
     'disabled' => false,
+    'multiple' => false,
     'size' => 'md',
     'helper' => null,
     'error' => null,
 ])
 
 @php
-$hasError = $error || $errors->has($name);
+$fieldName = str_ends_with($name, '[]') ? substr($name, 0, -2) : $name;
+$isMultiple = $multiple || $attributes->has('multiple');
+$hasError = $error || $errors->has($fieldName) || ($isMultiple && $errors->has($fieldName.'.*'));
 
 $baseClasses = 'block w-full rounded-lg border appearance-none bg-white transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:bg-gray-100 disabled:cursor-not-allowed';
 
@@ -49,12 +52,20 @@ $classes = implode(' ', [
     $attributes->get('class', ''),
 ]);
 
-$selectedValue = $value ?? old($name);
+$selectedValue = $value ?? old($fieldName);
+$selectedValues = $isMultiple
+    ? collect(is_array($selectedValue) ? $selectedValue : [$selectedValue])
+        ->filter(static fn ($selected): bool => $selected !== null && $selected !== '')
+        ->map(static fn ($selected): string => (string) $selected)
+        ->all()
+    : [];
+$inputName = $isMultiple && !str_ends_with($name, '[]') ? $name.'[]' : $name;
+$isSimpleOptions = array_is_list($options);
 @endphp
 
 <div class="w-full">
     @if($label)
-        <label for="{{ $name }}" class="block mb-2 text-sm font-medium {{ $hasError ? 'text-red-600' : 'text-gray-900' }}">
+        <label for="{{ $fieldName }}" class="block mb-2 text-sm font-medium {{ $hasError ? 'text-red-600' : 'text-gray-900' }}">
             {{ $label }}
             @if($required)
                 <x-form.required-indicator />
@@ -64,12 +75,13 @@ $selectedValue = $value ?? old($name);
 
     <div class="relative">
         <select
-            name="{{ $name }}"
-            id="{{ $name }}"
+            name="{{ $inputName }}"
+            id="{{ $fieldName }}"
             {{ $required ? 'required' : '' }}
             {{ $disabled ? 'disabled' : '' }}
+            {{ $isMultiple ? 'multiple' : '' }}
             class="{{ $classes }} pr-10"
-            {{ $attributes->except(['class', 'name', 'id', 'required', 'disabled']) }}
+            {{ $attributes->except(['class', 'name', 'id', 'required', 'disabled', 'multiple']) }}
         >
             @if($placeholder)
                 <option value="" {{ !$selectedValue ? 'selected' : '' }} disabled>{{ $placeholder }}</option>
@@ -79,14 +91,12 @@ $selectedValue = $value ?? old($name);
                 {{ $slot }}
             @else
                 @foreach($options as $optionValue => $optionLabel)
-                    @if(is_int($optionValue) && is_string($optionLabel))
-                        {{-- Simple array --}}
-                        <option value="{{ $optionLabel }}" {{ $selectedValue == $optionLabel ? 'selected' : '' }}>
+                    @if($isSimpleOptions)
+                        <option value="{{ $optionLabel }}" {{ $isMultiple ? (in_array((string) $optionLabel, $selectedValues, true) ? 'selected' : '') : ($selectedValue == $optionLabel ? 'selected' : '') }}>
                             {{ $optionLabel }}
                         </option>
                     @else
-                        {{-- Associative array --}}
-                        <option value="{{ $optionValue }}" {{ $selectedValue == $optionValue ? 'selected' : '' }}>
+                        <option value="{{ $optionValue }}" {{ $isMultiple ? (in_array((string) $optionValue, $selectedValues, true) ? 'selected' : '') : ($selectedValue == $optionValue ? 'selected' : '') }}>
                             {{ $optionLabel }}
                         </option>
                     @endif

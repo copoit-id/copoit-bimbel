@@ -18,12 +18,13 @@
         @if($activeTab === 'zoom')
             <x-btn title="Tambah Kelas Zoom" route="{{ route('admin.class.create') }}" icon="ri-add-fill"></x-btn>
         @else
-            <x-btn title="Tambah Kelas & Jadwal" route="{{ route('admin.class-schedules.create', request()->only('package_id')) }}" icon="ri-add-fill"></x-btn>
+            <x-btn title="Tambah Kelas & Jadwal" route="{{ route('admin.class-schedules.create', request()->only('package_id', 'range')) }}" icon="ri-add-fill"></x-btn>
         @endif
     </div>
 
     <form method="GET" action="{{ route('admin.class-schedules.index') }}" class="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:flex-row sm:items-end sm:justify-between">
         <input type="hidden" name="tab" value="{{ $activeTab }}">
+        <input type="hidden" name="range" value="{{ $scheduleRange }}">
         <label class="block w-full max-w-md">
             <span class="mb-2 block text-sm font-semibold text-gray-700">Atur untuk Paket</span>
             <select name="package_id" onchange="this.form.submit()"
@@ -44,7 +45,7 @@
                 <span class="rounded-full border border-gray-200 px-3 py-1.5">
                     <strong id="selected-class-count">{{ $selectedClassIds->count() }}</strong> kelas Zoom dipilih
                 </span>
-                <a href="{{ route('admin.class-schedules.index', ['tab' => $activeTab]) }}" class="font-semibold text-primary hover:underline">
+                <a href="{{ route('admin.class-schedules.index', ['tab' => $activeTab, 'range' => $scheduleRange]) }}" class="font-semibold text-primary hover:underline">
                     Keluar dari mode paket
                 </a>
             </div>
@@ -53,18 +54,7 @@
         @endif
     </form>
 
-    <div class="flex justify-start border-b border-gray-200 overflow-x-auto">
-        <a href="{{ route('admin.class-schedules.index', array_filter(['tab' => 'schedules', 'package_id' => $filteredPackage?->package_id])) }}"
-            class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'schedules' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-            Kelas Terjadwal
-        </a>
-        @if($canUseClass)
-            <a href="{{ route('admin.class-schedules.index', array_filter(['tab' => 'zoom', 'package_id' => $filteredPackage?->package_id])) }}"
-                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'zoom' ? 'text-primary border-primary' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-                Kelas Zoom
-            </a>
-        @endif
-    </div>
+    <x-tab :tabs="$scheduleTabs" variant="underline" class="overflow-x-auto" />
 
     @if (session('success'))
         <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -87,6 +77,48 @@
     @endif
 
     @if($activeTab === 'schedules')
+    <x-tab :tabs="$scheduleRangeTabs" variant="pills" class="overflow-x-auto" />
+
+    @if($scheduleRange !== 'all')
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div class="border-b border-gray-100 px-5 py-4">
+                <h2 class="font-bold text-gray-900">{{ $rangeLabel }}</h2>
+                <p class="mt-1 text-sm text-gray-500">Pertemuan yang dijadwalkan pada periode ini.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-[760px] w-full text-left text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-5 py-3">Tanggal & waktu</th>
+                            <th class="px-5 py-3">Jadwal</th>
+                            <th class="px-5 py-3">Rombel</th>
+                            <th class="px-5 py-3">Tutor</th>
+                            <th class="px-5 py-3">Status</th>
+                            <th class="px-5 py-3 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($scheduleSessions as $session)
+                            <tr>
+                                <td class="px-5 py-4 text-gray-700">
+                                    <p class="font-semibold text-gray-900">{{ $session->start_at->locale('id')->translatedFormat('l, d M Y') }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' – '.$session->end_at->format('H:i') : '' }} WIB</p>
+                                </td>
+                                <td class="px-5 py-4"><p class="font-semibold text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Sesi belajar' }}</p></td>
+                                <td class="px-5 py-4 text-gray-700">{{ $session->studyGroup?->name ?? '—' }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $session->tentor?->name ?? 'Belum ditetapkan' }}</td>
+                                <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $session->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($session->status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-primary/10 text-primary') }}">{{ $session->status === 'completed' ? 'Selesai' : ($session->status === 'cancelled' ? 'Dibatalkan' : 'Terjadwal') }}</span></td>
+                                <td class="px-5 py-4 text-right"><a href="{{ route('admin.class-schedules.show', ['classSchedule' => $session->class_schedule_id, 'session_id' => $session->id]) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary" title="Lihat sesi" aria-label="Lihat sesi"><i class="ri-eye-line text-base"></i></a></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-5 py-14 text-center text-gray-500"><i class="ri-calendar-event-line mb-2 block text-3xl text-gray-300"></i>Tidak ada pertemuan pada periode ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($scheduleSessions->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $scheduleSessions->links() }}</div>@endif
+        </section>
+    @else
     <!-- Weekly Grid Timetable -->
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
         @php
@@ -299,6 +331,7 @@
                 </table>
             </div>
         </div>
+    @endif
     @endif
     @else
         <div class="package-bimbel bg-white p-8 rounded-lg border border-border">

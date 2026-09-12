@@ -26,6 +26,10 @@ class ClassScheduleController extends Controller
     public function index(Request $request, PlanModuleService $planModules): View
     {
         $activeTab = $request->query('tab', 'schedules');
+        $scheduleRange = $request->string('range')->toString();
+        $scheduleRange = in_array($scheduleRange, ['today', 'week', 'month', 'year', 'all'], true)
+            ? $scheduleRange
+            : 'today';
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
         $activeTab = $activeTab === 'zoom' && $canUseClass ? 'zoom' : 'schedules';
@@ -58,28 +62,71 @@ class ClassScheduleController extends Controller
                 ->pluck('detailable_id')
                 ->map(fn ($id): int => (int) $id)
             : collect();
-        $schedules = ClassSchedule::query()
-            ->with([
-                'class.tentor',
-                'studyGroup.tentor',
-                'tentor',
-                'attendanceSetting',
-                'destinationCategories.parent',
-                'packages:package_id,name',
-            ])
-            ->get();
-
         $weeklySchedules = [];
-        for ($i = 1; $i <= 7; $i++) {
-            $weeklySchedules[$i] = $schedules->where('schedule_type', 'recurring')
-                ->where('frequency', 'weekly')
-                ->where('day_of_week', $i)
-                ->sortBy('start_time');
+        $otherSchedules = collect();
+        if ($activeTab === 'schedules' && $scheduleRange === 'all') {
+            $schedules = ClassSchedule::query()
+                ->with([
+                    'class.tentor',
+                    'studyGroup.tentor',
+                    'tentor',
+                    'attendanceSetting',
+                    'destinationCategories.parent',
+                    'packages:package_id,name',
+                ])
+                ->get();
+
+            for ($i = 1; $i <= 7; $i++) {
+                $weeklySchedules[$i] = $schedules->where('schedule_type', 'recurring')
+                    ->where('frequency', 'weekly')
+                    ->filter(fn (ClassSchedule $schedule): bool => $schedule->isScheduledOnWeekday($i))
+                    ->sortBy('start_time');
+            }
+
+            $otherSchedules = $schedules->filter(function ($schedule) {
+                return $schedule->schedule_type !== 'recurring' || $schedule->frequency !== 'weekly';
+            });
         }
 
-        $otherSchedules = $schedules->filter(function ($s) {
-            return $s->schedule_type !== 'recurring' || $s->frequency !== 'weekly';
-        });
+        $scheduleSessions = null;
+        $rangeLabel = null;
+        if ($activeTab === 'schedules' && $scheduleRange !== 'all') {
+            $now = now();
+            [$rangeStart, $rangeEnd, $rangeLabel] = match ($scheduleRange) {
+                'week' => [
+                    $now->copy()->startOfWeek(),
+                    $now->copy()->endOfWeek(),
+                    'Minggu ini',
+                ],
+                'month' => [
+                    $now->copy()->startOfMonth(),
+                    $now->copy()->endOfMonth(),
+                    'Bulan ini',
+                ],
+                'year' => [
+                    $now->copy()->startOfYear(),
+                    $now->copy()->endOfYear(),
+                    'Tahun ini',
+                ],
+                default => [
+                    $now->copy()->startOfDay(),
+                    $now->copy()->endOfDay(),
+                    'Hari ini',
+                ],
+            };
+
+            $scheduleSessions = ClassSession::query()
+                ->with([
+                    'schedule:id,title',
+                    'class:class_id,title',
+                    'studyGroup:id,name',
+                    'tentor:id,name',
+                ])
+                ->whereBetween('session_date', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
+                ->orderBy('start_at')
+                ->paginate(50, ['*'], 'session_page')
+                ->withQueryString();
+        }
 
         $liveClasses = $canUseClass
             ? ClassModel::with('tentor')
@@ -88,8 +135,51 @@ class ClassScheduleController extends Controller
                 ->withQueryString()
             : null;
 
+        $tabParameters = array_filter([
+            'package_id' => $filteredPackage?->package_id,
+            'range' => $scheduleRange,
+        ]);
+        $scheduleTabs = [
+            [
+                'id' => 'schedules',
+                'label' => 'Kelas Terjadwal',
+                'active' => $activeTab === 'schedules',
+                'href' => route('admin.class-schedules.index', ['tab' => 'schedules', ...$tabParameters]),
+            ],
+        ];
+        if ($canUseClass) {
+            $scheduleTabs[] = [
+                'id' => 'zoom',
+                'label' => 'Kelas Zoom',
+                'active' => $activeTab === 'zoom',
+                'href' => route('admin.class-schedules.index', ['tab' => 'zoom', ...$tabParameters]),
+            ];
+        }
+
+        $scheduleRangeTabs = collect([
+            'today' => 'Hari ini',
+            'week' => 'Minggu',
+            'month' => 'Bulan',
+            'year' => 'Tahun',
+            'all' => 'Semua',
+        ])->map(fn (string $label, string $range): array => [
+            'id' => $range,
+            'label' => $label,
+            'active' => $scheduleRange === $range,
+            'href' => route('admin.class-schedules.index', array_filter([
+                'tab' => 'schedules',
+                'package_id' => $filteredPackage?->package_id,
+                'range' => $range,
+            ])),
+        ])->values()->all();
+
         return view('admin.pages.class-schedule.index', compact(
             'activeTab',
+            'scheduleRange',
+            'scheduleSessions',
+            'rangeLabel',
+            'scheduleTabs',
+            'scheduleRangeTabs',
             'weeklySchedules',
             'otherSchedules',
             'liveClasses',
@@ -140,6 +230,13 @@ class ClassScheduleController extends Controller
             ->get(['id', 'name', 'tentor_id']);
         $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
         $preselectedDay = $request->integer('day_of_week') ?: now()->dayOfWeekIso;
+        $preselectedDays = collect(old('weekly_days', [$preselectedDay]))
+            ->map(static fn ($day): int => (int) $day)
+            ->filter(static fn (int $day): bool => $day >= 1 && $day <= 7)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
         $preselectedPackageId = $request->integer('package_id') ?: null;
         $selectedPackageIds = collect(old('package_ids', $preselectedPackageId ? [$preselectedPackageId] : []))
             ->map(static fn ($id): int => (int) $id)
@@ -154,6 +251,7 @@ class ClassScheduleController extends Controller
             'studyGroups',
             'tentors',
             'preselectedDay',
+            'preselectedDays',
             'preselectedPackageId',
             'selectedPackageIds',
             'canUseClass',
@@ -192,6 +290,7 @@ class ClassScheduleController extends Controller
         if (! $request->has('start_date')) {
             $request->merge(['start_date' => now()->toDateString()]);
         }
+        $this->ensureWeeklyDaysInput($request);
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
@@ -200,7 +299,8 @@ class ClassScheduleController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
             'frequency' => ['nullable', 'required_if:schedule_type,recurring', 'in:daily,weekly,monthly'],
-            'day_of_week' => ['nullable', 'required_if:frequency,weekly', 'integer', 'between:1,7'],
+            'weekly_days' => ['nullable', 'required_if:frequency,weekly', 'array', 'min:1', 'max:7'],
+            'weekly_days.*' => ['integer', 'distinct', 'between:1,7'],
             'day_of_month' => ['nullable', 'required_if:frequency,monthly', 'integer', 'between:1,31'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['nullable', 'date_format:H:i', 'after:start_time'],
@@ -219,6 +319,7 @@ class ClassScheduleController extends Controller
             'allow_custom_booking' => ['nullable', 'boolean'],
             'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
+        $weeklyDays = $this->weeklyDaysFor($validated);
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
@@ -232,7 +333,8 @@ class ClassScheduleController extends Controller
             $bookingConfigurator,
             $canUseClass,
             $canUseAttendance,
-            $allowCustomBooking
+            $allowCustomBooking,
+            $weeklyDays
         ): void {
             $packageIds = $validated['package_ids'] ?? [];
             if ($allowCustomBooking) {
@@ -250,7 +352,8 @@ class ClassScheduleController extends Controller
                 'title' => $validated['title'],
                 'schedule_type' => $validated['schedule_type'],
                 'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,
-                'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? ($validated['day_of_week'] ?? null) : null,
+                'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? $weeklyDays[0] : null,
+                'weekly_days' => ($validated['frequency'] ?? null) === 'weekly' ? $weeklyDays : null,
                 'day_of_month' => ($validated['frequency'] ?? null) === 'monthly' ? ($validated['day_of_month'] ?? null) : null,
                 'start_time' => $validated['start_time'],
                 'end_time' => $validated['end_time'] ?? null,
@@ -366,6 +469,13 @@ class ClassScheduleController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'expertise']);
         $preselectedDay = $classSchedule->day_of_week ?: 1;
+        $preselectedDays = collect(old('weekly_days', $classSchedule->weeklyDays()))
+            ->map(static fn ($day): int => (int) $day)
+            ->filter(static fn (int $day): bool => $day >= 1 && $day <= 7)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
         $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
@@ -377,6 +487,7 @@ class ClassScheduleController extends Controller
             'studyGroups',
             'tentors',
             'preselectedDay',
+            'preselectedDays',
             'canUseClass',
             'canUseAttendance',
             'bookingScheduleEnabled',
@@ -403,6 +514,7 @@ class ClassScheduleController extends Controller
         if (! $request->has('start_date')) {
             $request->merge(['start_date' => $classSchedule->start_date?->toDateString() ?: now()->toDateString()]);
         }
+        $this->ensureWeeklyDaysInput($request);
 
         $validated = $request->validate([
             'class_id' => ['required', 'exists:classes,class_id'],
@@ -411,7 +523,8 @@ class ClassScheduleController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'schedule_type' => ['required', 'in:single,recurring'],
             'frequency' => ['nullable', 'required_if:schedule_type,recurring', 'in:daily,weekly,monthly'],
-            'day_of_week' => ['nullable', 'required_if:frequency,weekly', 'integer', 'between:1,7'],
+            'weekly_days' => ['nullable', 'required_if:frequency,weekly', 'array', 'min:1', 'max:7'],
+            'weekly_days.*' => ['integer', 'distinct', 'between:1,7'],
             'day_of_month' => ['nullable', 'required_if:frequency,monthly', 'integer', 'between:1,31'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['nullable', 'date_format:H:i', 'after:start_time'],
@@ -430,6 +543,7 @@ class ClassScheduleController extends Controller
             'allow_custom_booking' => ['nullable', 'boolean'],
             'booking_session_quota' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
+        $weeklyDays = $this->weeklyDaysFor($validated);
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
@@ -451,7 +565,8 @@ class ClassScheduleController extends Controller
             $canUseAttendance,
             $allowCustomBooking,
             $previousPackageIds,
-            $wasCustom
+            $wasCustom,
+            $weeklyDays
         ): void {
             $packageIds = $validated['package_ids'] ?? [];
             Package::query()
@@ -469,7 +584,8 @@ class ClassScheduleController extends Controller
                 'title' => $validated['title'],
                 'schedule_type' => $validated['schedule_type'],
                 'frequency' => $validated['schedule_type'] === 'recurring' ? ($validated['frequency'] ?? null) : null,
-                'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? ($validated['day_of_week'] ?? null) : null,
+                'day_of_week' => ($validated['frequency'] ?? null) === 'weekly' ? $weeklyDays[0] : null,
+                'weekly_days' => ($validated['frequency'] ?? null) === 'weekly' ? $weeklyDays : null,
                 'day_of_month' => ($validated['frequency'] ?? null) === 'monthly' ? ($validated['day_of_month'] ?? null) : null,
                 'start_time' => $validated['start_time'],
                 'end_time' => $validated['end_time'] ?? null,
@@ -554,6 +670,36 @@ class ClassScheduleController extends Controller
         $session->update($validated);
 
         return back()->with('success', 'Data sesi kelas berhasil diperbarui.');
+    }
+
+    private function ensureWeeklyDaysInput(Request $request): void
+    {
+        if (
+            $request->input('schedule_type') !== 'recurring'
+            || $request->input('frequency') !== 'weekly'
+            || $request->has('weekly_days')
+        ) {
+            return;
+        }
+
+        $day = $request->integer('day_of_week');
+        if ($day >= 1 && $day <= 7) {
+            $request->merge(['weekly_days' => [$day]]);
+        }
+    }
+
+    /** @param array<string, mixed> $validated
+     *  @return array<int, int>
+     */
+    private function weeklyDaysFor(array $validated): array
+    {
+        return collect($validated['weekly_days'] ?? [])
+            ->map(static fn ($day): int => (int) $day)
+            ->filter(static fn (int $day): bool => $day >= 1 && $day <= 7)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /**

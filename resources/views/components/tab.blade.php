@@ -14,7 +14,7 @@
 @php
 $containerClasses = [
     'default' => 'flex justify-start gap-2',
-    'pills' => 'flex justify-start gap-2',
+    'pills' => 'flex w-fit justify-start gap-1 rounded-xl border border-gray-200 bg-white p-1',
     'underline' => 'flex justify-start border-b border-gray-200',
 ];
 
@@ -24,8 +24,8 @@ $tabClasses = [
         'inactive' => 'px-4 py-1.5 border border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors',
     ],
     'pills' => [
-        'active' => 'px-4 py-2 bg-primary text-white rounded-full transition-colors',
-        'inactive' => 'px-4 py-2 text-gray-600 rounded-full hover:bg-gray-100 transition-colors',
+        'active' => 'whitespace-nowrap rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-white transition-colors',
+        'inactive' => 'whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900',
     ],
     'underline' => [
         'active' => 'px-4 py-2 text-primary border-b-2 border-primary font-medium transition-colors',

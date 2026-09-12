@@ -22,7 +22,7 @@ class TutorPackagePaymentController extends Controller
             ->where('tentor_id', $tentor->id)
             ->whereNotNull('study_group_id')
             ->whereHas('studyGroup.package', fn ($query) => $query
-                ->whereIn('tutor_payment_frequency', ['per_session', 'daily', 'monthly'])
+                ->whereIn('tutor_payment_frequency', TutorPackagePaymentService::BILLING_FREQUENCIES)
                 ->where('price', '>', 0))
             ->latest('session_date')
             ->paginate(20);
@@ -46,10 +46,18 @@ class TutorPackagePaymentController extends Controller
         $package = $session->studyGroup->package;
         $scopePrefix = 'tutor-package:'.$package->package_id.':'.$session->study_group_id.':';
 
-        $currentInvoices = BillInvoice::query()
+        $currentInvoicesQuery = BillInvoice::query()
             ->with(['user:id,name,email', 'payments.paidBy:id,name'])
             ->where('payment_scope_key', 'like', $scopePrefix.'%')
-            ->where('payment_scope_key', 'like', '%:'.$package->tutor_payment_frequency.':'.$this->periodStart($session, $package).'%')
+            ->where('payment_scope_key', 'like', '%:'.$package->tutor_payment_frequency.':%');
+
+        if ($package->tutor_payment_frequency === 'per_session') {
+            $currentInvoicesQuery->where('class_session_id', $session->id);
+        } elseif ($periodStart = $paymentService->periodStart($session, $package)) {
+            $currentInvoicesQuery->whereDate('period_start', $periodStart);
+        }
+
+        $currentInvoices = $currentInvoicesQuery
             ->orderBy('user_id')
             ->paginate(30, ['*'], 'current_page');
 
@@ -107,12 +115,5 @@ class TutorPackagePaymentController extends Controller
         abort_unless($session && (int) $session->studyGroup?->package_id === (int) $invoice->package_id, 403);
 
         return $session;
-    }
-
-    private function periodStart(ClassSession $session, object $package): string
-    {
-        return $package->tutor_payment_frequency === 'monthly'
-            ? $session->session_date->copy()->startOfMonth()->toDateString()
-            : $session->session_date->toDateString();
     }
 }

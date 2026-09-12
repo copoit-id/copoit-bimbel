@@ -21,6 +21,7 @@ class ClassSchedule extends Model
         'schedule_type',
         'frequency',
         'day_of_week',
+        'weekly_days',
         'day_of_month',
         'start_time',
         'end_time',
@@ -38,6 +39,7 @@ class ClassSchedule extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'day_of_week' => 'integer',
+        'weekly_days' => 'array',
         'day_of_month' => 'integer',
         'is_active' => 'boolean',
         'allow_custom_booking' => 'boolean',
@@ -99,6 +101,30 @@ class ClassSchedule extends Model
             'class_schedule_id',
             'participant_destination_category_id'
         )->withTimestamps();
+    }
+
+    /** @return array<int, int> */
+    public function weeklyDays(): array
+    {
+        $days = is_array($this->weekly_days) ? $this->weekly_days : [];
+        if ($days === [] && $this->day_of_week !== null) {
+            $days = [$this->day_of_week];
+        }
+
+        return collect($days)
+            ->map(static fn ($day): int => (int) $day)
+            ->filter(static fn (int $day): bool => $day >= 1 && $day <= 7)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    public function isScheduledOnWeekday(int $day): bool
+    {
+        return $this->schedule_type === 'recurring'
+            && $this->frequency === 'weekly'
+            && in_array($day, $this->weeklyDays(), true);
     }
 
     protected static function booted(): void

@@ -5,6 +5,8 @@
 - View hanya untuk presentasi; jangan query atau menjalankan business rule kompleks.
 - Escape output dengan `{{ }}`; raw HTML hanya untuk konten trusted/sanitized.
 - Gunakan component lowercase dengan props jelas dan reuse partial/layout existing.
+- Keterangan tambahan pada field gunakan `<x-ui.tooltip>`; jangan menambah helper text permanen bila tooltip sudah cukup.
+- Cari dan reuse component lebih dulu. Jika pola UI belum ada, buat base component reusable sebelum menggunakannya di halaman.
 - Mutation wajib CSRF, validasi server, old input, dan error yang terlihat.
 - Tombol submit async perlu disabled/loading untuk mencegah double submit.
 - Aksi destruktif perlu confirmation.

@@ -64,7 +64,7 @@ class ClassScheduleService
 
         return match ($schedule->frequency) {
             'daily' => true,
-            'weekly' => (int) $date->dayOfWeekIso === (int) $schedule->day_of_week,
+            'weekly' => $schedule->isScheduledOnWeekday($date->dayOfWeekIso),
             'monthly' => (int) $date->day === (int) $schedule->day_of_month,
             default => false,
         };

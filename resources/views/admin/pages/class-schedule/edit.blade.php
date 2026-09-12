@@ -24,12 +24,6 @@
         <div class="grid gap-5 md:grid-cols-2" x-data="{
             scheduleType: @js(old('schedule_type', $classSchedule->schedule_type ?: 'recurring')),
             startDate: @js(old('start_date', $classSchedule->start_date?->toDateString() ?: now()->toDateString())),
-            dayOfWeek: Number(@js(old('day_of_week', $preselectedDay))),
-            syncDayToStartDate() {
-                if (this.scheduleType !== 'recurring' || !this.startDate) return;
-                const day = new Date(`${this.startDate}T12:00:00`).getDay();
-                this.dayOfWeek = day === 0 ? 7 : day;
-            },
             allowCustom: {{ $bookingScheduleEnabled && old('allow_custom_booking', $classSchedule->allow_custom_booking) ? 'true' : 'false' }}
         }">
             <div class="md:col-span-2">
@@ -94,18 +88,19 @@
             <input type="hidden" name="frequency" :value="scheduleType === 'recurring' ? 'weekly' : ''">
 
             <div x-show="scheduleType === 'recurring'">
-                <label class="mb-2 block text-sm font-semibold text-gray-700">Hari Pelaksanaan</label>
-                <select name="day_of_week" x-model.number="dayOfWeek" class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    @foreach([1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'] as $day => $label)
-                        <option value="{{ $day }}" @selected(old('day_of_week', $preselectedDay) == $day)>{{ $label }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-1.5 text-xs text-gray-500">Hari otomatis mengikuti Tanggal Mulai saat tanggal diubah; tetap bisa Anda ganti bila diperlukan.</p>
+                <x-ui.input.select
+                    name="weekly_days"
+                    label="Hari Pelaksanaan"
+                    :options="[1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu']"
+                    :value="$preselectedDays"
+                    multiple
+                    required
+                />
             </div>
 
             <div>
                 <label class="mb-2 block text-sm font-semibold text-gray-700" x-text="scheduleType === 'single' ? 'Tanggal Sesi' : 'Tanggal Mulai'"></label>
-                <input type="date" name="start_date" x-model="startDate" @change="syncDayToStartDate()" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                <input type="date" name="start_date" x-model="startDate" required class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
             </div>
 
             <div>

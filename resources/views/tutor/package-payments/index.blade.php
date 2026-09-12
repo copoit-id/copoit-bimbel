@@ -21,7 +21,7 @@
                             <td class="px-5 py-4"><p class="font-semibold text-gray-900">{{ $session->schedule?->title ?? 'Sesi belajar' }}</p><p class="mt-1 text-xs text-gray-500">{{ $session->start_at->locale('id')->translatedFormat('d M Y · H:i') }} WIB</p></td>
                             <td class="px-5 py-4 text-gray-700">{{ $session->studyGroup?->name }}</td>
                             <td class="px-5 py-4 font-medium text-gray-800">{{ $package?->name }}</td>
-                            <td class="px-5 py-4"><p class="font-medium text-gray-800">Rp {{ number_format($package?->price ?? 0, 0, ',', '.') }}</p><p class="mt-1 text-xs text-gray-500">{{ ['per_session' => 'Setiap pertemuan', 'daily' => 'Harian', 'monthly' => 'Bulanan'][$package?->tutor_payment_frequency] ?? '—' }}</p></td>
+                            <td class="px-5 py-4"><p class="font-medium text-gray-800">Rp {{ number_format($package?->price ?? 0, 0, ',', '.') }}</p><p class="mt-1 text-xs text-gray-500">{{ \App\Services\TutorPackagePaymentService::billingFrequencyLabel($package?->tutor_payment_frequency) }}</p></td>
                             <td class="px-5 py-4 text-right"><form method="POST" action="{{ route('tutor.package-payments.prepare', $session) }}">@csrf<x-ui.button type="submit" size="sm" icon="ri-hand-coin-line">Kelola pembayaran</x-ui.button></form></td>
                         </tr>
                     @empty

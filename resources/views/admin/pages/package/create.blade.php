@@ -186,41 +186,42 @@
 
                         <div id="package-pricing-fields" class="grid grid-cols-1 items-end gap-4">
                             <div id="product-price-type">
-                                <label for="type_price" class="block text-sm font-medium text-gray-700 mb-2">Tipe Harga
-                                    <span class="text-red-500">*</span></label>
-                                <select id="type_price" name="type_price" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <x-ui.input.select name="type_price" label="Tipe Harga" :value="$selectedPriceType" required>
                                     <option value="paid" {{ $selectedPriceType === 'paid' ? 'selected' : '' }}>Berbayar</option>
                                     <option value="free_unconditional" {{ $selectedPriceType === 'free_unconditional' ? 'selected' : '' }}>Gratis Tanpa Syarat</option>
                                     <option value="free_conditional" {{ $selectedPriceType === 'free_conditional' ? 'selected' : '' }}>Gratis Bersyarat</option>
-                                </select>
+                                </x-ui.input.select>
                             </div>
 
                             <div id="price-field"
                                 class="{{ $selectedPriceType === 'paid' ? '' : 'hidden' }}">
-                                <label id="price-label" for="price" class="block text-sm font-medium text-gray-700 mb-2">Harga <span
-                                        class="text-red-500">*</span></label>
-                                <input type="number" id="price" name="price" min="0"
-                                    value="{{ isset($package) ? $package->price : old('price', 0) }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <x-ui.input
+                                    name="price"
+                                    type="number"
+                                    label="Harga"
+                                    :value="old('price', $package->price ?? 0)"
+                                    min="0"
+                                />
                             </div>
 
-                            <div>
-                                <label id="access-duration-label" class="block text-sm font-medium text-gray-700 mb-2">Durasi Akses Setelah Dibeli</label>
-                                <div class="flex w-full gap-2">
-                                    <input type="number" name="access_duration_value" id="access_duration_value"
-                                           min="1" max="1200" value="{{ $selectedAccessDurationValue }}"
-                                           class="min-w-0 flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                           placeholder="Jumlah">
-                                    <select name="access_duration_unit" id="access_duration_unit"
-                                            class="w-32 shrink-0 px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                        <option value="forever" @selected($selectedAccessDurationUnit === 'forever')>Selamanya</option>
-                                        <option value="day" @selected($selectedAccessDurationUnit === 'day')>Hari</option>
-                                        <option value="week" @selected($selectedAccessDurationUnit === 'week')>Minggu</option>
-                                        <option value="month" @selected($selectedAccessDurationUnit === 'month')>Bulan</option>
-                                        <option value="year" @selected($selectedAccessDurationUnit === 'year')>Tahun</option>
-                                    </select>
-                                </div>
+                            <x-form.access-duration
+                                id="access-duration-field"
+                                :value="$selectedAccessDurationValue"
+                                :unit="$selectedAccessDurationUnit"
+                            />
+
+                            <div id="program-payment-field" class="hidden">
+                                <x-ui.input.select name="tutor_payment_frequency" label="Siklus Tagihan" :value="$tutorPaymentFrequency">
+                                    <option value="none" @selected($tutorPaymentFrequency === 'none')>Tidak ditagihkan</option>
+                                    <option value="once" @selected($tutorPaymentFrequency === 'once')>Sekali tagih</option>
+                                    <option value="per_session" @selected($tutorPaymentFrequency === 'per_session')>Setiap pertemuan</option>
+                                    <option value="daily" @selected($tutorPaymentFrequency === 'daily')>Harian</option>
+                                    <option value="weekly" @selected($tutorPaymentFrequency === 'weekly')>Mingguan</option>
+                                    <option value="monthly" @selected($tutorPaymentFrequency === 'monthly')>Bulanan</option>
+                                    <option value="quarterly" @selected($tutorPaymentFrequency === 'quarterly')>Setiap 3 bulan</option>
+                                    <option value="semiannual" @selected($tutorPaymentFrequency === 'semiannual')>Setiap 6 bulan</option>
+                                    <option value="yearly" @selected($tutorPaymentFrequency === 'yearly')>Setiap 1 tahun</option>
+                                </x-ui.input.select>
                             </div>
                         </div>
 
@@ -262,26 +263,6 @@
                                 @else
                                     <p class="mt-3 text-xs font-medium text-gray-500">Simpan program terlebih dahulu, lalu pilih jadwal pada menu Jadwal Kelas.</p>
                                 @endif
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="program-payment-settings" class="rounded-xl border border-gray-200 bg-gray-50 p-5 {{ $enrollmentMode === 'program' ? '' : 'hidden' }}">
-                        <div class="flex items-start gap-3">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-primary"><i class="ri-hand-coin-line text-lg"></i></span>
-                            <div class="min-w-0 flex-1">
-                                <h3 class="font-semibold text-gray-800">Aturan pembayaran program</h3>
-                                <p class="mt-1 text-sm text-gray-600">Nominal tagihan memakai Harga Paket di atas. Rombel hanya menentukan daftar siswa; tutor mencatat penerimaan sebagian atau lunas dari halaman jadwal.</p>
-                                <div class="mt-4 max-w-md">
-                                    <label class="block text-sm font-medium text-gray-700">Siklus tagihan
-                                        <select name="tutor_payment_frequency" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5">
-                                            <option value="none" @selected($tutorPaymentFrequency === 'none')>Tidak dicatat tutor</option>
-                                            <option value="per_session" @selected($tutorPaymentFrequency === 'per_session')>Setiap pertemuan</option>
-                                            <option value="daily" @selected($tutorPaymentFrequency === 'daily')>Harian</option>
-                                            <option value="monthly" @selected($tutorPaymentFrequency === 'monthly')>Bulanan</option>
-                                        </select>
-                                    </label>
-                                </div>
                             </div>
                         </div>
                     </section>
@@ -371,13 +352,13 @@
     const durationValue = document.getElementById('access_duration_value');
     const enrollmentMode = document.getElementById('enrollment_mode');
     const programScheduleSettings = document.getElementById('program-schedule-settings');
-    const programPaymentSettings = document.getElementById('program-payment-settings');
+    const programPaymentField = document.getElementById('program-payment-field');
+    const accessDurationField = document.getElementById('access-duration-field');
     const tutorPaymentFrequency = document.querySelector('[name="tutor_payment_frequency"]');
     const productPriceType = document.getElementById('product-price-type');
-    const priceLabel = document.getElementById('price-label');
+    const priceLabel = document.querySelector('label[for="price"]');
     const packagePricingTitle = document.getElementById('package-pricing-title');
     const packagePricingDescription = document.getElementById('package-pricing-description');
-    const accessDurationLabel = document.getElementById('access-duration-label');
     const packagePricingFields = document.getElementById('package-pricing-fields');
     const packageType = document.getElementById('type_package');
     const customBookingOption = document.getElementById('custom-booking-option');
@@ -386,6 +367,8 @@
         const isProgram = enrollmentMode?.value === 'program';
         packagePricingFields?.classList.toggle('lg:grid-cols-2', isProgram);
         packagePricingFields?.classList.toggle('lg:grid-cols-3', !isProgram);
+        programPaymentField?.classList.toggle('hidden', !isProgram);
+        accessDurationField?.classList.toggle('hidden', isProgram);
 
         if (isProgram) {
             productPriceType?.classList.add('hidden');
@@ -442,14 +425,10 @@
         packagePricingDescription.textContent = enrollmentMode.value === 'program'
             ? 'Atur visibilitas program dan nominal yang akan ditagihkan kepada setiap siswa.'
             : 'Atur visibilitas paket di user dan metode klaim/pembelian.';
-        accessDurationLabel.textContent = enrollmentMode.value === 'program'
-            ? 'Durasi akses program'
-            : 'Durasi akses setelah dibeli';
     }
 
     function toggleProgramScheduleSettings() {
         programScheduleSettings?.classList.toggle('hidden', enrollmentMode?.value !== 'program');
-        programPaymentSettings?.classList.toggle('hidden', enrollmentMode?.value !== 'program');
     }
 
     toggleFields();

@@ -124,12 +124,24 @@ class TutorDashboardController extends Controller
         $canManageSchedule = $planModules->allows('schedule');
         $canManageBookings = (bool) config('client.branding.booking_schedule_enabled', false)
             && $planModules->allows('booking');
+        $scheduleTabs = collect([
+            'today' => 'Hari ini',
+            'week' => 'Minggu',
+            'month' => 'Bulan',
+            'all' => 'Semua',
+        ])->map(fn (string $label, string $range): array => [
+            'id' => $range,
+            'label' => $label,
+            'active' => $scheduleRange === $range,
+            'href' => route('tutor.schedule.index', ['range' => $range]),
+        ])->values()->all();
 
         return view('tutor.schedule', [
             'tentor' => $tentor,
             'canManageSchedule' => $canManageSchedule,
             'canManageBookings' => $canManageBookings,
             'scheduleRange' => $scheduleRange,
+            'scheduleTabs' => $scheduleTabs,
             ...$schedule,
         ]);
     }

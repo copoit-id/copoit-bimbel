@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div><a href="{{ route('tutor.package-payments.index') }}" class="text-sm font-semibold text-primary hover:underline">← Kembali ke pembayaran siswa</a><p class="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{{ $session->start_at->locale('id')->translatedFormat('d F Y') }}</p><h1 class="mt-1 text-2xl font-bold text-gray-900">{{ $session->schedule?->title ?? 'Sesi belajar' }}</h1><p class="mt-1 text-sm text-gray-500">{{ $session->studyGroup->name }} · {{ $package->name }} · Rp {{ number_format($package->price, 0, ',', '.') }} / {{ ['per_session' => 'pertemuan', 'daily' => 'hari', 'monthly' => 'bulan'][$package->tutor_payment_frequency] }}</p></div>
+        <div><a href="{{ route('tutor.package-payments.index') }}" class="text-sm font-semibold text-primary hover:underline">← Kembali ke pembayaran siswa</a><p class="mt-4 text-xs font-semibold uppercase tracking-wide text-primary">{{ $session->start_at->locale('id')->translatedFormat('d F Y') }}</p><h1 class="mt-1 text-2xl font-bold text-gray-900">{{ $session->schedule?->title ?? 'Sesi belajar' }}</h1><p class="mt-1 text-sm text-gray-500">{{ $session->studyGroup->name }} · {{ $package->name }} · Rp {{ number_format($package->price, 0, ',', '.') }} / {{ \App\Services\TutorPackagePaymentService::billingFrequencyLabel($package->tutor_payment_frequency, true) }}</p></div>
     </div>
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white">

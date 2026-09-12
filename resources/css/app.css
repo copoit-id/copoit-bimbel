@@ -299,6 +299,12 @@ form label > span.text-red-500:hover::after {
     opacity: 0;
 }
 
+.admin-select__option-checkbox {
+    flex: none;
+    color: var(--client-color-primary, #1C3259);
+    font-size: 1.125rem;
+}
+
 .admin-select__option[aria-selected='true'] .admin-select__option-check {
     opacity: 1;
 }

@@ -8,6 +8,7 @@ File ini adalah index aturan teknis. `AGENTS.md` berisi alur kerja umum; dokumen
 | Controller, model, service, route | [02-laravel-backend.md](coding/02-laravel-backend.md) |
 | Query, migration, index, cache | [03-database-performance.md](coding/03-database-performance.md) |
 | Blade, component, Tailwind, Alpine | [04-frontend-blade.md](coding/04-frontend-blade.md) |
+| Pedoman AI untuk komponen dan UX | [AI frontend guidelines](AI_FRONTEND_GUIDELINES.md) |
 | Security, testing, deployment, Git | [05-security-testing-deployment.md](coding/05-security-testing-deployment.md) |
 
 ## Kontrak minimum
@@ -19,6 +20,7 @@ File ini adalah index aturan teknis. `AGENTS.md` berisi alur kerja umum; dokumen
 - Operasi multi-tabel memakai transaction.
 - Migration production-aware, idempotent bila perlu, dan punya rollback.
 - UI memiliki loading, empty, validation, error, dan success state bila relevan.
+- Perubahan UI wajib mengikuti [AI frontend guidelines](AI_FRONTEND_GUIDELINES.md): cari/reuse component lebih dulu, gunakan tooltip untuk keterangan field, dan jaga UX konsisten.
 - Perubahan diuji dan diff diperiksa sebelum diserahkan.
 
 Jika aturan tampak bertentangan, pilih pendekatan yang paling aman dan konsisten dengan arsitektur existing, lalu dokumentasikan keputusan.

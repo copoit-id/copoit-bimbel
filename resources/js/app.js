@@ -58,6 +58,7 @@ const initializeAppSelects = () => {
     const createOptionButton = (instance, option) => {
         const button = document.createElement('button');
         const isSelected = option.selected;
+        const isMultiple = instance.select.multiple;
 
         button.type = 'button';
         button.className = 'admin-select__option';
@@ -72,12 +73,23 @@ const initializeAppSelects = () => {
         button.appendChild(label);
 
         const check = document.createElement('i');
-        check.className = 'ri-check-line admin-select__option-check';
+        check.className = isMultiple
+            ? `admin-select__option-checkbox ${isSelected ? 'ri-checkbox-line' : 'ri-checkbox-blank-line'}`
+            : 'ri-check-line admin-select__option-check';
         check.setAttribute('aria-hidden', 'true');
         button.appendChild(check);
 
         button.addEventListener('click', () => {
             if (option.disabled) {
+                return;
+            }
+
+            if (isMultiple) {
+                option.selected = !option.selected;
+                instance.select.dispatchEvent(new Event('input', { bubbles: true }));
+                instance.select.dispatchEvent(new Event('change', { bubbles: true }));
+                instance.sync();
+
                 return;
             }
 
@@ -98,7 +110,7 @@ const initializeAppSelects = () => {
     const enhance = (select) => {
         if (
             select.dataset.adminSelectInitialized === 'true'
-            || select.matches('[data-native-select], [multiple], .app-date-picker__year-select')
+            || select.matches('[data-native-select], .app-date-picker__year-select')
             || select.closest('[data-admin-select-menu]')
         ) {
             return;
@@ -158,6 +170,9 @@ const initializeAppSelects = () => {
         menu.hidden = true;
         menu.dataset.adminSelectMenu = instanceId;
         menu.setAttribute('role', 'listbox');
+        if (select.multiple) {
+            menu.setAttribute('aria-multiselectable', 'true');
+        }
 
         select.insertAdjacentElement('afterend', wrapper);
         wrapper.append(trigger, menu);
@@ -170,9 +185,12 @@ const initializeAppSelects = () => {
             menu,
             open: false,
             sync() {
-                const selectedOption = select.selectedOptions[0];
-                triggerLabel.textContent = selectedOption?.textContent.trim() || 'Pilih opsi';
-                triggerLabel.classList.toggle('admin-select__placeholder', !selectedOption || selectedOption.value === '');
+                const selectedOptions = Array.from(select.selectedOptions);
+                const selectedLabel = select.multiple
+                    ? selectedOptions.map((option) => option.textContent.trim()).join(', ')
+                    : selectedOptions[0]?.textContent.trim();
+                triggerLabel.textContent = selectedLabel || 'Pilih opsi';
+                triggerLabel.classList.toggle('admin-select__placeholder', selectedOptions.length === 0 || (!select.multiple && selectedOptions[0].value === ''));
                 trigger.disabled = select.disabled;
                 wrapper.classList.toggle('admin-select--disabled', select.disabled);
 
