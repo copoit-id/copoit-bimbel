@@ -14,8 +14,12 @@ class BillInvoice extends Model
 
     protected $fillable = [
         'recurring_bill_id',
+        'package_id',
         'user_id',
+        'study_group_id',
+        'class_session_id',
         'invoice_number',
+        'payment_scope_key',
         'title',
         'amount',
         'period_start',
@@ -38,6 +42,21 @@ class BillInvoice extends Model
     public function recurringBill(): BelongsTo
     {
         return $this->belongsTo(RecurringBill::class);
+    }
+
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'package_id', 'package_id');
+    }
+
+    public function studyGroup(): BelongsTo
+    {
+        return $this->belongsTo(StudyGroup::class);
+    }
+
+    public function classSession(): BelongsTo
+    {
+        return $this->belongsTo(ClassSession::class);
     }
 
     public function user(): BelongsTo

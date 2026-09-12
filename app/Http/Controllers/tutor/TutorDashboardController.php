@@ -301,7 +301,8 @@ class TutorDashboardController extends Controller
         $relations = [
             'class:class_id,title',
             'schedule:id,title',
-            'studyGroup:id,name',
+            'studyGroup:id,name,package_id',
+            'studyGroup.package:package_id,price,tutor_payment_frequency',
             'bookingRequest:id,class_session_id,user_id,status',
             'bookingRequest.user:id,name',
         ];
