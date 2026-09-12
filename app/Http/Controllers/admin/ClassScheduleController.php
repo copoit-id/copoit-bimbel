@@ -18,6 +18,7 @@ use App\Services\PlanModuleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -29,7 +30,7 @@ class ClassScheduleController extends Controller
         $scheduleRange = $request->string('range')->toString();
         $scheduleRange = in_array($scheduleRange, ['today', 'week', 'month', 'year', 'all'], true)
             ? $scheduleRange
-            : 'today';
+            : 'all';
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
         $activeTab = $activeTab === 'zoom' && $canUseClass ? 'zoom' : 'schedules';
@@ -62,30 +63,23 @@ class ClassScheduleController extends Controller
                 ->pluck('detailable_id')
                 ->map(fn ($id): int => (int) $id)
             : collect();
-        $weeklySchedules = [];
-        $otherSchedules = collect();
+        $allSchedules = null;
         if ($activeTab === 'schedules' && $scheduleRange === 'all') {
-            $schedules = ClassSchedule::query()
+            $allSchedules = ClassSchedule::query()
                 ->with([
-                    'class.tentor',
-                    'studyGroup.tentor',
-                    'tentor',
-                    'attendanceSetting',
-                    'destinationCategories.parent',
+                    'studyGroup:id,name',
+                    'tentor:id,name',
                     'packages:package_id,name',
                 ])
-                ->get();
-
-            for ($i = 1; $i <= 7; $i++) {
-                $weeklySchedules[$i] = $schedules->where('schedule_type', 'recurring')
-                    ->where('frequency', 'weekly')
-                    ->filter(fn (ClassSchedule $schedule): bool => $schedule->isScheduledOnWeekday($i))
-                    ->sortBy('start_time');
-            }
-
-            $otherSchedules = $schedules->filter(function ($schedule) {
-                return $schedule->schedule_type !== 'recurring' || $schedule->frequency !== 'weekly';
-            });
+                ->orderByDesc('is_active')
+                ->orderBy('start_time')
+                ->orderBy('title')
+                ->paginate(\App\Support\Pagination::perPage(20), ['*'], 'schedule_page')
+                ->withQueryString()
+                ->through(fn (ClassSchedule $schedule): ClassSchedule => $this->presentScheduleListRow(
+                    $schedule,
+                    $selectedScheduleIds,
+                ));
         }
 
         $scheduleSessions = null;
@@ -157,11 +151,11 @@ class ClassScheduleController extends Controller
         }
 
         $scheduleRangeTabs = collect([
+            'all' => 'Semua',
             'today' => 'Hari ini',
             'week' => 'Minggu',
             'month' => 'Bulan',
             'year' => 'Tahun',
-            'all' => 'Semua',
         ])->map(fn (string $label, string $range): array => [
             'id' => $range,
             'label' => $label,
@@ -180,8 +174,7 @@ class ClassScheduleController extends Controller
             'rangeLabel',
             'scheduleTabs',
             'scheduleRangeTabs',
-            'weeklySchedules',
-            'otherSchedules',
+            'allSchedules',
             'liveClasses',
             'canUseClass',
             'canUseAttendance',
@@ -190,6 +183,49 @@ class ClassScheduleController extends Controller
             'selectedScheduleIds',
             'selectedClassIds',
         ));
+    }
+
+    private function presentScheduleListRow(ClassSchedule $schedule, Collection $selectedScheduleIds): ClassSchedule
+    {
+        $weekdayLabels = [
+            1 => 'Senin',
+            2 => 'Selasa',
+            3 => 'Rabu',
+            4 => 'Kamis',
+            5 => 'Jumat',
+            6 => 'Sabtu',
+            7 => 'Minggu',
+        ];
+        $recurrenceLabel = match ($schedule->schedule_type) {
+            'single' => $schedule->start_date
+                ? 'Sekali jalan · ' . $schedule->start_date->locale('id')->translatedFormat('d M Y')
+                : 'Sekali jalan',
+            default => match ($schedule->frequency) {
+                'daily' => 'Setiap hari',
+                'weekly' => 'Setiap ' . collect($schedule->weeklyDays())
+                    ->map(fn (int $day): string => $weekdayLabels[$day])
+                    ->join(', '),
+                'monthly' => 'Setiap tanggal ' . $schedule->day_of_month,
+                default => 'Jadwal rutin',
+            },
+        };
+
+        $schedule->setAttribute('list_recurrence_label', $recurrenceLabel);
+        $schedule->setAttribute(
+            'list_time_label',
+            substr((string) $schedule->start_time, 0, 5)
+                . ($schedule->end_time ? ' – ' . substr((string) $schedule->end_time, 0, 5) : '')
+                . ' WIB',
+        );
+        $schedule->setAttribute('list_package_label', $schedule->packages->pluck('name')->join(', ') ?: '—');
+        $schedule->setAttribute('list_is_selected', $selectedScheduleIds->contains((int) $schedule->id));
+        $schedule->setAttribute('list_status_label', $schedule->is_active ? 'Aktif' : 'Nonaktif');
+        $schedule->setAttribute(
+            'list_status_class',
+            $schedule->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600',
+        );
+
+        return $schedule;
     }
 
     public function togglePackage(

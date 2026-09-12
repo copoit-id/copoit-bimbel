@@ -119,219 +119,54 @@
             @if($scheduleSessions->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $scheduleSessions->links() }}</div>@endif
         </section>
     @else
-    <!-- Weekly Grid Timetable -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-7">
-        @php
-            $days = [
-                1 => ['label' => 'Senin'],
-                2 => ['label' => 'Selasa'],
-                3 => ['label' => 'Rabu'],
-                4 => ['label' => 'Kamis'],
-                5 => ['label' => 'Jumat'],
-                6 => ['label' => 'Sabtu'],
-                7 => ['label' => 'Minggu']
-            ];
-        @endphp
-
-        @foreach($days as $dayNum => $dayInfo)
-            <div class="flex flex-col rounded-lg border border-gray-200 bg-white overflow-hidden min-h-[300px]">
-                <!-- Day Header -->
-                <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50 text-gray-800">
-                    <span class="font-bold text-sm tracking-wide">{{ $dayInfo['label'] }}</span>
-                    <a href="{{ route('admin.class-schedules.create', array_filter(['day_of_week' => $dayNum, 'package_id' => request()->integer('package_id') ?: null])) }}" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-250 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200">
-                        <i class="ri-add-line text-sm"></i>
-                    </a>
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div class="flex flex-col gap-1 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="font-bold text-gray-900">Semua jadwal</h2>
+                    <p class="mt-1 text-sm text-gray-500">Satu baris untuk satu jadwal agar mudah ditinjau dan diedit.</p>
                 </div>
-
-                <!-- Day Schedules List -->
-                <div class="flex-1 p-2 space-y-2 bg-slate-50/20">
-                    @forelse($weeklySchedules[$dayNum] as $schedule)
-                        @php($isScheduleSelected = $selectedScheduleIds->contains((int) $schedule->id))
-                        <div data-assignment-item
-                            class="group relative rounded-lg border bg-white p-3 transition-all duration-200 hover:border-primary {{ $filteredPackage && $isScheduleSelected ? 'border-primary bg-primary/5' : 'border-gray-200' }}">
-                            <div class="flex flex-col gap-1">
-                                @if($filteredPackage)
-                                    <label class="mb-1 flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-700">
-                                        <input type="checkbox"
-                                            class="package-assignment-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                            data-kind="schedule"
-                                            data-url="{{ route('admin.package.schedule.toggle', ['package' => $filteredPackage, 'classSchedule' => $schedule]) }}"
-                                            @checked($isScheduleSelected)>
-                                        Masukkan ke paket
-                                    </label>
-                                @endif
-                                <span class="text-xs font-semibold text-primary">
-                                    {{ substr($schedule->start_time, 0, 5) }}{{ $schedule->end_time ? ' - ' . substr($schedule->end_time, 0, 5) : '' }}
-                                </span>
-                                <h3 class="font-bold text-gray-900 text-sm leading-snug group-hover:text-primary transition-colors">
-                                    {{ $schedule->title }}
-                                </h3>
-                                @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
-                                    <span class="w-fit rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-bold text-primary">
-                                        Bisa request custom · {{ $schedule->booking_session_quota }} sesi
-                                    </span>
-                                @endif
-                                @if($schedule->location)
-                                    <span class="text-[11px] text-gray-500 flex items-center gap-1">
-                                        <i class="ri-map-pin-line"></i>
-                                        {{ $schedule->location }}
-                                    </span>
-                                @elseif($schedule->meeting_url)
-                                    <a href="{{ $schedule->meeting_url }}" target="_blank" class="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium">
-                                        <i class="ri-video-chat-line"></i>
-                                        Online Meeting
-                                    </a>
-                                @endif
-                                @if($schedule->studyGroup)
-                                    <span class="text-[11px] text-gray-500 flex items-center gap-1">
-                                        <i class="ri-group-line"></i>
-                                        {{ $schedule->studyGroup->name }}
-                                    </span>
-                                @endif
-                                @if($schedule->packages->isNotEmpty())
-                                    <span class="text-[11px] text-gray-500 flex items-start gap-1">
-                                        <i class="ri-price-tag-3-line mt-0.5"></i>
-                                        <span>{{ $schedule->packages->pluck('name')->join(', ') }}</span>
-                                    </span>
-                                @endif
-                                <?php $tentorName = $schedule->tentor?->name; ?>
-                                @if($tentorName)
-                                    <span class="text-[11px] text-gray-500 flex items-center gap-1">
-                                        <i class="ri-user-star-line"></i>
-                                        {{ $tentorName }}
-                                    </span>
-                                @endif
-                            </div>
-
-                            <!-- Actions -->
-                            <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-end gap-2 text-xs">
-                                <div class="flex items-center gap-1.5">
-                                    @if($canUseAttendance)
-                                        <a href="{{ route('admin.class-schedules.show', $schedule) }}"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                            title="Absensi" aria-label="Absensi">
-                                            <i class="ri-eye-line text-base"></i>
-                                            <span class="sr-only">Absensi</span>
-                                        </a>
-                                    @endif
-                                    <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
-                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                        title="Edit" aria-label="Edit">
-                                        <i class="ri-edit-line text-base"></i>
-                                        <span class="sr-only">Edit</span>
-                                    </a>
-                                    <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');" class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                            title="Hapus" aria-label="Hapus">
-                                            <i class="ri-delete-bin-line text-base"></i>
-                                            <span class="sr-only">Hapus</span>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="h-full flex flex-col items-center justify-center py-10 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg bg-slate-50/30">
-                            <i class="ri-calendar-event-line text-lg mb-1 opacity-50"></i>
-                            <span>Belum ada</span>
-                        </div>
-                    @endforelse
-                </div>
+                <span class="w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">{{ $allSchedules->total() }} jadwal</span>
             </div>
-        @endforeach
-    </div>
-
-    <!-- Other/Single Schedules (if any) -->
-    @if($otherSchedules->isNotEmpty())
-        <div class="mt-8">
-            <h2 class="text-lg font-bold text-gray-900 mb-3">Jadwal Non-Mingguan / Sekali Jalan</h2>
-            <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                <table class="w-full text-left text-sm text-gray-600">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-700">
+            <div class="overflow-x-auto">
+                <table class="min-w-[1480px] w-full table-fixed text-left text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>
-                            @if($filteredPackage)
-                                <th class="w-16 px-4 py-3 text-center">Pilih</th>
-                            @endif
-                            <th class="px-4 py-3">Jadwal</th>
-                            <th class="px-4 py-3">Tipe</th>
-                            <th class="px-4 py-3">Jam</th>
-                            <th class="px-4 py-3">Aksi</th>
+                            @if($filteredPackage)<th scope="col" class="w-16 px-5 py-3 text-center">Pilih</th>@endif
+                            <th scope="col" class="w-full min-w-[360px] px-5 py-3">Jadwal</th>
+                            <th scope="col" class="w-52 px-5 py-3">Pengulangan</th>
+                            <th scope="col" class="w-32 px-5 py-3">Waktu</th>
+                            <th scope="col" class="w-40 px-5 py-3">Rombel</th>
+                            <th scope="col" class="w-40 px-5 py-3">Tutor</th>
+                            <th scope="col" class="w-48 px-5 py-3">Paket</th>
+                            <th scope="col" class="w-28 px-5 py-3">Status</th>
+                            <th scope="col" class="sticky right-0 z-20 w-44 border-l border-gray-200 bg-gray-50 px-5 py-3 text-right">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @foreach($otherSchedules as $schedule)
-                            @php($isScheduleSelected = $selectedScheduleIds->contains((int) $schedule->id))
-                            <tr data-assignment-item class="border-t hover:bg-gray-50 {{ $filteredPackage && $isScheduleSelected ? 'border-primary bg-primary/5' : 'border-gray-100' }}">
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($allSchedules as $schedule)
+                            <tr data-assignment-item class="group transition-colors hover:bg-gray-50 {{ $filteredPackage && $schedule->list_is_selected ? 'bg-primary/5' : '' }}">
                                 @if($filteredPackage)
-                                    <td class="px-4 py-3 text-center">
-                                        <input type="checkbox"
-                                            aria-label="Masukkan {{ $schedule->title }} ke paket"
-                                            class="package-assignment-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                            data-kind="schedule"
-                                            data-url="{{ route('admin.package.schedule.toggle', ['package' => $filteredPackage, 'classSchedule' => $schedule]) }}"
-                                            @checked($isScheduleSelected)>
+                                    <td class="px-5 py-4 text-center">
+                                        <input type="checkbox" aria-label="Masukkan {{ $schedule->title }} ke paket" class="package-assignment-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-kind="schedule" data-url="{{ route('admin.package.schedule.toggle', ['package' => $filteredPackage, 'classSchedule' => $schedule]) }}" @checked($schedule->list_is_selected)>
                                     </td>
                                 @endif
-                                <td class="px-4 py-3">
-                                    <p class="font-semibold text-gray-900">{{ $schedule->title }}</p>
-                                    <?php $tentorName = $schedule->tentor?->name; ?>
-                                    @if($tentorName)
-                                        <p class="text-xs text-gray-500">Tutor: {{ $tentorName }}</p>
-                                    @endif
-                                    @if($schedule->studyGroup)
-                                        <p class="text-xs text-gray-500">Rombel: {{ $schedule->studyGroup->name }}</p>
-                                    @endif
-                                    @if($schedule->packages->isNotEmpty())
-                                        <p class="text-xs text-gray-500">Paket: {{ $schedule->packages->pluck('name')->join(', ') }}</p>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                                        {{ ucfirst($schedule->schedule_type) }}
-                                    </span>
-                                    @if(($clientBranding['booking_schedule_enabled'] ?? false) && $schedule->allow_custom_booking)
-                                        <span class="ml-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">Custom</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3">{{ substr($schedule->start_time, 0, 5) }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-1.5">
-                                        @if($canUseAttendance)
-                                            <a href="{{ route('admin.class-schedules.show', $schedule) }}"
-                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                                title="Absensi" aria-label="Absensi">
-                                                <i class="ri-eye-line text-base"></i>
-                                                <span class="sr-only">Absensi</span>
-                                            </a>
-                                        @endif
-                                        <a href="{{ route('admin.class-schedules.edit', $schedule) }}"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-primary/10 hover:text-primary transition-colors"
-                                            title="Edit" aria-label="Edit">
-                                            <i class="ri-edit-line text-base"></i>
-                                            <span class="sr-only">Edit</span>
-                                        </a>
-                                        <form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin?');" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit"
-                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                title="Hapus" aria-label="Hapus">
-                                                <i class="ri-delete-bin-line text-base"></i>
-                                                <span class="sr-only">Hapus</span>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
+                                <td class="w-full min-w-[360px] px-5 py-4"><p class="font-semibold text-gray-900">{{ $schedule->title }}</p>@if($schedule->location)<p class="mt-1 text-xs text-gray-500"><i class="ri-map-pin-line mr-1"></i>{{ $schedule->location }}</p>@elseif($schedule->meeting_url)<a href="{{ $schedule->meeting_url }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-flex items-center text-xs font-medium text-primary hover:underline"><i class="ri-video-chat-line mr-1"></i>Online meeting</a>@endif</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $schedule->list_recurrence_label }}</td>
+                                <td class="px-5 py-4 whitespace-nowrap font-medium text-gray-700">{{ $schedule->list_time_label }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $schedule->studyGroup?->name ?? '—' }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $schedule->tentor?->name ?? 'Belum ditetapkan' }}</td>
+                                <td class="max-w-xs px-5 py-4 text-gray-700"><p class="truncate" title="{{ $schedule->list_package_label }}">{{ $schedule->list_package_label }}</p></td>
+                                <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $schedule->list_status_class }}">{{ $schedule->list_status_label }}</span></td>
+                                <td class="sticky right-0 z-10 border-l border-gray-100 px-5 py-4 {{ $filteredPackage && $schedule->list_is_selected ? 'bg-primary/5' : 'bg-white group-hover:bg-gray-50' }}"><div class="flex items-center justify-end gap-2">@if($canUseAttendance)<a href="{{ route('admin.class-schedules.show', $schedule) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary" title="Lihat detail" aria-label="Lihat detail"><i class="ri-eye-line text-base"></i></a>@endif<a href="{{ route('admin.class-schedules.edit', $schedule) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary" title="Edit" aria-label="Edit"><i class="ri-edit-line text-base"></i></a><form method="POST" action="{{ route('admin.class-schedules.destroy', $schedule) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');">@csrf @method('DELETE')<button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600" title="Hapus" aria-label="Hapus"><i class="ri-delete-bin-line text-base"></i></button></form></div></td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="{{ $filteredPackage ? 9 : 8 }}" class="px-5 py-14 text-center text-gray-500"><i class="ri-calendar-event-line mb-2 block text-3xl text-gray-300"></i>Belum ada jadwal. Tambahkan jadwal pertama untuk mulai mengelola sesi.</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
-    @endif
+            @if($allSchedules->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $allSchedules->links() }}</div>@endif
+        </section>
     @endif
     @else
         <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
