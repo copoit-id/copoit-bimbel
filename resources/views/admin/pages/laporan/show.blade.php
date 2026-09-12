@@ -14,11 +14,11 @@
             </x-slot>
         </x-breadcrumb>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('admin.laporan.tryout.export-excel', $tryout->tryout_id) }}"
+            <a href="{{ route('admin.laporan.tryout.export-excel', array_merge([$tryout->tryout_id], request()->only('attempt'))) }}"
                 class="inline-flex items-center gap-2 rounded-lg bg-green px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700">
                 <i class="ri-file-excel-line"></i> Laporan Excel
             </a>
-            <a href="{{ route('admin.laporan.tryout.export-pdf', $tryout->tryout_id) }}"
+            <a href="{{ route('admin.laporan.tryout.export-pdf', array_merge([$tryout->tryout_id], request()->only('attempt'))) }}"
                 class="inline-flex items-center gap-2 rounded-lg bg-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
                 <i class="ri-file-pdf-line"></i> Laporan PDF
             </a>
@@ -70,14 +70,20 @@
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Peserta Tryout</p>
                 <h3 class="mt-1 text-lg font-semibold text-gray-900">Ringkasan Pengerjaan</h3>
-                <p class="mt-1 text-sm text-gray-500">Pilih siswa untuk melihat dan membuka detail attempt yang diinginkan.</p>
+                <p class="mt-1 text-sm text-gray-500">Pilih attempt yang ingin ditampilkan. Semua aksi memakai attempt yang sama.</p>
             </div>
-            <form method="GET" class="flex w-full gap-2 lg:w-auto">
+            <form method="GET" class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
                 <div class="relative flex-1 lg:w-80">
                     <input type="search" name="search" value="{{ $search }}" placeholder="Cari nama, email, username, atau nomor HP..."
                         class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10">
                     <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                 </div>
+                <select name="attempt" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10">
+                    <option value="latest" @selected($selectedAttemptNumber === null)>Attempt terakhir</option>
+                    @foreach($attemptOptions as $attemptNumber)
+                        <option value="{{ $attemptNumber }}" @selected($selectedAttemptNumber === $attemptNumber)>Attempt ke-{{ $attemptNumber }}</option>
+                    @endforeach
+                </select>
                 <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
                     Cari
                 </button>
@@ -127,7 +133,7 @@
                                 <p class="font-semibold text-gray-900">{{ $user->name ?? 'User' }}</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $user->email ?? '-' }}</p>
                                 <p class="mt-1 text-[11px] text-gray-400">
-                                    Attempt terakhir{{ $participant['total_attempts'] > 1 ? ' · Riwayat '.$participant['total_attempts'].'x' : '' }}
+                                    Attempt ke-{{ $participant['attempt_number'] }} dari {{ $participant['total_attempts'] }}
                                 </p>
                             </td>
                             @foreach ($subtests as $subtest)
@@ -165,9 +171,9 @@
                             </td>
                             <td class="px-4 py-4">
                                 <div class="flex justify-center gap-2">
-                                    <a href="{{ route('admin.laporan.user-attempts', [$tryout->tryout_id, $user->id]) }}"
+                                    <a href="{{ route('admin.laporan.attempt', [$tryout->tryout_id, $attempt->attempt_token]) }}"
                                         class="inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
-                                        <i class="ri-file-list-3-line"></i> Detail & Riwayat
+                                        <i class="ri-file-list-3-line"></i> Detail
                                     </a>
                                     @if (! in_array($attempt->attempt_status, ['completed', 'pending_release']))
                                         <button type="button" data-open-time-modal

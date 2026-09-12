@@ -906,7 +906,6 @@ Route::prefix('{portal}')
             Route::delete('/{tryout}/proctoring-snapshots', [LaporanController::class, 'destroyAllProctoringSnapshots'])->name('proctoring-snapshots.destroy-all');
             Route::delete('/{tryout}/proctoring-snapshots/{snapshot}', [LaporanController::class, 'destroyProctoringSnapshot'])->name('proctoring-snapshots.destroy');
             Route::get('/{tryout}/ranking', [LaporanController::class, 'ranking'])->name('ranking');
-            Route::get('/{tryout}/user/{user}', [LaporanController::class, 'userAttempts'])->name('user-attempts');
             Route::get('/{tryout}/attempt/{token}', [LaporanController::class, 'attemptDetail'])->name('attempt');
             Route::post('/{tryout}/attempt/{token}/reset', [LaporanController::class, 'resetAttempt'])->name('reset-attempt');
             Route::post('/{tryout}/user/{user}/add-time', [LaporanController::class, 'addTime'])->name('add-time');

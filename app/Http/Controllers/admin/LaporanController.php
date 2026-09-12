@@ -295,9 +295,9 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function exportTryoutExcel(Tryout $tryout)
+    public function exportTryoutExcel(Request $request, Tryout $tryout)
     {
-        $report = $this->buildTryoutParticipantExport($tryout);
+        $report = $this->buildTryoutParticipantExport($tryout, $this->selectedAttemptNumber($request));
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Laporan Peserta');
@@ -343,9 +343,9 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function exportTryoutPdf(Tryout $tryout)
+    public function exportTryoutPdf(Request $request, Tryout $tryout)
     {
-        $report = $this->buildTryoutParticipantExport($tryout);
+        $report = $this->buildTryoutParticipantExport($tryout, $this->selectedAttemptNumber($request));
         $html = view('admin.pages.laporan.tryout-export-pdf', [
             'tryout' => $tryout,
             'participants' => $report['participants'],
@@ -371,6 +371,10 @@ class LaporanController extends Controller
     public function show(Request $request, $id)
     {
         $search = trim((string) $request->query('search', ''));
+        $attemptFilter = $request->query('attempt', 'latest');
+        $selectedAttemptNumber = ctype_digit((string) $attemptFilter) && (int) $attemptFilter > 0
+            ? (int) $attemptFilter
+            : null;
         $schoolStudentIds = $this->schoolStudentIds();
         $tryout = Tryout::with([
             'tryoutDetails' => function ($query) {
@@ -418,6 +422,9 @@ class LaporanController extends Controller
             ->with('user:id,name,email')
             ->get();
 
+        $maxAttemptCount = $attemptSummaries->groupBy('user_id')->map->count()->max() ?? 0;
+        $attemptOptions = $maxAttemptCount > 0 ? range(1, $maxAttemptCount) : [];
+
         $subtestSummariesByAttempt = UserAnswer::query()
             ->selectRaw('
                 user_id,
@@ -460,18 +467,21 @@ class LaporanController extends Controller
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
 
         $participantGroups = $attemptSummaries->groupBy('user_id')
-            ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions, $tryout, $scoreDisplayService) {
+            ->map(function ($attempts) use ($selectedAttemptNumber, $answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions, $tryout, $scoreDisplayService) {
                 $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
-                $latest = $sortedAttempts->first();
+                $chronologicalAttempts = $attempts->sortBy('started_at')->values();
+                $latest = $selectedAttemptNumber === null
+                    ? $sortedAttempts->first()
+                    : $chronologicalAttempts->get($selectedAttemptNumber - 1);
+
+                if (! $latest) {
+                    return null;
+                }
+
                 $latestSubtestRows = $subtestSummariesByAttempt->get($latest->user_id.'|'.$latest->attempt_token, collect())
                     ->keyBy('tryout_detail_id');
 
-                $status = 'belum_mengerjakan';
-                if ($attempts->where('attempt_status', 'in_progress')->count() > 0) {
-                    $status = 'sedang_mengerjakan';
-                } elseif ($attempts->whereIn('attempt_status', ['completed', 'pending_release'])->count() > 0) {
-                    $status = 'selesai';
-                }
+                $status = $latest->attempt_status === 'in_progress' ? 'sedang_mengerjakan' : 'selesai';
 
                 $subtests = $subtestDefinitions->map(function (array $definition, int $detailId) use ($answerStatsBySubtest, $latest, $latestSubtestRows, $tryout, $scoreDisplayService) {
                     $row = $latestSubtestRows->get($detailId);
@@ -498,6 +508,7 @@ class LaporanController extends Controller
                 return [
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
+                    'attempt_number' => $selectedAttemptNumber ?? ((int) $chronologicalAttempts->search(fn (UserAnswer $attempt) => $attempt->attempt_token === $latest->attempt_token) + 1),
                     'latest_score' => round($latestScore, 1),
                     'latest_score_display' => $scoreDisplayService->present($tryout, $latestScore, $subtests->sum('correct'), $subtests->sum('total_questions'), null, $subtests->count())['formatted'],
                     'last_finished' => $latest->finished_at,
@@ -510,6 +521,7 @@ class LaporanController extends Controller
                     'status' => $status,
                 ];
             })
+            ->filter()
             ->values();
 
         $participants = $participantGroups;
@@ -573,45 +585,10 @@ class LaporanController extends Controller
             'leaderboardPackageId',
             'hasSnapshotProctoring',
             'search',
+            'attemptOptions',
+            'selectedAttemptNumber',
             'schoolReport'
         ));
-    }
-
-    public function userAttempts(Request $request, $tryoutId, User $user)
-    {
-        $tryout = Tryout::findOrFail($tryoutId);
-        $schoolStudentIds = $this->schoolStudentIds();
-        abort_unless($schoolStudentIds === null || $schoolStudentIds->contains($user->id), 404);
-
-        $attempts = UserAnswer::query()
-            ->selectRaw('attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(correct_answers) as total_correct, SUM(wrong_answers) as total_wrong, SUM(unanswered) as total_unanswered, SUM(score) as total_score, MAX(utbk_total_score) as irt_total_score, MAX(status) as status')
-            ->where('tryout_id', $tryout->tryout_id)
-            ->where('user_id', $user->id)
-            ->groupBy('attempt_token')
-            ->orderBy('started_at')
-            ->get();
-
-        abort_if($attempts->isEmpty(), 404);
-
-        $scoreDisplayService = app(TryoutScoreDisplayService::class);
-        $attempts = $attempts->values()->map(function (UserAnswer $attempt, int $index) use ($tryout, $scoreDisplayService): array {
-            $score = $tryout->requiresIrtScoring()
-                ? (float) ($attempt->irt_total_score ?? 0)
-                : (float) ($attempt->total_score ?? 0);
-
-            return [
-                'attempt' => $attempt,
-                'number' => $index + 1,
-                'score_display' => $scoreDisplayService->present(
-                    $tryout,
-                    $score,
-                    (int) $attempt->total_correct,
-                    max(1, (int) $attempt->total_correct + (int) $attempt->total_wrong + (int) $attempt->total_unanswered),
-                )['formatted'],
-            ];
-        })->sortByDesc(fn (array $attempt) => $attempt['attempt']->last_activity_at)->values();
-
-        return view('admin.pages.laporan.user-attempts', compact('tryout', 'user', 'attempts'));
     }
 
     public function ranking($tryoutId)
@@ -948,11 +925,20 @@ class LaporanController extends Controller
         ]);
     }
 
+    private function selectedAttemptNumber(Request $request): ?int
+    {
+        $attempt = $request->query('attempt');
+
+        return ctype_digit((string) $attempt) && (int) $attempt > 0
+            ? (int) $attempt
+            : null;
+    }
+
     /**
-     * Build one latest logical attempt per participant for the detailed exports.
+     * Build one selected logical attempt per participant for the detailed exports.
      * The aggregation mirrors the report page without loading question relations.
      */
-    private function buildTryoutParticipantExport(Tryout $tryout): array
+    private function buildTryoutParticipantExport(Tryout $tryout, ?int $selectedAttemptNumber = null): array
     {
         $schoolStudentIds = $this->schoolStudentIds();
         $tryout->loadMissing([
@@ -992,12 +978,19 @@ class LaporanController extends Controller
 
         $participants = $attemptSummaries
             ->groupBy('user_id')
-            ->map(function ($attempts) use ($subtests, $subtestScores, $tryout, $scoreDisplayService) {
-                $latest = $attempts->sortByDesc('last_activity_at')->first();
-                $attemptKey = $latest->user_id.'|'.$latest->attempt_token;
-                $scores = $subtestScores->get($attemptKey, collect());
-                $isInProgress = $attempts->contains('attempt_status', 'in_progress');
+            ->map(function ($attempts) use ($selectedAttemptNumber, $subtests, $subtestScores, $tryout, $scoreDisplayService) {
+                $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
+                $chronologicalAttempts = $attempts->sortBy('started_at')->values();
+                $selectedAttempt = $selectedAttemptNumber === null
+                    ? $sortedAttempts->first()
+                    : $chronologicalAttempts->get($selectedAttemptNumber - 1);
 
+                if (! $selectedAttempt) {
+                    return null;
+                }
+
+                $attemptKey = $selectedAttempt->user_id.'|'.$selectedAttempt->attempt_token;
+                $scores = $subtestScores->get($attemptKey, collect());
                 $subtestValues = $subtests->mapWithKeys(function (array $subtest, int $detailId) use ($scores, $tryout, $scoreDisplayService) {
                     $score = $scores->get($detailId);
                     $rawScore = round((float) ($score->score ?? 0), 2);
@@ -1011,22 +1004,23 @@ class LaporanController extends Controller
                 });
 
                 $totalScore = $tryout->requiresIrtScoring()
-                    ? (float) ($latest->irt_total_score ?? 0)
-                    : (float) ($latest->total_score ?? 0);
+                    ? (float) ($selectedAttempt->irt_total_score ?? 0)
+                    : (float) ($selectedAttempt->total_score ?? 0);
 
                 return [
                     'name' => $latest->user?->name ?? 'Peserta',
                     'email' => $latest->user?->email ?? '-',
-                    'status_label' => $isInProgress ? 'Sedang Mengerjakan' : 'Selesai',
+                    'status_label' => $selectedAttempt->attempt_status === 'in_progress' ? 'Sedang Mengerjakan' : 'Selesai',
                     'total_score' => round($totalScore, 2),
                     'total_score_display' => $tryout->requiresIrtScoring()
                         ? $scoreDisplayService->present($tryout, $totalScore, 0, 0, null, $subtests->count())['formatted']
                         : $this->formatNumericScore($totalScore),
-                    'started_at' => $latest->started_at ? Carbon::parse($latest->started_at) : null,
-                    'finished_at' => $latest->finished_at ? Carbon::parse($latest->finished_at) : null,
+                    'started_at' => $selectedAttempt->started_at ? Carbon::parse($selectedAttempt->started_at) : null,
+                    'finished_at' => $selectedAttempt->finished_at ? Carbon::parse($selectedAttempt->finished_at) : null,
                     'subtests' => $subtestValues,
                 ];
             })
+            ->filter()
             ->sortBy(fn (array $participant) => Str::lower($participant['name']))
             ->values();
 
