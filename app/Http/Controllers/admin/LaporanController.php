@@ -10,19 +10,21 @@ use App\Models\TryoutUserTimeAdjustment;
 use App\Models\User;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
-use App\Services\PlanQuotaService;
 use App\Services\MultipleAnswerScoringService;
-use App\Support\Pagination;
+use App\Services\PlanQuotaService;
 use App\Services\TryoutScoreDisplayService;
+use App\Support\Pagination;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -326,7 +328,7 @@ class LaporanController extends Controller
             ], null, 'A'.$row++);
         }
 
-        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
         $widths = [8, 28, 32];
         $widths = [...$widths, ...array_fill(0, $report['subtests']->count(), 22), 16, 14, 20];
         $this->styleReportExportSheet($sheet, $lastColumn, $row - 1, $widths);
@@ -457,7 +459,7 @@ class LaporanController extends Controller
 
         $scoreDisplayService = app(TryoutScoreDisplayService::class);
 
-        $participants = $attemptSummaries->groupBy('user_id')
+        $participantGroups = $attemptSummaries->groupBy('user_id')
             ->map(function ($attempts) use ($answerStatsBySubtest, $subtestSummariesByAttempt, $subtestDefinitions, $tryout, $scoreDisplayService) {
                 $sortedAttempts = $attempts->sortByDesc('last_activity_at')->values();
                 $latest = $sortedAttempts->first();
@@ -477,18 +479,12 @@ class LaporanController extends Controller
                     $answered = min((int) $definition['total_questions'], (int) ($answerStats->answered_questions ?? 0));
                     $correct = min($answered, (int) ($answerStats->correct_answers ?? 0));
                     $wrong = max(0, $answered - $correct);
-
                     $score = round((float) ($row->score ?? 0), 1);
 
                     return [
                         ...$definition,
                         'score' => $score,
-                        'score_display' => $scoreDisplayService->present(
-                            $tryout,
-                            $score,
-                            $correct,
-                            (int) $definition['total_questions']
-                        )['formatted'],
+                        'score_display' => $scoreDisplayService->present($tryout, $score, $correct, (int) $definition['total_questions'])['formatted'],
                         'correct' => $correct,
                         'wrong' => $wrong,
                         'unanswered' => max(0, (int) $definition['total_questions'] - $answered),
@@ -503,14 +499,7 @@ class LaporanController extends Controller
                     'user' => $latest->user,
                     'total_attempts' => $attempts->count(),
                     'latest_score' => round($latestScore, 1),
-                    'latest_score_display' => $scoreDisplayService->present(
-                        $tryout,
-                        $latestScore,
-                        $subtests->sum('correct'),
-                        $subtests->sum('total_questions'),
-                        null,
-                        $subtests->count()
-                    )['formatted'],
+                    'latest_score_display' => $scoreDisplayService->present($tryout, $latestScore, $subtests->sum('correct'), $subtests->sum('total_questions'), null, $subtests->count())['formatted'],
                     'last_finished' => $latest->finished_at,
                     'latest_attempt' => $latest,
                     'total_correct' => $subtests->sum('correct'),
@@ -518,13 +507,12 @@ class LaporanController extends Controller
                     'total_unanswered' => $subtests->sum('unanswered'),
                     'tab_switch_count' => (int) ($latest->tab_switch_count ?? 0),
                     'subtests' => $subtests,
-                    // Keep the report compact: one latest logical attempt per participant.
-                    // Older attempts remain represented by total_attempts, without repeating rows.
-                    'attempts' => collect([$latest]),
                     'status' => $status,
                 ];
             })
             ->values();
+
+        $participants = $participantGroups;
 
         $timeAdjustments = TryoutUserTimeAdjustment::where('tryout_id', $tryout->tryout_id)
             ->pluck('extra_minutes', 'user_id');
@@ -539,17 +527,17 @@ class LaporanController extends Controller
             'total_subtests' => $tryout->tryoutDetails->count(),
             'total_questions' => $tryout->tryoutDetails->sum('questions_count'),
             'total_duration' => $tryout->tryoutDetails->sum('duration'),
-            'total_participants' => $participants->count(),
-            'completed_participants' => $participants->where('status', 'selesai')->count(),
-            'average_score' => round($participants->avg('latest_score') ?? 0, 1),
-            'highest_score' => round($participants->max('latest_score') ?? 0, 1),
+            'total_participants' => $participantGroups->count(),
+            'completed_participants' => $participantGroups->where('status', 'selesai')->count(),
+            'average_score' => round($participantGroups->avg('latest_score') ?? 0, 1),
+            'highest_score' => round($participantGroups->max('latest_score') ?? 0, 1),
         ];
 
         $statistics['completion_rate'] = $statistics['total_participants'] > 0
             ? round(($statistics['completed_participants'] / $statistics['total_participants']) * 100)
             : 0;
 
-        $allParticipants = $participants;
+        $allParticipants = $participantGroups;
 
         $perPage = Pagination::perPage(10);
         $currentPage = max(1, $request->integer('page', 1));
@@ -587,6 +575,43 @@ class LaporanController extends Controller
             'search',
             'schoolReport'
         ));
+    }
+
+    public function userAttempts(Request $request, $tryoutId, User $user)
+    {
+        $tryout = Tryout::findOrFail($tryoutId);
+        $schoolStudentIds = $this->schoolStudentIds();
+        abort_unless($schoolStudentIds === null || $schoolStudentIds->contains($user->id), 404);
+
+        $attempts = UserAnswer::query()
+            ->selectRaw('attempt_token, MIN(started_at) as started_at, MAX(finished_at) as finished_at, MAX(COALESCE(finished_at, started_at)) as last_activity_at, SUM(correct_answers) as total_correct, SUM(wrong_answers) as total_wrong, SUM(unanswered) as total_unanswered, SUM(score) as total_score, MAX(utbk_total_score) as irt_total_score, MAX(status) as status')
+            ->where('tryout_id', $tryout->tryout_id)
+            ->where('user_id', $user->id)
+            ->groupBy('attempt_token')
+            ->orderBy('started_at')
+            ->get();
+
+        abort_if($attempts->isEmpty(), 404);
+
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $attempts = $attempts->values()->map(function (UserAnswer $attempt, int $index) use ($tryout, $scoreDisplayService): array {
+            $score = $tryout->requiresIrtScoring()
+                ? (float) ($attempt->irt_total_score ?? 0)
+                : (float) ($attempt->total_score ?? 0);
+
+            return [
+                'attempt' => $attempt,
+                'number' => $index + 1,
+                'score_display' => $scoreDisplayService->present(
+                    $tryout,
+                    $score,
+                    (int) $attempt->total_correct,
+                    max(1, (int) $attempt->total_correct + (int) $attempt->total_wrong + (int) $attempt->total_unanswered),
+                )['formatted'],
+            ];
+        })->sortByDesc(fn (array $attempt) => $attempt['attempt']->last_activity_at)->values();
+
+        return view('admin.pages.laporan.user-attempts', compact('tryout', 'user', 'attempts'));
     }
 
     public function ranking($tryoutId)
@@ -1024,7 +1049,7 @@ class LaporanController extends Controller
         $sheet->getPageSetup()->setOrientation('landscape')->setFitToWidth(1)->setFitToHeight(0);
 
         foreach ($widths as $index => $width) {
-            $column = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+            $column = Coordinate::stringFromColumnIndex($index + 1);
             $sheet->getColumnDimension($column)->setWidth($width);
         }
     }
@@ -1099,6 +1124,7 @@ class LaporanController extends Controller
     private function buildTryoutReportQuery()
     {
         $schoolStudentIds = $this->schoolStudentIds();
+
         return Tryout::with([
             'tryoutDetails' => function ($query) {
                 $query->withCount('questions');
@@ -1195,7 +1221,7 @@ class LaporanController extends Controller
             ->count();
     }
 
-    private function schoolStudentIds(): ?\Illuminate\Support\Collection
+    private function schoolStudentIds(): ?Collection
     {
         $user = auth()->user();
         if ($user?->role !== 'admin_sekolah') {
@@ -1204,7 +1230,7 @@ class LaporanController extends Controller
 
         $groupIds = $user->schoolAdminStudyGroups()->pluck('study_groups.id');
 
-        return \App\Models\User::query()
+        return User::query()
             ->where('role', 'user')
             ->whereHas('studyGroups', fn ($query) => $query->whereIn('study_groups.id', $groupIds))
             ->pluck('id');
