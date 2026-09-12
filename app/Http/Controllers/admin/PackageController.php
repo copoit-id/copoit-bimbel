@@ -92,6 +92,7 @@ class PackageController extends Controller
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
                 'allow_custom_booking' => 'nullable|boolean',
+                'tutor_payment_frequency' => 'required|in:none,per_session,daily,monthly',
                 ...$this->bookingValidationRules(),
             ];
 
@@ -101,12 +102,13 @@ class PackageController extends Controller
 
             $validationRules['image'] = $thumbnailRule;
 
-            // Add price validation only if type_price is 'paid'
-            if ($request->type_price === 'paid' && $request->input('enrollment_mode') !== Package::ENROLLMENT_PROGRAM) {
+            $isProgram = $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM;
+            $hasProgramBilling = $isProgram && $request->input('tutor_payment_frequency') !== 'none';
+            if ((! $isProgram && $request->type_price === 'paid') || $hasProgramBilling) {
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
-                if ($request->type_price === 'free_conditional') {
+                if (! $isProgram && $request->type_price === 'free_conditional') {
                     $validationRules['free_claim_requirement_type'] = 'required|in:manual_proof,completed_tryout';
                     $validationRules['conditional_requirement'] = $request->input('free_claim_requirement_type') === 'manual_proof'
                         ? 'required|string'
@@ -118,11 +120,17 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            if ($isProgram) {
+                $validated['type_price'] = 'paid';
+                $validated['conditional_requirement'] = null;
+                $validated['free_claim_requirement_type'] = null;
+                $validated['free_claim_tryout_id'] = null;
+            }
             unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed', true);
             $this->normalizeAccessDuration($validated);
 
-            if ($request->type_price !== 'paid' || $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM) {
+            if ((! $isProgram && $request->type_price !== 'paid') || ($isProgram && ! $hasProgramBilling)) {
                 $validated['price'] = 0;
             }
 
@@ -134,12 +142,12 @@ class PackageController extends Controller
 
             $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
-            $isTryoutClaim = $request->type_price === 'free_conditional'
+            $isTryoutClaim = $validated['type_price'] === 'free_conditional'
                 && ($validated['free_claim_requirement_type'] ?? null) === 'completed_tryout';
-            $validated['conditional_requirement'] = $request->type_price === 'free_conditional' && ! $isTryoutClaim
-                ? $validated['conditional_requirement']
+            $validated['conditional_requirement'] = $validated['type_price'] === 'free_conditional' && ! $isTryoutClaim
+                ? ($validated['conditional_requirement'] ?? null)
                 : null;
-            $validated['free_claim_requirement_type'] = $request->type_price === 'free_conditional'
+            $validated['free_claim_requirement_type'] = $validated['type_price'] === 'free_conditional'
                 ? ($validated['free_claim_requirement_type'] ?? 'manual_proof')
                 : null;
             $validated['free_claim_tryout_id'] = $isTryoutClaim
@@ -215,6 +223,7 @@ class PackageController extends Controller
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
                 'allow_custom_booking' => 'nullable|boolean',
+                'tutor_payment_frequency' => 'required|in:none,per_session,daily,monthly',
                 ...$this->bookingValidationRules(),
             ];
 
@@ -224,12 +233,13 @@ class PackageController extends Controller
 
             $validationRules['image'] = $thumbnailRule;
 
-            // Add price validation only if type_price is 'paid'
-            if ($request->type_price === 'paid' && $request->input('enrollment_mode') !== Package::ENROLLMENT_PROGRAM) {
+            $isProgram = $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM;
+            $hasProgramBilling = $isProgram && $request->input('tutor_payment_frequency') !== 'none';
+            if ((! $isProgram && $request->type_price === 'paid') || $hasProgramBilling) {
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
-                if ($request->type_price === 'free_conditional') {
+                if (! $isProgram && $request->type_price === 'free_conditional') {
                     $validationRules['free_claim_requirement_type'] = 'required|in:manual_proof,completed_tryout';
                     $validationRules['conditional_requirement'] = $request->input('free_claim_requirement_type') === 'manual_proof'
                         ? 'required|string'
@@ -241,11 +251,17 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            if ($isProgram) {
+                $validated['type_price'] = 'paid';
+                $validated['conditional_requirement'] = null;
+                $validated['free_claim_requirement_type'] = null;
+                $validated['free_claim_tryout_id'] = null;
+            }
             unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed');
             $this->normalizeAccessDuration($validated);
 
-            if ($request->type_price !== 'paid' || $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM) {
+            if ((! $isProgram && $request->type_price !== 'paid') || ($isProgram && ! $hasProgramBilling)) {
                 $validated['price'] = 0;
             }
 
@@ -257,12 +273,12 @@ class PackageController extends Controller
 
             $validated['features'] = ! empty($features) ? json_encode($features) : null;
 
-            $isTryoutClaim = $request->type_price === 'free_conditional'
+            $isTryoutClaim = $validated['type_price'] === 'free_conditional'
                 && ($validated['free_claim_requirement_type'] ?? null) === 'completed_tryout';
-            $validated['conditional_requirement'] = $request->type_price === 'free_conditional' && ! $isTryoutClaim
-                ? $validated['conditional_requirement']
+            $validated['conditional_requirement'] = $validated['type_price'] === 'free_conditional' && ! $isTryoutClaim
+                ? ($validated['conditional_requirement'] ?? null)
                 : null;
-            $validated['free_claim_requirement_type'] = $request->type_price === 'free_conditional'
+            $validated['free_claim_requirement_type'] = $validated['type_price'] === 'free_conditional'
                 ? ($validated['free_claim_requirement_type'] ?? 'manual_proof')
                 : null;
             $validated['free_claim_tryout_id'] = $isTryoutClaim

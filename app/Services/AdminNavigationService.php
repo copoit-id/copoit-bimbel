@@ -75,6 +75,7 @@ class AdminNavigationService
         $canShowUpdateNotificationsMenu = ($featureVisibility['update_notification'] ?? false)
             && $routeExists('admin.update-notifications.index');
         $canShowTutorScheduleMenu = $isTutor && $this->planModules->allows('schedule') && $routeExists('tutor.schedule.index');
+        $canShowTutorPackagePaymentMenu = $isTutor && $routeExists('tutor.package-payments.index');
         $canShowTutorDashboard = $isTutor && $routeExists('tutor.dashboard');
         $canShowTutorEarningsMenu = $isTutor && $this->planModules->allows('tutor_payroll')
             && $routeExists('tutor.earnings.index');
@@ -123,6 +124,7 @@ class AdminNavigationService
             'canShowUpdateNotificationsMenu' => $canShowUpdateNotificationsMenu,
             'canShowTutorDashboard' => $canShowTutorDashboard,
             'canShowTutorScheduleMenu' => $canShowTutorScheduleMenu,
+            'canShowTutorPackagePaymentMenu' => $canShowTutorPackagePaymentMenu,
             'canShowTutorEarningsMenu' => $canShowTutorEarningsMenu,
             'canShowTutorChatMenu' => $canShowTutorChatMenu,
             'canShowTutorProfileMenu' => $canShowTutorProfileMenu,
@@ -146,6 +148,7 @@ class AdminNavigationService
                 || $routeIs('admin.tryout.*', 'admin.question.*', 'admin.tes-koran.*') || $isMaterialManagementActive,
             'isTutorDashboardActive' => $isTutor && $routeIs('tutor.dashboard'),
             'isTutorScheduleActive' => $isTutor && $routeIs('tutor.schedule.*', 'tutor.booking.*'),
+            'isTutorPackagePaymentActive' => $isTutor && $routeIs('tutor.package-payments.*'),
             'isTutorEarningsActive' => $isTutor && $routeIs('tutor.earnings.*'),
             'isTutorChatActive' => $isTutor && $routeIs('tutor.chat.*'),
             'isTutorProfileActive' => $isTutor && $routeIs('tutor.profile.*'),
