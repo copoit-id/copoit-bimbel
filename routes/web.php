@@ -72,6 +72,7 @@ use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBooking
 use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
+use App\Http\Controllers\tutor\TutorPackagePaymentController;
 use App\Http\Controllers\tutor\TutorProfileController;
 use App\Http\Controllers\tutor\TutorLeaveController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
@@ -431,6 +432,14 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     // Legacy URL retained for existing links/bookmarks.
     Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
     Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
+    Route::prefix('pembayaran-paket')->name('package-payments.')->group(function (): void {
+        Route::get('/', [TutorPackagePaymentController::class, 'index'])->name('index');
+        Route::post('sesi/{session}/siapkan', [TutorPackagePaymentController::class, 'prepare'])
+            ->middleware('throttle:30,1')->name('prepare');
+        Route::get('sesi/{session}', [TutorPackagePaymentController::class, 'show'])->name('show');
+        Route::post('invoice/{invoice}', [TutorPackagePaymentController::class, 'record'])
+            ->middleware('throttle:30,1')->name('record');
+    });
     Route::get('cuti', [TutorLeaveController::class, 'index'])->name('leave.index');
     Route::post('cuti', [TutorLeaveController::class, 'store'])->name('leave.store');
     Route::middleware('module:schedule')->group(function (): void {
