@@ -15,6 +15,7 @@ use App\Services\ClassScheduleBookingConfigurator;
 use App\Services\ClassScheduleService;
 use App\Services\PackageScheduleAssignmentService;
 use App\Services\PlanModuleService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,6 +84,7 @@ class ClassScheduleController extends Controller
         }
 
         $scheduleSessions = null;
+        $scheduleSessionDays = collect();
         $rangeLabel = null;
         if ($activeTab === 'schedules' && $scheduleRange !== 'all') {
             $now = now();
@@ -111,7 +113,7 @@ class ClassScheduleController extends Controller
 
             $scheduleSessions = ClassSession::query()
                 ->with([
-                    'schedule:id,title',
+                    'schedule:id,title,location,meeting_url',
                     'class:class_id,title',
                     'studyGroup:id,name',
                     'tentor:id,name',
@@ -119,7 +121,19 @@ class ClassScheduleController extends Controller
                 ->whereBetween('session_date', [$rangeStart->toDateString(), $rangeEnd->toDateString()])
                 ->orderBy('start_at')
                 ->paginate(50, ['*'], 'session_page')
-                ->withQueryString();
+                ->withQueryString()
+                ->through(fn (ClassSession $session): ClassSession => $this->presentScheduleSessionRow($session));
+            $scheduleSessionDays = $scheduleSessions->getCollection()
+                ->groupBy(fn (ClassSession $session): string => $session->start_at->toDateString())
+                ->map(function (Collection $sessions, string $date): array {
+                    $day = Carbon::parse($date);
+
+                    return [
+                        ...$this->presentScheduleDay($day),
+                        'sessions' => $sessions->values(),
+                    ];
+                })
+                ->values();
         }
 
         $liveClasses = $canUseClass
@@ -171,6 +185,7 @@ class ClassScheduleController extends Controller
             'activeTab',
             'scheduleRange',
             'scheduleSessions',
+            'scheduleSessionDays',
             'rangeLabel',
             'scheduleTabs',
             'scheduleRangeTabs',
@@ -183,6 +198,79 @@ class ClassScheduleController extends Controller
             'selectedScheduleIds',
             'selectedClassIds',
         ));
+    }
+
+    /**
+     * Add display-ready session data for the admin schedule agenda.
+     */
+    private function presentScheduleSessionRow(ClassSession $session): ClassSession
+    {
+        $session->setAttribute('agenda_title', $session->schedule?->title ?? $session->class?->title ?? 'Sesi belajar');
+        $session->setAttribute(
+            'agenda_time_label',
+            $session->start_at->format('H:i')
+                . ($session->end_at ? ' – ' . $session->end_at->format('H:i') : '')
+                . ' WIB',
+        );
+        $session->setAttribute('agenda_group_label', $session->studyGroup?->name ?? 'Sesi personal');
+        $session->setAttribute('agenda_tutor_label', $session->tentor?->name ?? 'Belum ditetapkan');
+        $session->setAttribute('agenda_location', $session->schedule?->location);
+        $session->setAttribute('agenda_meeting_url', $session->schedule?->meeting_url);
+        $session->setAttribute(
+            'agenda_status_label',
+            match ($session->status) {
+                'completed' => 'Selesai',
+                'cancelled' => 'Dibatalkan',
+                default => 'Terjadwal',
+            },
+        );
+        $session->setAttribute(
+            'agenda_status_class',
+            match ($session->status) {
+                'completed' => 'bg-emerald-50 text-emerald-700',
+                'cancelled' => 'bg-rose-50 text-rose-700',
+                default => 'bg-primary/10 text-primary',
+            },
+        );
+
+        return $session;
+    }
+
+    /**
+     * @return array{day_number: string, day_name: string, date_label: string, state_label: string, state_class: string, date_class: string, timeline_class: string}
+     */
+    private function presentScheduleDay(Carbon $date): array
+    {
+        $base = [
+            'day_number' => $date->format('d'),
+            'day_name' => $date->locale('id')->translatedFormat('l'),
+            'date_label' => $date->locale('id')->translatedFormat('d F Y'),
+        ];
+
+        if ($date->isToday()) {
+            return [...$base,
+                'state_label' => 'Hari ini',
+                'state_class' => 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
+                'date_class' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                'timeline_class' => 'bg-emerald-400 ring-4 ring-emerald-50',
+            ];
+        }
+
+        if ($date->isFuture()) {
+            return [...$base,
+                'state_label' => 'Mendatang',
+                'state_class' => 'bg-blue-50 text-blue-700 ring-1 ring-blue-100',
+                'date_class' => 'border-blue-100 bg-blue-50/70 text-blue-700',
+                'timeline_class' => 'bg-blue-400 ring-4 ring-blue-50',
+            ];
+        }
+
+        return [...$base,
+            'state_label' => 'Lewat',
+            'state_class' => 'bg-rose-50 text-rose-700 ring-1 ring-rose-100',
+            'date_class' => 'border-rose-100 bg-rose-50/70 text-rose-700',
+            'timeline_class' => 'bg-rose-400 ring-4 ring-rose-50',
+        ];
     }
 
     private function presentScheduleListRow(ClassSchedule $schedule, Collection $selectedScheduleIds): ClassSchedule

@@ -12,6 +12,7 @@ use App\Models\TutorPayroll;
 use App\Models\TutorPayrollItem;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\PlanModuleService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -406,17 +407,69 @@ class TutorDashboardController extends Controller
                 ->sortKeys()
                 ->map(function ($monthSessions, string $monthKey): array {
                     $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
-                    $calendarStart = $monthStart->copy()->startOfWeek();
-                    $calendarEnd = $monthStart->copy()->endOfMonth()->endOfWeek();
 
                     return [
                         'label' => $monthStart->locale('id')->translatedFormat('F Y'),
-                        'month' => $monthStart->month,
-                        'dates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
-                        'sessions' => $monthSessions->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
+                        'session_count' => $monthSessions->count(),
+                        'days' => $monthSessions
+                            ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString())
+                            ->map(function ($daySessions, string $date): array {
+                                $calendarDate = $this->calendarDateData(Carbon::parse($date));
+
+                                return [
+                                    ...$calendarDate,
+                                    'sessions' => $daySessions->values(),
+                                ];
+                            })
+                            ->values(),
                     ];
                 })
                 ->values(),
+        ];
+    }
+
+    /**
+     * Prepare the calendar cell presentation so the view does not need to infer date states.
+     *
+     * @return array{date: Carbon, day_number: string, day_name: string, date_label: string, state_label: string, state_class: string, date_class: string, timeline_class: string}
+     */
+    private function calendarDateData(Carbon $date): array
+    {
+        if ($date->isToday()) {
+            return [
+                'date' => $date,
+                'day_number' => $date->format('d'),
+                'day_name' => $date->locale('id')->translatedFormat('l'),
+                'date_label' => $date->locale('id')->translatedFormat('d F Y'),
+                'state_label' => 'Hari ini',
+                'state_class' => 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200',
+                'date_class' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                'timeline_class' => 'bg-emerald-400 ring-4 ring-emerald-50',
+            ];
+        }
+
+        if ($date->isFuture()) {
+            return [
+                'date' => $date,
+                'day_number' => $date->format('d'),
+                'day_name' => $date->locale('id')->translatedFormat('l'),
+                'date_label' => $date->locale('id')->translatedFormat('d F Y'),
+                'state_label' => 'Mendatang',
+                'state_class' => 'bg-blue-50 text-blue-700 ring-1 ring-blue-100',
+                'date_class' => 'border-blue-100 bg-blue-50/70 text-blue-700',
+                'timeline_class' => 'bg-blue-400 ring-4 ring-blue-50',
+            ];
+        }
+
+        return [
+            'date' => $date,
+            'day_number' => $date->format('d'),
+            'day_name' => $date->locale('id')->translatedFormat('l'),
+            'date_label' => $date->locale('id')->translatedFormat('d F Y'),
+            'state_label' => 'Lewat',
+            'state_class' => 'bg-rose-50 text-rose-700 ring-1 ring-rose-100',
+            'date_class' => 'border-rose-100 bg-rose-50/70 text-rose-700',
+            'timeline_class' => 'bg-rose-400 ring-4 ring-rose-50',
         ];
     }
 

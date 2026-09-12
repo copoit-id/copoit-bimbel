@@ -80,43 +80,59 @@
     <x-tab :tabs="$scheduleRangeTabs" variant="pills" class="overflow-x-auto" />
 
     @if($scheduleRange !== 'all')
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
-            <div class="border-b border-gray-100 px-5 py-4">
-                <h2 class="font-bold text-gray-900">{{ $rangeLabel }}</h2>
-                <p class="mt-1 text-sm text-gray-500">Pertemuan yang dijadwalkan pada periode ini.</p>
+        <section aria-labelledby="schedule-range-heading">
+            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Agenda kelas</p>
+                    <h2 id="schedule-range-heading" class="mt-1 text-xl font-bold tracking-tight text-gray-900">{{ $rangeLabel }}</h2>
+                    <p class="mt-1 text-sm text-gray-500">Pertemuan tersusun kronologis agar mudah ditinjau dan ditindaklanjuti.</p>
+                </div>
+                <span class="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600">{{ $scheduleSessions->total() }} sesi</span>
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-[760px] w-full text-left text-sm">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
-                        <tr>
-                            <th class="px-5 py-3">Tanggal & waktu</th>
-                            <th class="px-5 py-3">Jadwal</th>
-                            <th class="px-5 py-3">Rombel</th>
-                            <th class="px-5 py-3">Tutor</th>
-                            <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse($scheduleSessions as $session)
-                            <tr>
-                                <td class="px-5 py-4 text-gray-700">
-                                    <p class="font-semibold text-gray-900">{{ $session->start_at->locale('id')->translatedFormat('l, d M Y') }}</p>
-                                    <p class="mt-1 text-xs text-gray-500">{{ $session->start_at->format('H:i') }}{{ $session->end_at ? ' – '.$session->end_at->format('H:i') : '' }} WIB</p>
-                                </td>
-                                <td class="px-5 py-4"><p class="font-semibold text-gray-900">{{ $session->schedule?->title ?? $session->class?->title ?? 'Sesi belajar' }}</p></td>
-                                <td class="px-5 py-4 text-gray-700">{{ $session->studyGroup?->name ?? '—' }}</td>
-                                <td class="px-5 py-4 text-gray-700">{{ $session->tentor?->name ?? 'Belum ditetapkan' }}</td>
-                                <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $session->status === 'completed' ? 'bg-emerald-100 text-emerald-700' : ($session->status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-primary/10 text-primary') }}">{{ $session->status === 'completed' ? 'Selesai' : ($session->status === 'cancelled' ? 'Dibatalkan' : 'Terjadwal') }}</span></td>
-                                <td class="px-5 py-4 text-right"><a href="{{ route('admin.class-schedules.show', ['classSchedule' => $session->class_schedule_id, 'session_id' => $session->id]) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary" title="Lihat sesi" aria-label="Lihat sesi"><i class="ri-eye-line text-base"></i></a></td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="6" class="px-5 py-14 text-center text-gray-500"><i class="ri-calendar-event-line mb-2 block text-3xl text-gray-300"></i>Tidak ada pertemuan pada periode ini.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($scheduleSessions->hasPages())<div class="border-t border-gray-100 px-5 py-4">{{ $scheduleSessions->links() }}</div>@endif
+
+            @if($scheduleSessionDays->isNotEmpty())
+                <x-ui.card variant="flat" padding="none" class="overflow-visible rounded-2xl border border-gray-200 shadow-sm">
+                    <div class="divide-y divide-gray-100">
+                        @foreach($scheduleSessionDays as $day)
+                            <section class="relative px-4 py-5 sm:px-6" aria-label="{{ $day['day_name'] }}, {{ $day['date_label'] }} — {{ $day['state_label'] }}">
+                                @if(! $loop->last)
+                                    <span class="absolute bottom-0 left-[2.35rem] top-[4.8rem] w-px bg-gray-100 sm:left-[3.35rem]"></span>
+                                @endif
+                                <div class="relative grid grid-cols-[3.25rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-5">
+                                    <div class="flex flex-col items-center">
+                                        <div class="flex h-14 w-14 flex-col items-center justify-center rounded-2xl border text-center sm:h-16 sm:w-16 {{ $day['date_class'] }}">
+                                            <span class="text-lg font-bold leading-none">{{ $day['day_number'] }}</span>
+                                            <span class="mt-1 text-[10px] font-semibold uppercase tracking-wide">{{ \Illuminate\Support\Str::substr($day['day_name'], 0, 3) }}</span>
+                                        </div>
+                                        <span class="relative mt-3 h-2.5 w-2.5 rounded-full {{ $day['timeline_class'] }}"></span>
+                                    </div>
+                                    <div class="min-w-0 pb-1">
+                                        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                            <div><h3 class="text-sm font-bold text-gray-900">{{ $day['day_name'] }}</h3><p class="mt-0.5 text-xs text-gray-500">{{ $day['date_label'] }}</p></div>
+                                            <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $day['state_class'] }}">{{ $day['state_label'] }}</span>
+                                        </div>
+                                        <div class="space-y-2.5">
+                                            @foreach($day['sessions'] as $session)
+                                                <article class="group rounded-xl border border-gray-200 bg-white p-3.5 transition duration-200 hover:border-primary/30 hover:shadow-md sm:flex sm:items-center sm:gap-5 sm:p-4">
+                                                    <p class="shrink-0 text-sm font-bold tabular-nums text-gray-900 sm:w-24">{{ $session->agenda_time_label }}</p>
+                                                    <div class="mt-3 min-w-0 flex-1 sm:mt-0">
+                                                        <div class="flex flex-wrap items-start justify-between gap-2"><h4 class="text-sm font-bold leading-snug text-gray-900">{{ $session->agenda_title }}</h4><span class="rounded-full px-2 py-1 text-[10px] font-bold {{ $session->agenda_status_class }}">{{ $session->agenda_status_label }}</span></div>
+                                                        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-gray-500"><span class="inline-flex items-center gap-1.5"><i class="ri-group-line text-gray-400"></i>{{ $session->agenda_group_label }}</span><span class="inline-flex items-center gap-1.5"><i class="ri-user-star-line text-gray-400"></i>{{ $session->agenda_tutor_label }}</span>@if($session->agenda_location)<span class="inline-flex items-center gap-1.5"><i class="ri-map-pin-line text-gray-400"></i>{{ $session->agenda_location }}</span>@elseif($session->agenda_meeting_url)<a href="{{ $session->agenda_meeting_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"><i class="ri-video-chat-line"></i>Online meeting</a>@endif</div>
+                                                    </div>
+                                                    <a href="{{ route('admin.class-schedules.show', ['classSchedule' => $session->class_schedule_id, 'session_id' => $session->id]) }}" class="mt-3 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary sm:mt-0" title="Lihat sesi" aria-label="Lihat sesi"><i class="ri-arrow-right-line text-lg"></i></a>
+                                                </article>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        @endforeach
+                    </div>
+                </x-ui.card>
+            @else
+                <x-ui.card variant="flat" class="rounded-2xl border border-dashed border-gray-300 px-6 py-14 text-center"><i class="ri-calendar-event-line mb-3 block text-4xl text-gray-300"></i><p class="font-semibold text-gray-700">Tidak ada pertemuan pada periode ini.</p><p class="mt-1 text-sm text-gray-500">Pilih rentang lain atau tambahkan jadwal baru.</p></x-ui.card>
+            @endif
+            @if($scheduleSessions->hasPages())<div class="mt-4">{{ $scheduleSessions->links() }}</div>@endif
         </section>
     @else
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
