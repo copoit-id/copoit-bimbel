@@ -11,7 +11,7 @@
         @if($scheduleRange === 'week')
             <p class="text-sm text-gray-500">{{ $weekDates->first()->locale('id')->translatedFormat('d M') }} - {{ $weekDates->last()->locale('id')->translatedFormat('d M Y') }}</p>
         @elseif($scheduleRange === 'month')
-            <p class="text-sm text-gray-500">{{ now()->locale('id')->translatedFormat('F Y') }}</p>
+            <p class="text-sm text-gray-500">{{ $schedulePeriod['month_label'] }}</p>
         @elseif($scheduleRange === 'today')
             <p class="text-sm text-gray-500">Jadwal hari ini</p>
         @else
@@ -28,6 +28,18 @@
             @endif
         </div>
     </div>
+
+    @if(in_array($scheduleRange, ['week', 'month'], true))
+        <form method="GET" action="{{ route('tutor.schedule.index') }}" class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-end">
+            <input type="hidden" name="range" value="{{ $scheduleRange }}">
+            <label class="block w-full sm:w-52"><span class="mb-1.5 block text-xs font-semibold text-gray-600">Bulan</span><select name="period_month" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">@foreach(range(1, 12) as $month)<option value="{{ $month }}" @selected($schedulePeriod['selected_month'] === $month)>{{ \Carbon\Carbon::create()->month($month)->locale('id')->translatedFormat('F') }}</option>@endforeach</select></label>
+            <label class="block w-full sm:w-36"><span class="mb-1.5 block text-xs font-semibold text-gray-600">Tahun</span><select name="period_year" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">@foreach($periodYears as $year)<option value="{{ $year }}" @selected($schedulePeriod['selected_year'] === $year)>{{ $year }}</option>@endforeach</select></label>
+            @if($scheduleRange === 'week')
+                <label class="block w-full sm:w-64"><span class="mb-1.5 block text-xs font-semibold text-gray-600">Pekan</span><select name="period_week" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">@foreach($schedulePeriod['week_options'] as $week)<option value="{{ $week['value'] }}" @selected($schedulePeriod['selected_week'] === $week['value'])>{{ $week['label'] }}</option>@endforeach</select></label>
+            @endif
+            <x-ui.button type="submit" icon="ri-filter-3-line">Terapkan</x-ui.button>
+        </form>
+    @endif
 
     @if($scheduleRange === 'today')
         <section class="space-y-4">
@@ -88,26 +100,7 @@
         @endforeach
     </div>
     @elseif($scheduleRange === 'month')
-    <div class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-gray-200 bg-gray-200">
-        @foreach(['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $dayLabel)
-            <div class="bg-gray-50 px-2 py-2 text-center text-xs font-bold text-gray-500">{{ $dayLabel }}</div>
-        @endforeach
-        @foreach($monthDates as $date)
-            @php $dateKey = $date->toDateString(); $isCurrentMonth = $date->month === $monthStart->month; @endphp
-            <section class="min-h-32 bg-white p-2 {{ $isCurrentMonth ? '' : 'bg-gray-50/70 text-gray-400' }}">
-                <p class="text-xs font-bold {{ $date->isToday() ? 'inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white' : '' }}">{{ $date->format('d') }}</p>
-                <div class="mt-2 space-y-1">
-                    @foreach($monthSessions->get($dateKey, collect()) as $session)
-                        <article class="rounded border border-gray-200 bg-white p-1.5">
-                            <p class="text-[10px] font-bold text-primary">{{ $session->start_at->format('H:i') }}</p>
-                            <p class="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-tight text-gray-800">{{ $session->schedule?->title ?? $session->class?->title ?? 'Kelas' }}</p>
-                            @if($session->bookingRequest)<p class="mt-0.5 text-[9px] font-semibold text-primary">Booking</p>@endif
-                        </article>
-                    @endforeach
-                </div>
-            </section>
-        @endforeach
-    </div>
+    <x-tutor.schedule-agenda :months="$monthAgenda['session_count'] > 0 ? collect([$monthAgenda]) : collect()" empty-message="Tidak ada jadwal pada bulan yang dipilih." />
     @else
     <div class="space-y-10">
         @forelse($allMonths as $calendarMonth)

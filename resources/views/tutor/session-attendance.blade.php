@@ -56,7 +56,12 @@
                                     {{ $attendance ? 'Edit' : 'Absen' }}
                                 </button>
                             @else
-                                <span class="text-xs text-gray-400">Belum tersedia</span>
+                                <x-ui.disabled-tooltip :message="$studentAttendanceUnavailableMessage">
+                                    <button type="button" disabled aria-disabled="true" class="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-400">
+                                        <i class="{{ $attendance ? 'ri-edit-line' : 'ri-checkbox-circle-line' }}"></i>
+                                        {{ $attendance ? 'Edit' : 'Absen' }}
+                                    </button>
+                                </x-ui.disabled-tooltip>
                             @endif
                         </td>
                     </tr>

@@ -12,6 +12,7 @@ use App\Models\TutorPayroll;
 use App\Models\TutorPayrollItem;
 use App\Services\ClassAttendanceParticipantService;
 use App\Services\PlanModuleService;
+use App\Services\TutorSchedulePeriodService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class TutorDashboardController extends Controller
             && $planModules->allows('booking');
         $payrollEnabled = $planModules->allows('tutor_payroll');
         $monthStart = now()->startOfMonth();
-        $monthEnd = now()->endOfMonth();
+        $monthEnd = $monthStart->copy()->endOfMonth();
         $monthSessions = $this->sessionsFor($tentor->id, includeTutorAttendance: false)
             ->whereBetween('session_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
             ->count();
@@ -110,15 +111,18 @@ class TutorDashboardController extends Controller
         ));
     }
 
-    public function schedule(Request $request): View
+    public function schedule(Request $request, TutorSchedulePeriodService $periodService): View
     {
         $tentor = $request->user()->tentorProfile;
         $scheduleRange = $request->string('range')->toString();
         $scheduleRange = in_array($scheduleRange, ['today', 'week', 'month', 'all'], true) ? $scheduleRange : 'today';
+        $schedulePeriod = in_array($scheduleRange, ['week', 'month'], true)
+            ? $periodService->resolve($request, $scheduleRange)
+            : null;
         $schedule = match ($scheduleRange) {
             'today' => $this->todayScheduleData($tentor->id),
-            'week' => $this->weeklyScheduleData($tentor->id),
-            'month' => $this->monthlyScheduleData($tentor->id),
+            'week' => $this->weeklyScheduleData($tentor->id, $schedulePeriod['start']),
+            'month' => $this->monthlyScheduleData($tentor->id, $schedulePeriod['start']),
             default => $this->allScheduleData($tentor->id),
         };
         $planModules = app(PlanModuleService::class);
@@ -143,6 +147,8 @@ class TutorDashboardController extends Controller
             'canManageBookings' => $canManageBookings,
             'scheduleRange' => $scheduleRange,
             'scheduleTabs' => $scheduleTabs,
+            'schedulePeriod' => $schedulePeriod,
+            'periodYears' => $periodService->yearOptions(),
             ...$schedule,
         ]);
     }
@@ -228,6 +234,7 @@ class TutorDashboardController extends Controller
         $participants = $participantService->participants($session);
         $attendances = $session->attendances->keyBy('user_id');
         $canManageStudentAttendance = $this->isAttendanceOpen($session);
+        $studentAttendanceUnavailableMessage = $this->studentAttendanceUnavailableMessage($session);
 
         return view('tutor.session-attendance', compact(
             'tentor',
@@ -235,6 +242,7 @@ class TutorDashboardController extends Controller
             'participants',
             'attendances',
             'canManageStudentAttendance',
+            'studentAttendanceUnavailableMessage',
         ));
     }
 
@@ -340,29 +348,13 @@ class TutorDashboardController extends Controller
         ];
     }
 
-    private function weeklyScheduleData(int $tentorId): array
+    private function weeklyScheduleData(int $tentorId, Carbon $weekStart): array
     {
-        $weekStart = now()->startOfWeek();
         $weekEnd = $weekStart->copy()->endOfWeek();
         $weeklySessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)
             ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->get()
             ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
-
-        if ($weeklySessions->isEmpty()) {
-            $nextSession = $this->sessionsFor($tentorId, includeTutorAttendance: false)
-                ->where('start_at', '>=', now()->startOfDay())
-                ->first();
-
-            if ($nextSession) {
-                $weekStart = $nextSession->start_at->copy()->startOfWeek();
-                $weekEnd = $weekStart->copy()->endOfWeek();
-                $weeklySessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)
-                    ->whereBetween('session_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-                    ->get()
-                    ->groupBy(fn (ClassSession $session) => $session->start_at->isoWeekday());
-            }
-        }
 
         return [
             'weeklySessions' => $weeklySessions,
@@ -380,20 +372,15 @@ class TutorDashboardController extends Controller
         ];
     }
 
-    private function monthlyScheduleData(int $tentorId): array
+    private function monthlyScheduleData(int $tentorId, Carbon $monthStart): array
     {
-        $monthStart = now()->startOfMonth();
         $monthEnd = now()->endOfMonth();
-        $calendarStart = $monthStart->copy()->startOfWeek();
-        $calendarEnd = $monthEnd->copy()->endOfWeek();
+        $sessions = $this->sessionsFor($tentorId, includeTutorAttendance: false)
+            ->whereBetween('session_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+            ->get();
 
         return [
-            'monthSessions' => $this->sessionsFor($tentorId, includeTutorAttendance: false)
-                ->whereBetween('session_date', [$calendarStart->toDateString(), $calendarEnd->toDateString()])
-                ->get()
-                ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString()),
-            'monthDates' => collect(\Carbon\CarbonPeriod::create($calendarStart, $calendarEnd)),
-            'monthStart' => $monthStart,
+            'monthAgenda' => $this->agendaMonthData($sessions, $monthStart),
         ];
     }
 
@@ -408,21 +395,24 @@ class TutorDashboardController extends Controller
                 ->map(function ($monthSessions, string $monthKey): array {
                     $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
 
-                    return [
-                        'label' => $monthStart->locale('id')->translatedFormat('F Y'),
-                        'session_count' => $monthSessions->count(),
-                        'days' => $monthSessions
-                            ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString())
-                            ->map(function ($daySessions, string $date): array {
-                                $calendarDate = $this->calendarDateData(Carbon::parse($date));
+                    return $this->agendaMonthData($monthSessions, $monthStart);
+                })
+                ->values(),
+        ];
+    }
 
-                                return [
-                                    ...$calendarDate,
-                                    'sessions' => $daySessions->values(),
-                                ];
-                            })
-                            ->values(),
-                    ];
+    /** @return array{label: string, session_count: int, days: \Illuminate\Support\Collection} */
+    private function agendaMonthData(\Illuminate\Support\Collection $sessions, Carbon $monthStart): array
+    {
+        return [
+            'label' => $monthStart->locale('id')->translatedFormat('F Y'),
+            'session_count' => $sessions->count(),
+            'days' => $sessions
+                ->groupBy(fn (ClassSession $session) => $session->start_at->toDateString())
+                ->map(function ($daySessions, string $date): array {
+                    $calendarDate = $this->calendarDateData(Carbon::parse($date));
+
+                    return [...$calendarDate, 'sessions' => $daySessions->values()];
                 })
                 ->values(),
         ];
@@ -483,6 +473,21 @@ class TutorDashboardController extends Controller
         [$openAt, $closeAt] = $this->attendanceWindow($session);
 
         return $session->status === 'scheduled' && now()->between($openAt, $closeAt);
+    }
+
+    private function studentAttendanceUnavailableMessage(ClassSession $session): string
+    {
+        if ($session->status !== 'scheduled') {
+            return 'Absensi peserta tidak tersedia untuk sesi ini.';
+        }
+
+        [$openAt, $closeAt] = $this->attendanceWindow($session);
+
+        if (now()->lt($openAt)) {
+            return 'Absensi peserta tersedia pukul ' . $openAt->format('H:i') . ' WIB.';
+        }
+
+        return 'Waktu absensi peserta berakhir pukul ' . $closeAt->format('H:i') . ' WIB.';
     }
 
     private function ensureAttendanceOpen(ClassSession $session): void

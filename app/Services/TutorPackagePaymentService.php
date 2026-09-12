@@ -21,14 +21,14 @@ class TutorPackagePaymentService
     {
         return DB::transaction(function () use ($session): Collection {
             $session = ClassSession::query()
-                ->with(['studyGroup.package', 'studyGroup.users'])
+                ->with(['studyGroup.package', 'studyGroup.users', 'schedule.packages'])
                 ->lockForUpdate()
                 ->findOrFail($session->id);
             $group = StudyGroup::query()
                 ->with(['package', 'users'])
                 ->lockForUpdate()
                 ->find($session->study_group_id);
-            $package = $group?->package;
+            $package = $this->packageFor($session);
 
             if (! $group || ! $package || ! $this->isEnabled($package)) {
                 throw ValidationException::withMessages([
@@ -69,6 +69,29 @@ class TutorPackagePaymentService
         return $package !== null
             && in_array($package->tutor_payment_frequency, self::BILLING_FREQUENCIES, true)
             && (int) $package->price > 0;
+    }
+
+    /**
+     * Resolve the package used for a rombel session payment.
+     *
+     * A package explicitly owned by the rombel has priority. For regular
+     * rombel, a single eligible program package assigned to its schedule is
+     * used instead. Multiple eligible schedule packages remain ambiguous and
+     * deliberately require the rombel to be associated with a package.
+     */
+    public function packageFor(ClassSession $session): ?Package
+    {
+        $session->loadMissing(['studyGroup.package', 'schedule.packages']);
+
+        if ($this->isEnabled($session->studyGroup?->package)) {
+            return $session->studyGroup->package;
+        }
+
+        $schedulePackages = $session->schedule?->packages
+            ?->filter(fn (Package $package): bool => $this->isEnabled($package))
+            ->values() ?? collect();
+
+        return $schedulePackages->count() === 1 ? $schedulePackages->first() : null;
     }
 
     public static function billingFrequencyLabel(?string $frequency, bool $short = false): string

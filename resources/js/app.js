@@ -1061,12 +1061,97 @@ const initializeDateInputs = () => {
     enhanceAll();
 };
 
+/**
+ * Format whole-number fields with Indonesian thousands separators while the
+ * field is not being edited. Values are restored to plain digits on focus and
+ * before form submission, so backend validation and stored values stay intact.
+ */
+const initializeThousandSeparatedNumberInputs = () => {
+    const selector = 'input[type="number"]';
+
+    const supportsThousands = (input) => {
+        const step = input.getAttribute('step');
+
+        return input.dataset.thousandsInitialized !== 'true'
+            && input.type === 'number'
+            && input.inputMode !== 'decimal'
+            && step !== 'any'
+            && (step === null || /^\d+$/.test(step));
+    };
+
+    const rawDigits = (value) => String(value ?? '').replace(/\D/g, '');
+    const displayValue = (value) => {
+        const raw = rawDigits(value);
+
+        return raw === '' ? '' : new Intl.NumberFormat('id-ID').format(Number(raw));
+    };
+
+    const restoreRawInput = (input) => {
+        if (input.dataset.thousandsDisplay !== 'true') {
+            return;
+        }
+
+        input.type = 'number';
+        input.value = rawDigits(input.value);
+        delete input.dataset.thousandsDisplay;
+    };
+
+    const formatForDisplay = (input) => {
+        if (input.dataset.thousandsInitialized !== 'true' || input.matches(':focus')) {
+            return;
+        }
+
+        const value = displayValue(input.value);
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.value = value;
+        input.dataset.thousandsDisplay = 'true';
+    };
+
+    const enhance = (input) => {
+        if (!supportsThousands(input)) {
+            return;
+        }
+
+        input.dataset.thousandsInitialized = 'true';
+        input.addEventListener('focus', () => restoreRawInput(input));
+        input.addEventListener('blur', () => formatForDisplay(input));
+        input.form?.addEventListener('reset', () => window.setTimeout(() => formatForDisplay(input)));
+        formatForDisplay(input);
+    };
+
+    const enhanceAll = (root = document) => {
+        if (root instanceof HTMLInputElement && root.matches(selector)) {
+            enhance(root);
+        }
+        root.querySelectorAll?.(selector).forEach(enhance);
+    };
+
+    enhanceAll();
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+                enhanceAll(node);
+            }
+        }));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener('submit', (event) => {
+        event.target.querySelectorAll?.('input[data-thousands-display="true"]')
+            .forEach(restoreRawInput);
+    }, true);
+};
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAppSelects, { once: true });
     document.addEventListener('DOMContentLoaded', initializeDateInputs, { once: true });
+    document.addEventListener('DOMContentLoaded', initializeThousandSeparatedNumberInputs, { once: true });
 } else {
     initializeAppSelects();
     initializeDateInputs();
+    initializeThousandSeparatedNumberInputs();
 }
 
 /**

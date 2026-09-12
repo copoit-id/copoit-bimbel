@@ -58,9 +58,21 @@
         </div>
     @endif
 
+    <form method="GET" action="{{ route('admin.package.index') }}" class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="w-full sm:max-w-md">
+            <x-ui.input name="search" type="search" :value="$search" placeholder="Cari nama, deskripsi, atau tipe paket..." icon="ri-search-line" aria-label="Cari paket" />
+        </div>
+        <div class="flex items-center gap-2">
+            @if($search !== '')
+                <a href="{{ route('admin.package.index') }}" class="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50">Reset</a>
+            @endif
+            <x-ui.button type="submit" icon="ri-search-line">Cari</x-ui.button>
+        </div>
+    </form>
+
     <!-- Package List -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        @foreach ($packages as $package)
+        @forelse ($packages as $package)
         <div class="bg-white px-5 py-5 border border-gray-200 rounded-lg flex flex-col justify-between">
             <div class="flex flex-col items-start">
                 <!-- Package Image -->
@@ -242,7 +254,16 @@
                 </form>
             </div>
         </div>
-        @endforeach
+        @empty
+        <div class="col-span-full rounded-xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center">
+            <i class="ri-search-line mb-3 block text-4xl text-gray-300"></i>
+            <p class="font-semibold text-gray-800">Paket tidak ditemukan</p>
+            <p class="mt-1 text-sm text-gray-500">Coba gunakan kata kunci lain.</p>
+            @if($search !== '')
+                <a href="{{ route('admin.package.index') }}" class="mt-4 inline-flex text-sm font-semibold text-primary hover:underline">Tampilkan semua paket</a>
+            @endif
+        </div>
+        @endforelse
     </div>
 
     {{ $packages->links() }}

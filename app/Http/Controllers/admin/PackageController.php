@@ -32,15 +32,26 @@ use Illuminate\View\View;
 Carbon::setLocale('id');
 class PackageController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $search = trim((string) $request->query('search', ''));
+
         $packages = Package::query()
             ->with('bookingRule:id,package_id,is_enabled')
             ->withCount(['schedules', 'classes', 'tryouts', 'materials'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($searchQuery) use ($search): void {
+                    $searchQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('type_package', 'like', "%{$search}%");
+                });
+            })
             ->latest('package_id')
-            ->paginate(Pagination::perPage(12));
+            ->paginate(Pagination::perPage(12))
+            ->withQueryString();
 
-        return view('admin.pages.package.index', compact('packages'));
+        return view('admin.pages.package.index', compact('packages', 'search'));
     }
 
     public function create(): View
