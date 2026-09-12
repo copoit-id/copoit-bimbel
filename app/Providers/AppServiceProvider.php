@@ -5,6 +5,10 @@ namespace App\Providers;
 use App\Models\ClassSchedule;
 use App\Models\ClientProfile;
 use App\Models\Role;
+use App\Services\AdminLayoutContextService;
+use App\Services\AdminNavigationService;
+use App\Services\ParentNavigationService;
+use App\Services\UserNavigationService;
 use App\Services\PlanModuleService;
 use App\Services\PlanQuotaService;
 use App\Services\TutorContentVisibilityService;
@@ -14,6 +18,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 
@@ -26,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->scoped(PlanModuleService::class);
         $this->app->scoped(TutorContentVisibilityService::class);
+        $this->app->scoped(UserNavigationService::class);
+        $this->app->scoped(ParentNavigationService::class);
     }
 
     /**
@@ -43,6 +50,33 @@ class AppServiceProvider extends ServiceProvider
 
         Blade::anonymousComponentNamespace(resource_path('views/components/ui'), 'ui');
         Blade::componentNamespace('App\\View\\Components\\Ui', 'ui');
+        View::composer('admin.components.sidebar', function ($view): void {
+            $view->with(app(AdminNavigationService::class)->context(auth()->user()));
+        });
+        View::composer('admin.layout.admin', function ($view): void {
+            $isQuestionPickerRoute = request()->routeIs('admin.question-bank.*');
+            $questionPickerDetail = $isQuestionPickerRoute
+                ? app(AdminLayoutContextService::class)->questionPickerDetail(request()->integer('import_for'))
+                : null;
+            $isProgramSchedulePickerRoute = request()->routeIs('admin.class-schedules.index');
+            $programSchedulePicker = $isProgramSchedulePickerRoute
+                ? app(AdminLayoutContextService::class)->programSchedulePicker(request()->integer('package_id'))
+                : null;
+
+            $view->with([
+                'questionPickerDetail' => $questionPickerDetail,
+                'isQuestionPickerMode' => $questionPickerDetail !== null,
+                'programSchedulePicker' => $programSchedulePicker,
+                'isProgramSchedulePickerMode' => $programSchedulePicker !== null,
+                'isPickerMode' => $questionPickerDetail !== null || $programSchedulePicker !== null,
+            ]);
+        });
+        View::composer(['user.components.navbar', 'user.components.new-navbar', 'user.components.sidebar'], function ($view): void {
+            $view->with(app(UserNavigationService::class)->context(auth()->user()));
+        });
+        View::composer('parent.layout', function ($view): void {
+            $view->with('parentNavigationItems', app(ParentNavigationService::class)->items());
+        });
         $defaultAsset = 'img/logo/logo-copoit.png';
 
         $defaults = [
@@ -118,6 +152,7 @@ class AppServiceProvider extends ServiceProvider
             'ai_discussion_admin_configurable' => false,
             'ai_discussion_settings' => [],
             'admin_assistant_enabled' => false,
+            'admin_tours_enabled' => false,
             'recurring_bill_menu_enabled' => false,
             'billing_dashboard_enabled' => true,
             'tutor_chat_enabled' => false,
@@ -200,6 +235,7 @@ class AppServiceProvider extends ServiceProvider
             $defaults['ai_discussion_admin_configurable'] = (bool) ($clientProfile->ai_discussion_admin_configurable ?? $defaults['ai_discussion_admin_configurable']);
             $defaults['ai_discussion_settings'] = $clientProfile->ai_discussion_settings ?: $defaults['ai_discussion_settings'];
             $defaults['admin_assistant_enabled'] = (bool) ($clientProfile->admin_assistant_enabled ?? $defaults['admin_assistant_enabled']);
+            $defaults['admin_tours_enabled'] = (bool) ($clientProfile->admin_tours_enabled ?? $defaults['admin_tours_enabled']);
             $defaults['recurring_bill_menu_enabled'] = (bool) ($clientProfile->recurring_bill_menu_enabled ?? $defaults['recurring_bill_menu_enabled']);
             $defaults['billing_dashboard_enabled'] = (bool) ($clientProfile->billing_dashboard_enabled ?? $defaults['billing_dashboard_enabled']);
             $defaults['tutor_chat_enabled'] = (bool) ($clientProfile->tutor_chat_enabled ?? $defaults['tutor_chat_enabled']);
@@ -305,6 +341,9 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.password' => $smtpPassword,
             'mail.mailers.smtp.scheme' => null,
             'mail.mailers.smtp.encryption' => $smtpEncryption ?: null,
+            // Berlaku untuk seluruh email, termasuk forgot password dan SMTP
+            // test, agar request tidak menggantung lama saat port SMTP diblokir.
+            'mail.mailers.smtp.timeout' => 10,
             'mail.from.address' => $smtpEmail,
             'mail.from.name' => MailSafety::header(
                 (string) ($branding['name'] ?? config('app.name')),

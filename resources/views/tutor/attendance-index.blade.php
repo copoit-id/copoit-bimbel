@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends('tutor.layout')
 
 @section('title', 'Absensi Tutor')
 

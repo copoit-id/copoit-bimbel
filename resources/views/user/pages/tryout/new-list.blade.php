@@ -58,7 +58,7 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     <div class="flex items-center justify-between">
         <div>
             <p class="text-white/80 text-sm mb-1">Total Tryout Dikerjakan</p>
-            <h2 class="text-3xl font-bold">{{ $tryouts->filter(function($t) use ($user) { return $user && $t->completedAttemptCountForUser($user->id) > 0; })->count() }}</h2>
+            <h2 class="text-3xl font-bold">{{ $completedTryoutCount }}</h2>
         </div>
         <div class="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
             <i class="ri-file-list-3-line text-3xl"></i>
@@ -111,8 +111,8 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($tryouts as $tryout)
     @php
-    $totalQuestions = $tryout->getTotalQuestionsAttribute();
-    $totalDuration = $tryout->getTotalDurationAttribute();
+    $totalQuestions = (int) ($tryout->total_questions ?? 0);
+    $totalDuration = (int) ($tryout->total_duration ?? 0);
     $completedAttempts = $user ? $tryout->completedAttemptCountForUser($user->id) : 0;
     $remainingAttempts = $user ? $tryout->remainingAttemptsForUser($user->id) : null;
     $isInProgress = $user ? $tryout->hasInProgressAttemptForUser($user->id) : false;

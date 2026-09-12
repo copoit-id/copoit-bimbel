@@ -13,6 +13,7 @@ use App\Models\TryoutDetail;
 use App\Models\UserAnswer;
 use App\Models\UserAnswerDetail;
 use App\Services\PlanQuotaService;
+use App\Services\PlanModuleService;
 use App\Services\PurchaseAccessDuration;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
@@ -29,6 +30,10 @@ use Illuminate\Validation\Rule;
 
 class TryoutController extends Controller
 {
+    public function __construct(
+        private PlanModuleService $planModules
+    ) {}
+
     private const UTBK_SUBTESTS = [
         'penalaran_umum' => [
             'label' => 'Penalaran Umum',
@@ -73,11 +78,11 @@ class TryoutController extends Controller
         $type = strtolower((string) $request->query('type', ''));
         $filterStatus = $request->query('status');
 
-        if (! in_array($filterStatus, ['akan_datang', 'aktif', 'selesai'], true)) {
+        if (! in_array($filterStatus, ['nonaktif', 'akan_datang', 'aktif', 'selesai'], true)) {
             $filterStatus = null;
         }
 
-        $tryouts = Tryout::with(['tryoutDetails.questions'])
+        $tryouts = Tryout::with(['tryoutDetails.materialCategory', 'tryoutDetails.questions'])
             ->withCount([
                 'userAnswers as utbk_pending_count' => function ($query) {
                     $query->where('status', 'pending_release');
@@ -89,9 +94,15 @@ class TryoutController extends Controller
             ])
             ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
             ->when($type !== '', fn ($query) => $query->where('type_tryout', $type))
-            ->when($filterStatus === 'akan_datang', fn ($query) => $query->where('start_date', '>', now()))
-            ->when($filterStatus === 'selesai', fn ($query) => $query->where('end_date', '<', now()))
+            ->when($filterStatus === 'nonaktif', fn ($query) => $query->where('is_active', false))
+            ->when($filterStatus === 'akan_datang', fn ($query) => $query
+                ->where('is_active', true)
+                ->where('start_date', '>', now()))
+            ->when($filterStatus === 'selesai', fn ($query) => $query
+                ->where('is_active', true)
+                ->where('end_date', '<', now()))
             ->when($filterStatus === 'aktif', fn ($query) => $query
+                ->where('is_active', true)
                 ->where(function ($activeQuery): void {
                     $activeQuery->whereNull('start_date')->orWhere('start_date', '<=', now());
                 })
@@ -102,15 +113,67 @@ class TryoutController extends Controller
             ->paginate(\App\Support\Pagination::perPage(10))
             ->withQueryString();
 
-        $tryouts->getCollection()->each(function ($tryout) {
+        $tryouts->getCollection()->each(function (Tryout $tryout): void {
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
+            $tryout->setAttribute('admin_status', $this->adminStatus($tryout));
         });
 
         $packages = Package::all();
 
         return view('admin.pages.tryout.index', compact('tryouts', 'packages', 'search', 'type', 'filterStatus'));
+    }
+
+    /**
+     * Build the admin-facing operational and schedule states from one source.
+     *
+     * @return array{filter: string, operational: array{label: string, classes: string, icon: string}, period: array{filter: string, label: string, classes: string, icon: string}}
+     */
+    private function adminStatus(Tryout $tryout): array
+    {
+        $period = match (true) {
+            $tryout->start_date?->isFuture() => [
+                'filter' => 'akan_datang',
+                'label' => 'Akan datang',
+                'classes' => 'bg-amber-100 text-amber-700',
+                'icon' => 'ri-time-line',
+            ],
+            $tryout->end_date?->isPast() => [
+                'filter' => 'selesai',
+                'label' => 'Periode berakhir',
+                'classes' => 'bg-gray-100 text-gray-700',
+                'icon' => 'ri-calendar-close-line',
+            ],
+            default => [
+                'filter' => 'aktif',
+                'label' => 'Sedang berjalan',
+                'classes' => 'bg-emerald-100 text-emerald-700',
+                'icon' => 'ri-calendar-check-line',
+            ],
+        };
+
+        if (! $tryout->is_active) {
+            return [
+                'filter' => 'nonaktif',
+                'operational' => [
+                    'label' => 'Nonaktif',
+                    'classes' => 'bg-red-100 text-red-700',
+                    'icon' => 'ri-pause-circle-line',
+                ],
+                'period' => $period,
+            ];
+        }
+
+        return [
+            'filter' => $period['filter'],
+            'operational' => [
+                'label' => 'Aktif',
+                'classes' => 'bg-green-100 text-green-700',
+                'icon' => 'ri-checkbox-circle-line',
+            ],
+            'period' => $period,
+        ];
     }
 
     private const UTBK_SINGLE_TYPES = [
@@ -162,20 +225,25 @@ class TryoutController extends Controller
         $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
         $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
         $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes);
-        $certificateTemplates = CertificateTemplate::query()
-            ->where('client_profile_id', $this->clientProfileId())
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $certificateTemplates = $certificateManagementEnabled
+            ? CertificateTemplate::query()
+                ->where('client_profile_id', $this->clientProfileId())
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+            : collect();
         $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+        return view('admin.pages.tryout.create', compact('packages', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateManagementEnabled', 'certificateTemplates', 'securityDefaults'));
     }
 
     public function store(Request $request)
     {
         $this->normalizeDurationInputs($request);
-        $request->validate($this->tryoutValidationRules());
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $request->validate($this->tryoutValidationRules(null, $certificateManagementEnabled));
         $scoringMethod = $this->normalizedScoringMethod($request);
         $saleData = $this->individualSaleData($request);
         $lobbyTokenData = $this->lobbyTokenData($request);
@@ -183,6 +251,7 @@ class TryoutController extends Controller
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
         $cardDisplay = $request->input('user_card_display', 'icon');
+        $certificateConfiguration = $this->certificateConfiguration($request, $certificateManagementEnabled);
 
         if ($cardDisplay === 'thumbnail' && ! $request->hasFile('thumbnail')) {
             return back()
@@ -211,23 +280,26 @@ class TryoutController extends Controller
                 'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'tab_switch_freeze' => $securitySettings['tab_switch_freeze'],
+                'tab_switch_freeze_seconds' => $securitySettings['tab_switch_freeze_seconds'],
+                'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
-                'is_certification' => $request->has('is_certification'),
-                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                ...$certificateConfiguration,
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'is_active' => $request->boolean('is_active'),
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
                 ...$saleData,
-                'is_displayed' => $request->has('is_displayed'),
+                'is_displayed' => $request->boolean('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_passing_grade' => $request->has('show_passing_grade'),
                 'show_result_scores' => $request->has('show_result_scores'),
+                'show_score_maximum' => $request->has('show_score_maximum'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
                 'result_score_scale' => $request->input('result_score_scale', 'raw'),
                 'results_release_at' => $isIrtEnabled ? ($request->end_date ?? null) : null,
@@ -254,17 +326,21 @@ class TryoutController extends Controller
             $utbkSubtests = $allowUtbkTypes ? $this->getUtbkSubtests() : [];
             $utbkSingleTypes = $allowUtbkTypes ? $this->getUtbkSingleTypeOptions() : [];
             $tryoutTypeOptions = $this->getTryoutTypeOptions($allowUtbkTypes, $tryout->type_tryout);
-            $certificateTemplates = CertificateTemplate::query()
-                ->where('client_profile_id', $this->clientProfileId())
-                ->where(function ($query) use ($tryout): void {
-                    $query->where('is_active', true)
-                        ->orWhere('certificate_template_id', $tryout->certificate_template_id);
-                })
-                ->orderBy('name')
-                ->get();
+            $dynamicTryoutSubtests = $this->dynamicTryoutSubtests($tryoutTypeOptions);
+            $certificateManagementEnabled = $this->certificateManagementEnabled();
+            $certificateTemplates = $certificateManagementEnabled
+                ? CertificateTemplate::query()
+                    ->where('client_profile_id', $this->clientProfileId())
+                    ->where(function ($query) use ($tryout): void {
+                        $query->where('is_active', true)
+                            ->orWhere('certificate_template_id', $tryout->certificate_template_id);
+                    })
+                    ->orderBy('name')
+                    ->get()
+                : collect();
             $securityDefaults = PlanQuotaService::getDefaultProctoringSettings();
 
-            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'certificateTemplates', 'securityDefaults'));
+            return view('admin.pages.tryout.create', compact('tryout', 'utbkSubtests', 'utbkSingleTypes', 'allowUtbkTypes', 'tryoutTypeOptions', 'dynamicTryoutSubtests', 'certificateManagementEnabled', 'certificateTemplates', 'securityDefaults'));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Tryout tidak ditemukan');
@@ -281,7 +357,8 @@ class TryoutController extends Controller
         }
 
         $this->normalizeDurationInputs($request);
-        $request->validate($this->tryoutValidationRules($tryout->type_tryout));
+        $certificateManagementEnabled = $this->certificateManagementEnabled();
+        $request->validate($this->tryoutValidationRules($tryout->type_tryout, $certificateManagementEnabled));
         // Metode scoring dikunci sejak tryout dibuat agar perubahan konfigurasi
         // tidak mengubah arti nilai dan riwayat hasil peserta.
         $scoringMethod = $this->storedScoringMethod($tryout);
@@ -289,6 +366,7 @@ class TryoutController extends Controller
         $lobbyTokenData = $this->lobbyTokenData($request, $tryout);
         $isIrtEnabled = $scoringMethod === 'irt_utbk';
         $isToeflEnabled = $scoringMethod === 'toefl_itp';
+        $certificateConfiguration = $this->certificateConfiguration($request, $certificateManagementEnabled);
 
         try {
             $originalType = $tryout->type_tryout;
@@ -335,23 +413,26 @@ class TryoutController extends Controller
                 'icon_class' => 'ri-file-list-3-line',
                 'enable_anti_copy' => $securitySettings['enable_anti_copy'],
                 'enable_tab_switch_detection' => $securitySettings['enable_tab_switch_detection'],
+                'tab_switch_freeze' => $securitySettings['tab_switch_freeze'],
+                'tab_switch_freeze_seconds' => $securitySettings['tab_switch_freeze_seconds'],
+                'tab_switch_reset_answer' => $securitySettings['tab_switch_reset_answer'],
                 'enable_webcam_check' => $securitySettings['enable_webcam_check'],
                 'enable_screen_check' => $securitySettings['enable_screen_check'],
-                'is_certification' => $request->has('is_certification'),
-                'certificate_template_id' => $request->has('is_certification') ? $request->input('certificate_template_id') : null,
-                'start_date' => $request->start_date,
-                'end_date' => $request->end_date,
-                'is_active' => $request->has('is_active'),
+                ...$certificateConfiguration,
+                'start_date' => $request->input('start_date'),
+                'end_date' => $request->input('end_date'),
+                'is_active' => $request->boolean('is_active'),
                 'is_toefl' => $isToeflEnabled,
                 'is_irt' => $isIrtEnabled,
                 'scoring_method' => $scoringMethod,
                 ...$saleData,
-                'is_displayed' => $request->has('is_displayed'),
+                'is_displayed' => $request->boolean('is_displayed'),
                 'show_discussion' => $request->has('show_discussion'),
                 ...$lobbyTokenData,
                 'show_leaderboard' => $request->has('show_leaderboard'),
                 'show_passing_grade' => $request->has('show_passing_grade'),
                 'show_result_scores' => $request->has('show_result_scores'),
+                'show_score_maximum' => $request->has('show_score_maximum'),
                 'result_score_display' => $request->input('result_score_display', 'total_and_subtest'),
                 'result_score_scale' => $request->input('result_score_scale', 'raw'),
                 'results_release_at' => $isIrtEnabled ? $request->input('end_date') : null,
@@ -492,6 +573,7 @@ class TryoutController extends Controller
                 'tryoutDetails' => function ($query) {
                     $query->orderBy('tryout_detail_id');
                 },
+                'tryoutDetails.materialCategory',
                 'tryoutDetails.questions' => function ($query) {
                     $query->with('questionOptions')
                         ->orderBy('question_id');
@@ -500,7 +582,7 @@ class TryoutController extends Controller
 
             // Tambahkan properti 'subtest_name' ke setiap detail
             $tryout->tryoutDetails->each(function ($detail) {
-                $detail->setAttribute('subtest_name', $this->subtestLabel($detail->type_subtest));
+                $detail->setAttribute('subtest_name', $detail->display_name);
             });
 
             return view('admin.pages.tryout.preview', compact('tryout'));
@@ -644,6 +726,16 @@ class TryoutController extends Controller
                 );
                 break;
         }
+    }
+
+    /** @param array<string, array<string, mixed>> $options */
+    private function dynamicTryoutSubtests(array $options): array
+    {
+        return collect($options)
+            ->mapWithKeys(static fn (array $option, string $type): array => ! empty($option['subtests'])
+                ? [$type => $option['subtests']]
+                : [])
+            ->all();
     }
 
     private function createSubtest($tryoutId, $type, $duration, $passingScore, $passingType)
@@ -1028,8 +1120,35 @@ class TryoutController extends Controller
         return ClientProfile::query()->value('id');
     }
 
-    private function tryoutValidationRules(?string $currentType = null): array
+    private function certificateManagementEnabled(): bool
     {
+        return $this->planModules->allows('certificate')
+            && (bool) config('client.branding.certificate_management_enabled', true);
+    }
+
+    /**
+     * @return array{is_certification: bool, certificate_template_id: int|null}
+     */
+    private function certificateConfiguration(Request $request, bool $certificateManagementEnabled): array
+    {
+        if (! $certificateManagementEnabled) {
+            return [
+                'is_certification' => false,
+                'certificate_template_id' => null,
+            ];
+        }
+
+        return [
+            'is_certification' => $request->boolean('is_certification'),
+            'certificate_template_id' => $request->boolean('is_certification')
+                ? $request->integer('certificate_template_id') ?: null
+                : null,
+        ];
+    }
+
+    private function tryoutValidationRules(?string $currentType = null, ?bool $certificateManagementEnabled = null): array
+    {
+        $certificateManagementEnabled ??= $this->certificateManagementEnabled();
         $typeOptions = array_keys($this->getTryoutTypeOptions($this->allowUtbkControls($currentType), $currentType));
 
         $rules = [
@@ -1060,12 +1179,15 @@ class TryoutController extends Controller
                 },
             ],
             'is_certification' => 'boolean',
-            'certificate_template_id' => [
-                'nullable',
-                Rule::exists('certificate_templates', 'certificate_template_id')
-                    ->where('client_profile_id', $this->clientProfileId()),
-            ],
+            'certificate_template_id' => $certificateManagementEnabled
+                ? [
+                    'nullable',
+                    Rule::exists('certificate_templates', 'certificate_template_id')
+                        ->where('client_profile_id', $this->clientProfileId()),
+                ]
+                : ['prohibited'],
             'is_active' => 'boolean',
+            'is_displayed' => 'boolean',
             'is_toefl' => 'boolean',
             'is_irt' => 'boolean',
             'scoring_method' => ['nullable', Rule::in(['normal', 'irt', 'irt_utbk', 'toefl_itp'])],
@@ -1075,10 +1197,14 @@ class TryoutController extends Controller
             'show_leaderboard' => 'boolean',
             'show_passing_grade' => 'boolean',
             'show_result_scores' => 'boolean',
+            'show_score_maximum' => 'boolean',
             'result_score_display' => ['nullable', Rule::in(['total_and_subtest', 'subtest_only'])],
             'result_score_scale' => ['nullable', Rule::in(['raw', 'scale_100'])],
             'enable_anti_copy' => 'boolean',
             'enable_tab_switch_detection' => 'boolean',
+            'tab_switch_freeze' => 'boolean',
+            'tab_switch_freeze_seconds' => 'nullable|integer|min:1|max:300',
+            'tab_switch_reset_answer' => 'boolean',
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
             'is_for_sale' => 'boolean',
@@ -1100,11 +1226,6 @@ class TryoutController extends Controller
             $rules[$field] = 'nullable|numeric|min:0.01|max:300';
         }
 
-        foreach (array_keys(self::UTBK_SUBTESTS) as $slug) {
-            $rules['passing_score_'.$slug] = 'nullable|numeric|min:0|max:100';
-            $rules['passing_type_'.$slug] = 'nullable|in:score,percentage';
-        }
-
         $passingTypeFields = [
             'twk',
             'tiu',
@@ -1123,8 +1244,28 @@ class TryoutController extends Controller
             'ppt',
         ];
 
-        foreach ($passingTypeFields as $field) {
+        $passingScoreFields = collect($passingTypeFields)
+            ->merge(array_keys(self::UTBK_SUBTESTS))
+            ->merge(
+                collect(array_keys(request()->all()))
+                    ->filter(fn (mixed $field): bool => is_string($field) && Str::startsWith($field, 'passing_score_'))
+                    ->map(fn (string $field): string => Str::after($field, 'passing_score_'))
+            )
+            ->filter()
+            ->unique();
+
+        foreach ($passingScoreFields as $field) {
             $rules['passing_type_'.$field] = 'nullable|in:score,percentage';
+            $rules['passing_score_'.$field] = [
+                'nullable',
+                'numeric',
+                'min:0',
+                Rule::when(
+                    request()->input('passing_type_'.$field, 'score') === 'percentage',
+                    ['max:100'],
+                    ['max:999.99']
+                ),
+            ];
         }
 
         if (request()->boolean('is_for_sale')) {

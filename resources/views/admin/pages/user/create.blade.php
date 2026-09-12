@@ -59,6 +59,55 @@
 
             <div class="p-6 space-y-6">
                 <div class="grid grid-cols-1 gap-6">
+                    <div class="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                            @if($roleLocked ?? false)
+                                <div>
+                                    <span class="mb-1 block text-sm font-medium text-gray-700">Role</span>
+                                    <input type="hidden" name="role" value="{{ $formRole }}">
+                                    <div class="flex min-h-10 items-center rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-gray-700">
+                                        Admin reguler
+                                    </div>
+                                </div>
+                            @else
+                                <x-form.select name="role" label="Role" :options="$roleOptions"
+                                    :value="old('role', $user->role ?? $formRole)" required />
+                            @endif
+                            <x-form.select name="status" label="Status"
+                                :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"
+                                :value="old('status', $user->status ?? 'aktif')" required />
+                        </div>
+                    </div>
+
+                    <div id="school-admin-study-groups" class="hidden rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <p class="text-sm font-semibold text-gray-800">Rombel yang dipantau</p>
+                        <p class="mt-1 text-xs text-gray-500">Admin Sekolah hanya dapat melihat data siswa dari rombel yang dipilih.</p>
+                        <div class="relative mt-3" data-school-admin-study-group-picker>
+                            <button type="button" data-school-admin-study-group-toggle
+                                class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-left text-sm text-gray-700 transition hover:border-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                aria-expanded="false">
+                                <span data-school-admin-study-group-summary>Pilih rombel yang dipantau</span>
+                                <i class="ri-arrow-down-s-line text-lg text-gray-400"></i>
+                            </button>
+                            <div data-school-admin-study-group-menu class="absolute z-20 mt-2 hidden w-full rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                                <div class="relative">
+                                    <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="search" data-school-admin-study-group-search placeholder="Cari rombel..."
+                                        class="w-full rounded-lg border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-primary focus:ring-primary">
+                                </div>
+                                <div class="mt-2 max-h-56 space-y-1 overflow-y-auto" data-school-admin-study-group-options>
+                            @foreach($schoolAdminStudyGroups as $studyGroup)
+                                    <label data-school-admin-study-group-option data-search-value="{{ strtolower($studyGroup->name) }}" class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                    <input type="checkbox" name="school_admin_study_group_ids[]" value="{{ $studyGroup->id }}" @checked(in_array($studyGroup->id, $selectedSchoolAdminStudyGroupIds, true))>
+                                    {{ $studyGroup->name }}
+                                </label>
+                            @endforeach
+                                    <p data-school-admin-study-group-empty class="hidden px-3 py-2 text-sm text-gray-500">Rombel tidak ditemukan.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="name" label="Nama" :value="old('name', $user->name ?? '')" required />
                         <x-form.input name="username" label="Username" :value="old('username', $user->username ?? '')"
@@ -68,7 +117,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="email" name="email" label="Email" :value="old('email', $user->email ?? '')"
                             required />
+                        <x-form.input type="password" name="password" label="Password {{ $user
+                            ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />
+                    </div>
 
+                    <div data-student-field class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="tel" name="phone" label="Nomor WhatsApp"
                             :value="old('phone', $user->phone ?? '')"
                             placeholder="Contoh: 6281234567890"
@@ -76,37 +129,16 @@
                             inputmode="numeric"
                             pattern="62[0-9]{8,14}"
                             autocomplete="tel" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input type="date" name="birthday" label="Tanggal Lahir"
                             :value="old('birthday', $user->birthday ?? '')"
                             max="{{ now()->toDateString() }}" />
-
-                        <x-form.input type="password" name="password" label="Password {{ $user
-                            ? '(biarkan kosong jika tidak diubah)' : '' }}" :required="!$user" autocomplete="new-password" />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div data-student-field class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-form.input name="education_level" label="Kelas / Level (Opsional)"
                             :value="old('education_level', $user->education_level ?? '')" placeholder="Contoh: Kelas 12" />
                         <x-form.input name="origin_institution" label="Asal Sekolah / Instansi (Opsional)"
                             :value="old('origin_institution', $user->origin_institution ?? '')" placeholder="Contoh: SMA Negeri 1 Jakarta" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <x-form.input name="major_choice_1" label="Pilihan Jurusan 1 (Opsional)"
-                            :value="old('major_choice_1', $user->major_choice_1 ?? '')" placeholder="Contoh: Teknik Informatika" />
-                        <x-form.input name="major_choice_2" label="Pilihan Jurusan 2 (Opsional)"
-                            :value="old('major_choice_2', $user->major_choice_2 ?? '')" placeholder="Contoh: Sistem Informasi" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <x-form.select name="role" label="Role" :options="$roleOptions ?? ['admin' => 'Admin', 'user' => 'User']"
-                            :value="old('role', $user->role ?? '')" required />
-                        <x-form.select name="status" label="Status"
-                            :options="['aktif' => 'Aktif', 'nonaktif' => 'Tidak Aktif']"
-                            :value="old('status', $user->status ?? 'aktif')" required />
                     </div>
 
                     @if($parentPortalEnabled ?? false)
@@ -185,73 +217,26 @@
                     </section>
                     @endif
 
-                    <div>
-                        @php
-                            $selectedDestinationId = (int) old('participant_destination_category_id', $user->participant_destination_category_id ?? null);
-                            $selectedDestinationSource = old('participant_destination_source', $user->participant_destination_source ?? ($selectedDestinationId ? 'db' : ''));
-                            $selectedOfficialExternalId = old('participant_destination_external_id', $user->participant_destination_external_id ?? '');
-                            $selectedOfficialInstitutionName = old('participant_destination_institution_name', $user->participant_destination_institution_name ?? '');
-                            $selectedOfficialProgramName = old('participant_destination_program_name', $user->participant_destination_program_name ?? '');
-                            $officialApiEnabled = (bool) config('client.branding.participant_destination_api_enabled', false);
-                            $selectedDestination = $destinationCategories
-                                ->flatMap(fn($category) => collect([$category])->merge($category->activeChildren))
-                                ->firstWhere('id', $selectedDestinationId);
-                            $selectedInstitutionId = $selectedDestination?->parent_id ?: ($selectedDestination?->id ?? null);
-                            $selectedProgramId = $selectedDestination?->parent_id ? $selectedDestination?->id : null;
-                            $selectedInstitution = $selectedInstitutionId
-                                ? $destinationCategories->firstWhere('id', $selectedInstitutionId)
-                                : null;
-                            $selectedInstitutionHasPrograms = $selectedInstitutionId
-                                ? $selectedInstitution?->activeChildren->isNotEmpty()
-                                : false;
-                        @endphp
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Instansi/Prodi Tujuan</label>
-                        <input type="hidden" name="participant_destination_category_id" id="participant_destination_category_id"
-                            value="{{ $selectedDestinationId ?: '' }}">
-                        <input type="hidden" id="participant_destination_source" name="participant_destination_source" value="{{ $selectedDestinationSource }}">
-                        <input type="hidden" id="participant_destination_external_id" name="participant_destination_external_id" value="{{ $selectedOfficialExternalId }}">
-                        <input type="hidden" id="participant_destination_institution_name" name="participant_destination_institution_name" value="{{ $selectedOfficialInstitutionName }}">
-                        <input type="hidden" id="participant_destination_program_name" name="participant_destination_program_name" value="{{ $selectedOfficialProgramName }}">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <select id="destination_institution"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                <option value="">Pilih instansi</option>
-                                @foreach($destinationCategories as $category)
-                                    <option value="{{ $category->id }}" @selected((int) $selectedInstitutionId === (int) $category->id)>
-                                        {{ $category->name }}
-                                    </option>
-                                @endforeach
-                                @if($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '')
-                                    <option value="api:snpmb:{{ $selectedOfficialExternalId }}" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialInstitutionName }}" selected>
-                                        [Resmi] {{ $selectedOfficialInstitutionName }}
-                                    </option>
-                                @endif
-                            </select>
-                            <select id="destination_program"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                {{ $selectedInstitutionHasPrograms || ($selectedDestinationSource === 'snpmb' && $selectedOfficialInstitutionName !== '') ? '' : 'disabled' }}>
-                                <option value="">{{ $selectedInstitutionId ? 'Tidak ada prodi/sub' : 'Pilih instansi dulu' }}</option>
-                                @foreach(($selectedInstitution?->activeChildren ?? collect()) as $child)
-                                    <option value="{{ $child->id }}" @selected((int) $selectedProgramId === (int) $child->id)>
-                                        {{ $child->name }}
-                                    </option>
-                                @endforeach
-                                @if($selectedDestinationSource === 'snpmb' && $selectedOfficialProgramName !== '')
-                                    <option value="api:snpmb:{{ $selectedOfficialExternalId }}:program" data-external-id="{{ $selectedOfficialExternalId }}" data-name="{{ $selectedOfficialProgramName }}" selected>
-                                        [Resmi] {{ $selectedOfficialProgramName }}
-                                    </option>
-                                @endif
-                            </select>
-                        </div>
-                        <span id="official_destination_status" class="mt-2 block text-xs text-gray-500"></span>
-                        @if($destinationCategories->isEmpty() && !$officialApiEnabled)
-                        <p class="text-xs text-amber-600 mt-1">Instansi tujuan belum tersedia. Tambahkan di menu Kategori > Tujuan / Instansi.</p>
-                        @else
-                        <p class="text-xs text-gray-500 mt-1">Pilih instansi dulu, lalu pilih prodi/sub jika tersedia.</p>
-                        @endif
-                        @error('participant_destination_category_id')
-                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                        @enderror
+                    <div data-student-field>
+                        <x-form.participant-destination-selector
+                            :destination-categories="$destinationCategories"
+                            :selected-destination-id="old('participant_destination_category_id', $user->participant_destination_category_id ?? null)"
+                            :selected-source="old('participant_destination_source', $user->participant_destination_source ?? '')"
+                            :selected-external-id="old('participant_destination_external_id', $user->participant_destination_external_id ?? '')"
+                            :selected-institution-name="old('participant_destination_institution_name', $user->participant_destination_institution_name ?? '')"
+                            :selected-program-name="old('participant_destination_program_name', $user->participant_destination_program_name ?? '')"
+                            :required="($user?->role ?? old('role', 'user')) === 'user' && app(\App\Services\ParticipantDestinationSelectionService::class)->isRequired()" />
+                    </div>
+
+                    <div data-student-field class="mt-6">
+                        <x-form.participant-destination-selector
+                            choice="2"
+                            :destination-categories="$destinationCategories"
+                            :selected-destination-id="old('second_participant_destination_category_id', $user->second_participant_destination_category_id ?? null)"
+                            :selected-source="old('second_participant_destination_source', $user->second_participant_destination_source ?? '')"
+                            :selected-external-id="old('second_participant_destination_external_id', $user->second_participant_destination_external_id ?? '')"
+                            :selected-institution-name="old('second_participant_destination_institution_name', $user->second_participant_destination_institution_name ?? '')"
+                            :selected-program-name="old('second_participant_destination_program_name', $user->second_participant_destination_program_name ?? '')" />
                     </div>
                 </div>
             </div>
@@ -274,9 +259,18 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const roleSelect = document.querySelector('select[name="role"]');
+        const roleSelect = document.querySelector('[name="role"]');
+        const studentFields = document.querySelectorAll('[data-student-field]');
         const parentChildSection = document.getElementById('parent-child-section');
         const studentParentSection = document.getElementById('student-parent-section');
+        const schoolAdminStudyGroups = document.getElementById('school-admin-study-groups');
+        const schoolAdminStudyGroupPicker = document.querySelector('[data-school-admin-study-group-picker]');
+        const schoolAdminStudyGroupToggle = document.querySelector('[data-school-admin-study-group-toggle]');
+        const schoolAdminStudyGroupMenu = document.querySelector('[data-school-admin-study-group-menu]');
+        const schoolAdminStudyGroupSearch = document.querySelector('[data-school-admin-study-group-search]');
+        const schoolAdminStudyGroupSummary = document.querySelector('[data-school-admin-study-group-summary]');
+        const schoolAdminStudyGroupOptions = [...document.querySelectorAll('[data-school-admin-study-group-option]')];
+        const schoolAdminStudyGroupEmpty = document.querySelector('[data-school-admin-study-group-empty]');
         const childSearch = document.getElementById('child-search');
         const childSearchResults = document.getElementById('child-search-results');
         const selectedChildren = document.getElementById('selected-children');
@@ -292,9 +286,60 @@
 
         const syncRelationshipSections = () => {
             const role = roleSelect?.value || '';
+            const isStudent = role === 'user';
+            studentFields.forEach((field) => {
+                field.classList.toggle('hidden', !isStudent);
+                field.querySelectorAll('input, select, textarea').forEach((input) => {
+                    input.disabled = !isStudent;
+                });
+            });
             parentChildSection?.classList.toggle('hidden', role !== 'parent');
             studentParentSection?.classList.toggle('hidden', role !== 'user');
+            schoolAdminStudyGroups?.classList.toggle('hidden', role !== 'admin_sekolah');
+            schoolAdminStudyGroups?.querySelectorAll('input').forEach((input) => {
+                input.disabled = role !== 'admin_sekolah';
+            });
+            if (role !== 'admin_sekolah') closeSchoolAdminStudyGroupPicker();
         };
+
+        const closeSchoolAdminStudyGroupPicker = () => {
+            schoolAdminStudyGroupMenu?.classList.add('hidden');
+            schoolAdminStudyGroupToggle?.setAttribute('aria-expanded', 'false');
+        };
+
+        const syncSchoolAdminStudyGroupSummary = () => {
+            const selected = schoolAdminStudyGroupOptions.filter((option) => option.querySelector('input')?.checked);
+            const labels = selected.map((option) => option.textContent.trim());
+            schoolAdminStudyGroupSummary.textContent = labels.length === 0
+                ? 'Pilih rombel yang dipantau'
+                : labels.length <= 2 ? labels.join(', ') : `${labels.length} rombel dipilih`;
+        };
+
+        schoolAdminStudyGroupToggle?.addEventListener('click', () => {
+            const isOpen = !schoolAdminStudyGroupMenu?.classList.contains('hidden');
+            schoolAdminStudyGroupMenu?.classList.toggle('hidden', isOpen);
+            schoolAdminStudyGroupToggle.setAttribute('aria-expanded', (!isOpen).toString());
+            if (!isOpen) schoolAdminStudyGroupSearch?.focus();
+        });
+
+        schoolAdminStudyGroupSearch?.addEventListener('input', () => {
+            const keyword = schoolAdminStudyGroupSearch.value.trim().toLowerCase();
+            let visibleCount = 0;
+            schoolAdminStudyGroupOptions.forEach((option) => {
+                const visible = option.dataset.searchValue.includes(keyword);
+                option.classList.toggle('hidden', !visible);
+                if (visible) visibleCount += 1;
+            });
+            schoolAdminStudyGroupEmpty?.classList.toggle('hidden', visibleCount > 0);
+        });
+
+        schoolAdminStudyGroupOptions.forEach((option) => {
+            option.querySelector('input')?.addEventListener('change', syncSchoolAdminStudyGroupSummary);
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!schoolAdminStudyGroupPicker?.contains(event.target)) closeSchoolAdminStudyGroupPicker();
+        });
 
         const syncNewParentFields = () => {
             const wantsParentLink = Boolean(linkParentAccount?.checked);
@@ -464,184 +509,9 @@
         linkParentAccount?.addEventListener('change', syncNewParentFields);
         addParentAccount?.addEventListener('change', syncNewParentFields);
         syncRelationshipSections();
+        syncSchoolAdminStudyGroupSummary();
         syncNewParentFields();
 
-        const institution = document.getElementById('destination_institution');
-        const program = document.getElementById('destination_program');
-        const hidden = document.getElementById('participant_destination_category_id');
-        const sourceInput = document.getElementById('participant_destination_source');
-        const externalIdInput = document.getElementById('participant_destination_external_id');
-        const institutionNameInput = document.getElementById('participant_destination_institution_name');
-        const programNameInput = document.getElementById('participant_destination_program_name');
-        const officialStatus = document.getElementById('official_destination_status');
-        const selectedProgramId = @json((string) ($selectedProgramId ?? ''));
-        const selectedOfficialProgramName = @json((string) ($selectedOfficialProgramName ?? ''));
-        const officialAutoLoadEnabled = @json((bool) config('client.branding.participant_destination_api_enabled', false));
-        const officialInstitutionsUrl = @json(route('participant-destinations.official.institutions'));
-        const officialProgramsUrl = @json(route('participant-destinations.official.programs'));
-        const programsByInstitution = @json($destinationCategories->mapWithKeys(fn($category) => [
-            (string) $category->id => $category->activeChildren
-                ->map(fn($child) => ['id' => (string) $child->id, 'name' => $child->name])
-                ->values()
-                ->all(),
-        ]));
-        let officialInstitutions = {};
-        let officialPrograms = {};
-
-        const isOfficialValue = (value) => String(value || '').startsWith('api:snpmb:');
-
-        const clearOfficialSnapshot = () => {
-            if (sourceInput) sourceInput.value = '';
-            if (externalIdInput) externalIdInput.value = '';
-            if (institutionNameInput) institutionNameInput.value = '';
-            if (programNameInput) programNameInput.value = '';
-        };
-
-        const renderProgramOptions = (institutionId) => {
-            if (isOfficialValue(institutionId)) {
-                renderOfficialProgramOptions(institutionId);
-                return;
-            }
-
-            const programs = programsByInstitution[institutionId] || [];
-            const placeholderText = !institutionId
-                ? 'Pilih instansi dulu'
-                : (programs.length > 0 ? 'Pilih prodi/sub' : 'Tidak ada prodi/sub');
-
-            program.innerHTML = '';
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = placeholderText;
-            program.appendChild(placeholder);
-
-            programs.forEach((item) => {
-                const option = document.createElement('option');
-                option.value = item.id;
-                option.textContent = item.name;
-                if (item.id === selectedProgramId) {
-                    option.selected = true;
-                }
-                program.appendChild(option);
-            });
-
-            program.disabled = !institutionId || programs.length === 0;
-        };
-
-        const syncDestination = () => {
-            if (!institution || !program || !hidden) return;
-            const institutionId = institution.value;
-            const institutionOption = institution.selectedOptions?.[0];
-
-            if (isOfficialValue(institutionId)) {
-                const selectedProgramOption = program.selectedOptions?.[0];
-                hidden.value = '';
-                if (sourceInput) sourceInput.value = 'snpmb';
-                if (externalIdInput) externalIdInput.value = institutionOption?.dataset.externalId || institutionId.replace('api:snpmb:', '');
-                if (institutionNameInput) institutionNameInput.value = institutionOption?.dataset.name || institutionOption?.textContent?.replace('[Resmi]', '').trim() || '';
-                if (programNameInput) programNameInput.value = isOfficialValue(program.value)
-                    ? (selectedProgramOption?.dataset.name || selectedProgramOption?.textContent?.replace('[Resmi]', '').trim() || '')
-                    : '';
-                return;
-            }
-
-            hidden.value = (!program.disabled && program.value) ? program.value : (institutionId || '');
-            if (hidden.value) {
-                if (sourceInput) sourceInput.value = 'db';
-            } else {
-                clearOfficialSnapshot();
-            }
-            if (externalIdInput) externalIdInput.value = '';
-            if (institutionNameInput) institutionNameInput.value = '';
-            if (programNameInput) programNameInput.value = '';
-        };
-
-        const addOfficialInstitutionOptions = (items) => {
-            items.forEach((item) => {
-                const value = `api:snpmb:${item.id_ptn}`;
-                if ([...institution.options].some((option) => option.value === value)) return;
-
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = `[Resmi] ${item.nama}`;
-                option.dataset.externalId = item.id_ptn || '';
-                option.dataset.name = item.nama || '';
-                option.dataset.sourceIds = JSON.stringify(item.source_ids || {});
-                institution.appendChild(option);
-                officialInstitutions[value] = item;
-            });
-        };
-
-        const renderOfficialProgramOptions = async (institutionValue) => {
-            const selected = officialInstitutions[institutionValue]
-                || {
-                    id_ptn: institutionValue.replace('api:snpmb:', ''),
-                    nama: institution.selectedOptions?.[0]?.dataset.name || '',
-                    source_ids: {},
-                };
-            program.innerHTML = '<option value="">Memuat prodi resmi...</option>';
-            program.disabled = true;
-            syncDestination();
-
-            if (!officialPrograms[institutionValue]) {
-                const params = new URLSearchParams({
-                    source: 'all',
-                    ptn: selected.id_ptn || '',
-                });
-
-                if (selected.source_ids?.snbt) params.set('ptn_snbt', selected.source_ids.snbt);
-                if (selected.source_ids?.snbp) params.set('ptn_snbp', selected.source_ids.snbp);
-
-                const response = await fetch(`${officialProgramsUrl}?${params.toString()}`, { headers: { 'Accept': 'application/json' } });
-                if (!response.ok) throw new Error('Gagal memuat prodi resmi.');
-                const payload = await response.json();
-                officialPrograms[institutionValue] = Array.isArray(payload.data) ? payload.data : [];
-            }
-
-            program.innerHTML = '<option value="">Pilih prodi resmi jika ada</option>';
-            officialPrograms[institutionValue].forEach((item) => {
-                const option = document.createElement('option');
-                option.value = `api:snpmb:${item.id_prodi || item.kode_prodi || item.nama}:program`;
-                option.textContent = `[Resmi] ${item.nama}`;
-                option.dataset.externalId = item.id_prodi || item.kode_prodi || item.nama || selected.id_ptn || '';
-                option.dataset.name = item.nama || '';
-                if (selectedOfficialProgramName && item.nama === selectedOfficialProgramName) {
-                    option.selected = true;
-                }
-                program.appendChild(option);
-            });
-            program.disabled = false;
-            syncDestination();
-        };
-
-        institution?.addEventListener('change', () => {
-            Promise.resolve(renderProgramOptions(institution.value))
-                .catch((error) => {
-                    program.innerHTML = `<option value="">${error.message || 'Gagal memuat prodi resmi.'}</option>`;
-                    program.disabled = true;
-                })
-                .finally(syncDestination);
-        });
-        program?.addEventListener('change', syncDestination);
-        const loadOfficialDestinations = async () => {
-            if (officialStatus) officialStatus.textContent = 'Memuat data resmi...';
-
-            try {
-                const response = await fetch(`${officialInstitutionsUrl}?source=all`, { headers: { 'Accept': 'application/json' } });
-                if (!response.ok) throw new Error('Gagal memuat data resmi.');
-                const payload = await response.json();
-                const items = Array.isArray(payload.data) ? payload.data : [];
-                addOfficialInstitutionOptions(items);
-                if (officialStatus) officialStatus.textContent = '';
-            } catch (error) {
-                if (officialStatus) officialStatus.textContent = error.message || 'Gagal memuat data resmi.';
-            }
-        };
-
-        if (officialAutoLoadEnabled) {
-            loadOfficialDestinations();
-        }
-        renderProgramOptions(institution?.value || '');
-        syncDestination();
     });
 </script>
 @endsection

@@ -8,6 +8,7 @@ use App\Support\Pagination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
@@ -41,6 +42,7 @@ class TutorProfileController extends Controller
         TutorProfilePhotoService $photoService
     ): RedirectResponse {
         $validated = $request->validate([
+            'profile_tab' => ['nullable', Rule::in(['identity', 'professional'])],
             'profile_photo' => [
                 'nullable',
                 'image',
@@ -106,7 +108,9 @@ class TutorProfileController extends Controller
         }
 
         return redirect()
-            ->route('tutor.profile.edit')
+            ->route('tutor.profile.edit', [
+                'tab' => $validated['profile_tab'] ?? 'identity',
+            ])
             ->with('success', 'Profil Tutor berhasil diperbarui.');
     }
 }

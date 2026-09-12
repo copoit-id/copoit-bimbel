@@ -16,6 +16,7 @@
                                     : (bool) optional($latestUserAnswers->first())->is_passed);
                         $firstUserAnswer = $latestUserAnswers->first();
                         $showResultScores = $tryout->shouldShowResultScores();
+                        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
                         $showPassingGrade = $tryout->shouldShowPassingGrade();
                         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
                     @endphp
@@ -23,8 +24,10 @@
                         <p class="text-xl font-semibold text-gray-900 mb-2">{{ $tryout->name }}</p>
                         @if ($showTotalResultScore && isset($rawScore) && isset($maxScore))
                             <div class="flex justify-center items-end text-center gap-2 my-6">
-                                <p class="text-5xl font-semibold text-gray-900">{{ $rawScore }}</p>
-                                <p class="text-xl text-gray-500">/ {{ $maxScore }}</p>
+                                <p class="text-5xl font-semibold text-gray-900">{{ $displayScore['formatted'] ?? $rawScore }}</p>
+                                @if($showScoreMaximum)
+                                    <p class="text-xl text-gray-500">/ {{ $displayScore['formatted_maximum'] ?? $maxScore }}</p>
+                                @endif
                             </div>
                         @elseif (! $showResultScores)
                             <p class="my-5 text-sm text-gray-500">Nilai tryout ini tidak ditampilkan.</p>
@@ -256,7 +259,7 @@
                                                 @if ($showResultScores || $showPassingGrade)
                                                     @if ($showResultScores)
                                                         <span class="font-medium {{ ($result['pending_count'] ?? 0) > 0 ? 'text-gray-900' : '' }}">
-                                                            {{ $result['raw_score'] }}/{{ $result['max_score'] }}
+                                                            {{ $result['display_score']['formatted'] ?? $result['raw_score'] }}@if($showScoreMaximum)/{{ $result['display_score']['formatted_maximum'] ?? $result['max_score'] }}@endif
                                                         </span>
                                                     @endif
                                                     @if ($showResultScores && $showPassingGrade)
@@ -315,10 +318,10 @@
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3 justify-center">
                 @if ($package)
-                    <a href="{{ route('user.package.tryout', $package->package_id) }}"
+                    <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)"
                         class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                        <i class="ri-arrow-left-line mr-2"></i>Kembali
-                    </a>
+                        <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+                    </x-ui.history-back>
                     <a href="{{ route('user.package.tryout.riwayat', [$package->package_id, $tryout->tryout_id]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
                         <i class="ri-history-line mr-2"></i>Riwayat
@@ -337,10 +340,10 @@
                     @endif
 
                 @else
-                    <a href="{{ route('user.event.index') }}"
+                    <x-ui.history-back :fallback="route('user.package.tryout', 'free')"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-                        <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-                    </a>
+                        <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+                    </x-ui.history-back>
                     @if($tryout->show_leaderboard)
                     <a href="{{ route('user.package.tryout.ranking', ['id_package' => 'free', 'id_tryout' => $tryout->tryout_id]) }}"
                         class="px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">

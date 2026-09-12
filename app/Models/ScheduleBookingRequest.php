@@ -46,6 +46,11 @@ class ScheduleBookingRequest extends Model
         'responded_at',
         'cancelled_at',
         'slot_key',
+        'session_price',
+        'tutor_payment_status',
+        'paid_to_tutor_at',
+        'deposited_to_admin_at',
+        'deposited_to_admin_by',
     ];
 
     protected $casts = [
@@ -53,8 +58,11 @@ class ScheduleBookingRequest extends Model
         'requested_end_at' => 'datetime',
         'scheduled_start_at' => 'datetime',
         'scheduled_end_at' => 'datetime',
+        'session_price' => 'integer',
         'responded_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'paid_to_tutor_at' => 'datetime',
+        'deposited_to_admin_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

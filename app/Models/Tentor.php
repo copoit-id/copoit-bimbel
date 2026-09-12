@@ -91,6 +91,11 @@ class Tentor extends Model
         return $this->hasMany(ScheduleBookingRequest::class, 'tentor_id');
     }
 
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(TutorLeaveRequest::class);
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(TutorReview::class, 'tentor_id');

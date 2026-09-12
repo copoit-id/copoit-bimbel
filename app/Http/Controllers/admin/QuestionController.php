@@ -11,6 +11,7 @@ use App\Models\UserAnswer;
 use App\Services\PlanQuotaService;
 use App\Services\TryoutQuestionDownloadService;
 use App\Services\MultipleAnswerScoringService;
+use App\ViewModels\QuestionFormViewData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -38,8 +39,8 @@ class QuestionController extends Controller
     public function index($tryout_detail_id)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.question.index', compact('tryout', 'tryout_detail', 'questions'));
@@ -57,7 +58,7 @@ class QuestionController extends Controller
         $tryoutDetail = TryoutDetail::findOrFail($tryout_detail_id);
         $tryout = Tryout::findOrFail($tryoutDetail->tryout_id);
         $questions = Question::query()
-            ->with(['questionOptions', 'tryoutDetail'])
+            ->with(['questionOptions', 'tryoutDetail.materialCategory'])
             ->where('tryout_detail_id', $tryoutDetail->tryout_detail_id)
             ->orderBy('question_id')
             ->get();
@@ -65,13 +66,13 @@ class QuestionController extends Controller
         return $questionDownloadService->download($tryout, $questions, $type);
     }
 
-    public function create($tryout_detail_id)
+    public function create($tryout_detail_id, QuestionFormViewData $questionFormViewData)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
-            return view('admin.pages.question.create', compact('tryout', 'tryout_detail'));
+            return view('admin.pages.question.create', $questionFormViewData->forTryout($tryout, $tryout_detail));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Data tidak ditemukan');
@@ -252,18 +253,18 @@ class QuestionController extends Controller
         }
     }
 
-    public function edit($tryout_detail_id, $question_id)
+    public function edit($tryout_detail_id, $question_id, QuestionFormViewData $questionFormViewData)
     {
         try {
-            $tryout_detail = TryoutDetail::findOrFail($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->findOrFail($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $question = Question::with(['questionOptions' => function ($query) {
                 $query->orderBy('question_option_id');
             }])->where('question_id', $question_id)
                 ->where('tryout_detail_id', $tryout_detail_id)
                 ->firstOrFail();
 
-            return view('admin.pages.question.create', compact('tryout', 'tryout_detail', 'question'));
+            return view('admin.pages.question.create', $questionFormViewData->forTryout($tryout, $tryout_detail, $question));
         } catch (\Exception $e) {
             return redirect()->route('admin.tryout.index')
                 ->with('error', 'Data tidak ditemukan: ' . $e->getMessage());
@@ -555,8 +556,8 @@ class QuestionController extends Controller
         $rules = [
             'option_a' => 'required|string',
             'option_b' => 'required|string',
-            'option_c' => 'required|string',
-            'option_d' => 'required|string',
+            'option_c' => 'nullable|string',
+            'option_d' => 'nullable|string',
             'option_e' => 'nullable|string',
             'correct_answer' => 'required|in:A,B,C,D,E',
             'correct_answers' => 'nullable|array|min:1',
@@ -604,6 +605,35 @@ class QuestionController extends Controller
         ];
 
         $request->validate($rules, [], $attributes);
+
+        if ($questionType === 'true_false') {
+            return;
+        }
+
+        $availableOptionKeys = $this->availableOptionKeys($request);
+        if (count($availableOptionKeys) < 2) {
+            throw ValidationException::withMessages([
+                'option_b' => 'Soal pilihan ganda harus memiliki minimal dua opsi jawaban.',
+            ]);
+        }
+
+        $correctKeys = $questionType === 'multiple_answer'
+            ? array_map('strtoupper', (array) $request->input('correct_answers', []))
+            : [strtoupper((string) $request->input('correct_answer'))];
+
+        if (array_diff($correctKeys, $availableOptionKeys) !== []) {
+            throw ValidationException::withMessages([
+                $questionType === 'multiple_answer' ? 'correct_answers' : 'correct_answer' => 'Jawaban benar harus dipilih dari opsi yang diisi.',
+            ]);
+        }
+    }
+
+    private function availableOptionKeys(Request $request): array
+    {
+        return collect(['A', 'B', 'C', 'D', 'E'])
+            ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+            ->values()
+            ->all();
     }
 
     private function prepareMultipleChoiceOptions(Request $request, string $questionType = 'multiple_choice'): array
@@ -615,18 +645,11 @@ class QuestionController extends Controller
             ];
         }
 
-        $options = [
-            ['key' => 'A', 'text' => $request->option_a],
-            ['key' => 'B', 'text' => $request->option_b],
-            ['key' => 'C', 'text' => $request->option_c],
-            ['key' => 'D', 'text' => $request->option_d],
-        ];
-
-        if ($request->filled('option_e')) {
-            $options[] = ['key' => 'E', 'text' => $request->option_e];
-        }
-
-        return $options;
+        return collect(['A', 'B', 'C', 'D', 'E'])
+            ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+            ->map(fn (string $key) => ['key' => $key, 'text' => $request->input('option_'.strtolower($key))])
+            ->values()
+            ->all();
     }
 
     private function validateMatchingQuestion(Request $request): void
@@ -657,7 +680,7 @@ class QuestionController extends Controller
             'mtf_scoring_mode' => 'required|in:fullscore,partial',
             'mtf_score_correct' => 'required|numeric',
             'mtf_score_wrong' => 'required|numeric',
-            'mtf_statements' => 'required|array|min:2',
+            'mtf_statements' => 'required|array|min:1',
             'mtf_statements.*.text' => 'required|string|min:1',
             'mtf_statements.*.correct' => 'required|in:true,false',
         ];
@@ -758,18 +781,10 @@ class QuestionController extends Controller
 
     private function buildShortAnswerMetadata(Request $request, string $questionType): array
     {
-        $expectedRaw = $request->input('short_answer_expected');
-        $expectedAnswers = [];
-
-        if ($expectedRaw !== null) {
-            $lines = preg_split("/\r\n|\r|\n/", $expectedRaw);
-            foreach ($lines as $line) {
-                $trimmed = trim($line);
-                if ($trimmed !== '') {
-                    $expectedAnswers[] = $trimmed;
-                }
-            }
-        }
+        $expectedRaw = trim((string) $request->input('short_answer_expected', ''));
+        $expectedAnswers = $questionType === 'essay'
+            ? ($expectedRaw === '' ? [] : [$expectedRaw])
+            : $this->plainTextExpectedAnswers($expectedRaw);
 
         // Evaluation mode: auto atau manual (untuk penentuan apakah butuh review)
         $evaluationMode = $questionType === 'essay'
@@ -806,6 +821,20 @@ class QuestionController extends Controller
             // Simpan correct_answer untuk AI matching
             'correct_answer' => $expectedAnswers[0] ?? null,
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function plainTextExpectedAnswers(string $expectedRaw): array
+    {
+        $plainText = preg_replace('/<(?:br\s*\/?>|\/p|\/div|\/li)>/i', "\n", $expectedRaw);
+        $plainText = html_entity_decode(strip_tags((string) $plainText), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return array_values(array_filter(array_map(
+            'trim',
+            preg_split("/\r\n|\r|\n/", $plainText) ?: []
+        ), static fn (string $answer): bool => $answer !== ''));
     }
 
     private function validateAudioAnswerQuestion(Request $request): void

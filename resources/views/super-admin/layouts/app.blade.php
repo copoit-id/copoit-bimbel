@@ -7,22 +7,26 @@
     <title>Super Admin - {{ $clientBranding['name'] ?? 'Copoit Academy' }}</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
     @vite('resources/css/app.css')
+    <x-ui.persistent-sidebar />
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
+    @include('admin.partials.summernote')
     @stack('styles')
 </head>
 <body class="bg-gray-50" data-app-selects>
     @include('super-admin.components.navbar')
     @include('super-admin.components.sidebar')
+    <x-ui.persistent-sidebar-reopen />
 
-    <main class="responsive-shell pt-20 pl-0 sm:pl-64">
+    <main data-persistent-sidebar-content="padding" class="responsive-shell pt-4 pl-0 sm:pl-64">
         <div class="px-4 py-4 sm:px-6 sm:py-6">
             @yield('content')
         </div>
     </main>
 
     @include('components.flash-alert')
+    <x-logout-confirm-modal />
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>

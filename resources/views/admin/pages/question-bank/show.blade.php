@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends(auth()->user()?->isTutor() ? 'tutor.question-bank-layout' : 'admin.layout.admin')
 @section('title', 'Detail Bank Soal')
 @section('content')
 @php
@@ -64,31 +64,26 @@
                 <p class="text-gray-500">{{ $bank->description ?: 'Belum ada deskripsi.' }}</p>
             </div>
             @unless ($tryoutDetail)
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-2 md:justify-end">
                 @if($clientBranding['ai_question_generator_enabled'] ?? false)
                 <a href="{{ route('admin.question-bank.questions.ai-generator', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-violet-600 px-4 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50">
                     <i class="ri-sparkling-2-line"></i>
                     Generate AI
                 </a>
                 @endif
                 <button type="button" id="openImportQuestions"
-                    class="inline-flex items-center gap-2 rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
                     <i class="ri-file-excel-2-line"></i>
                     Import Excel
                 </button>
-                <button type="button" id="openImportPpt"
-                    class="inline-flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50">
-                    <i class="ri-slideshow-3-line"></i>
-                    Import PPT
-                </button>
                 <button id="openCreateSubBank"
-                    class="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-primary px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/5">
                     <i class="ri-folder-add-line"></i>
                     Tambah Sub Bank
                 </button>
                 <a href="{{ route('admin.question-bank.questions.create', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                    class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                     <i class="ri-add-line"></i>
                     Tambah Soal
                 </a>
@@ -144,10 +139,12 @@
                             class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
                             <i class="ri-edit-line mr-1"></i>Edit
                         </button>
-                        <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $childQuestionCount }})"
-                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
-                            <i class="ri-delete-bin-line mr-1"></i>Hapus
-                        </button>
+                        @if($deletableBankIds[$child->id] ?? false)
+                            <button type="button" onclick="deleteBank({{ $child->id }}, '{{ addslashes($child->name) }}', {{ $childQuestionCount }})"
+                                class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                                <i class="ri-delete-bin-line mr-1"></i>Hapus
+                            </button>
+                        @endif
                     </div>
                 @endunless
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $child->id, 'import_for' => $importTarget]) }}"
@@ -176,11 +173,9 @@
                             class="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-64">
                         <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
                     </div>
-                    <select name="sort" onchange="this.form.submit()"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
-                        <option value="newest" @selected(($questionSort ?? 'newest') === 'newest')>Terbaru</option>
-                        <option value="oldest" @selected(($questionSort ?? 'newest') === 'oldest')>Terlama</option>
-                    </select>
+                    <span class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                        Urutan: pertama ditambahkan
+                    </span>
                     <select name="question_type" onchange="this.form.submit()"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20">
                         <option value="all" @selected(($questionType ?? 'all') === 'all')>Semua Tipe</option>
@@ -202,7 +197,6 @@
                     <a href="{{ route('admin.question-bank.show', array_filter([
                         'questionBank' => $bank->id,
                         'import_for' => request()->has('import_for') ? $importTarget : null,
-                        'sort' => $questionSort ?? 'newest',
                         'question_type' => $questionType ?? 'all',
                         'per_page' => $perPage ?? 5,
                     ], fn($value) => $value !== null)) }}"
@@ -220,7 +214,7 @@
                 </div>
             </div>
         </div>
-        <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div id="bulkActionBar" class="mb-4 hidden flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 {{ $tryoutDetail ? 'sticky top-32 z-40' : '' }} lg:flex-row lg:items-center lg:justify-between">
             <span id="bulkSelectionCount" class="text-sm font-medium text-gray-700">0 dipilih</span>
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
             @unless ($tryoutDetail)
@@ -249,7 +243,7 @@
                     Pindahkan Terpilih
                 </button>
             </form>
-            <form id="bulkDeleteForm" action="{{ route('admin.question-bank.questions.bulk-delete') }}" method="POST">
+            @if($canDeleteBank)<form id="bulkDeleteForm" action="{{ route('admin.question-bank.questions.bulk-delete') }}" method="POST">
                 @csrf
                 @method('DELETE')
                 <button type="submit" id="bulkDeleteBtn"
@@ -258,6 +252,7 @@
                     Hapus Terpilih
                 </button>
             </form>
+            @endif
             @endunless
             @if ($tryoutDetail)
             <button type="button" id="bulkCloneBtn"
@@ -314,18 +309,25 @@
                     $question->explanation . ' ' .
                     $question->options->pluck('option_text')->implode(' ')
                 )));
+                $questionNumber = ($questions->firstItem() ?? 1) + $loop->index;
             @endphp
             <article class="bank-question-row rounded-2xl border border-gray-200 bg-white p-5"
                 data-question="{{ $searchText }}"
                 data-type="{{ strtolower($question->question_type) }}">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="flex min-w-0 flex-1 gap-3">
-                        <div class="pt-1">
+                        <div class="flex shrink-0 flex-col items-center gap-2 pt-0.5">
+                            <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-white" title="Soal nomor {{ $questionNumber }}">
+                                {{ $questionNumber }}
+                            </span>
                             <input type="checkbox" class="bank-question-checkbox rounded border-gray-300 text-primary focus:ring-primary"
-                                value="{{ $question->id }}">
+                                value="{{ $question->id }}" aria-label="Pilih soal nomor {{ $questionNumber }}">
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="mb-3 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">
+                                    Soal {{ $questionNumber }}
+                                </span>
                                 <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                                     {{ ucwords(str_replace('_', ' ', $question->question_type)) }}
                                 </span>
@@ -437,11 +439,17 @@
                             @if(!empty($expectedAnswers))
                             <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Jawaban referensi</p>
-                                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                                @if($question->question_type === 'essay')
                                     @foreach($expectedAnswers as $answer)
-                                    <li>{{ $answer }}</li>
+                                        <div class="question-rich-text mt-2 text-sm text-gray-700 [&_img]:h-auto [&_img]:max-w-full">{!! $answer !!}</div>
                                     @endforeach
-                                </ul>
+                                @else
+                                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                                        @foreach($expectedAnswers as $answer)
+                                        <li>{{ $answer }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </div>
                             @endif
                             @elseif($question->question_type === 'audio' && !empty($audioMeta))
@@ -460,12 +468,13 @@
                     </div>
 
                     <div class="flex w-full shrink-0 flex-col gap-2 sm:w-40">
+                        <p class="text-center text-xs text-gray-500">Dibuat oleh: {{ $question->creator?->name ?? 'Tidak tercatat' }}</p>
                         @unless ($tryoutDetail)
                         <a href="{{ route('admin.question-bank.questions.edit', ['question' => $question->id, 'import_for' => $importTarget]) }}"
                             class="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100">
                                 <i class="ri-edit-line"></i> Edit
                             </a>
-                        <form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
+                        @if($canDeleteBank)<form action="{{ route('admin.question-bank.questions.destroy', $question->id) }}" method="POST" class="w-full">
                             @csrf
                             @method('DELETE')
                             <button type="button"
@@ -474,6 +483,7 @@
                                 <i class="ri-delete-bin-line"></i> Hapus
                             </button>
                         </form>
+                        @endif
                         @else
                         <form action="{{ route('admin.question-bank.questions.clone', $question->id) }}" method="POST" class="w-full">
                             @csrf

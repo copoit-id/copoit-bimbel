@@ -7,23 +7,32 @@ use App\Models\ParticipantDestinationCategory;
 use App\Models\User;
 use App\Models\UserPackageAcces;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class ClassAttendanceParticipantService
 {
     public function participants(ClassSession $session): Collection
     {
-        $session->loadMissing([
+        $relations = [
             'class.packages',
             'studyGroup.users',
             'schedule.destinationCategories.children',
             'schedule.packages',
-        ]);
+        ];
+        if (Schema::hasTable('schedule_booking_requests')) {
+            $relations[] = 'bookingRequest.user:id,name,email';
+        }
+        $session->loadMissing($relations);
 
         $studyGroupUsers = $session->studyGroup?->users ?? collect();
         if ($studyGroupUsers->isNotEmpty()) {
             return $studyGroupUsers
                 ->sortBy('name')
                 ->values();
+        }
+
+        if (Schema::hasTable('schedule_booking_requests') && $session->bookingRequest?->user) {
+            return collect([$session->bookingRequest->user]);
         }
 
         $categoryIds = $this->destinationCategoryIds($session);

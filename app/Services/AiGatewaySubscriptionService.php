@@ -98,6 +98,10 @@ class AiGatewaySubscriptionService
 
                 if ($activatedSubscription?->status === 'active'
                     && ($activatedSubscription->ends_at === null || $activatedSubscription->ends_at->isFuture())) {
+                    if ($this->hasMissingTokenCredit($activatedSubscription)) {
+                        return $this->restoreMissingTokenCredit($transaction, $activatedSubscription, $details, $audit);
+                    }
+
                     return $activatedSubscription;
                 }
 
@@ -111,6 +115,10 @@ class AiGatewaySubscriptionService
                 ->with('plan')
                 ->lockForUpdate()
                 ->find($transaction->ai_gateway_subscription_id);
+
+            if ($pendingSubscription?->status === 'active' && $this->hasMissingTokenCredit($pendingSubscription)) {
+                return $this->restoreMissingTokenCredit($transaction, $pendingSubscription, $details, $audit);
+            }
 
             if (! $pendingSubscription || $pendingSubscription->status !== 'pending') {
                 throw new RuntimeException('Subscription pending yang cocok dengan pembayaran tidak ditemukan.');
@@ -278,9 +286,9 @@ class AiGatewaySubscriptionService
     ): AiGatewaySubscription {
         $tokenCredit = max(1, (int) ($pendingSubscription->token_limit ?: $transaction->plan?->token_limit ?: 0));
         $chatCredit = max(0, (int) ($pendingSubscription->chat_limit ?: $transaction->plan?->chat_limit ?: 0));
-        $durationDays = $transaction->plan?->scope === AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR
-            ? 0
-            : max(0, (int) ($transaction->plan?->duration_days ?? 30));
+        // Token AI adalah kredit sekali beli, bukan membership berbasis waktu.
+        // Paket hanya membedakan jumlah token dan target penggunaannya.
+        $durationDays = 0;
         $activeSubscription = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $pendingSubscription->ai_gateway_client_id)
             ->where('external_user_id', $pendingSubscription->external_user_id)
@@ -318,5 +326,58 @@ class AiGatewaySubscriptionService
         ]);
 
         return $pendingSubscription;
+    }
+
+    private function hasMissingTokenCredit(AiGatewaySubscription $subscription): bool
+    {
+        return (int) $subscription->token_limit <= 0;
+    }
+
+    /**
+     * Repair the narrow legacy failure mode where a provider-confirmed payment
+     * marked a subscription active but never copied the plan credit to it.
+     * This changes the existing subscription only; it never creates another
+     * subscription or payment record.
+     *
+     * @param  array<string, mixed>  $details
+     * @param  array<string, mixed>  $audit
+     */
+    private function restoreMissingTokenCredit(
+        AiGatewayTransaction $transaction,
+        AiGatewaySubscription $subscription,
+        array $details,
+        array $audit,
+    ): AiGatewaySubscription {
+        $tokenCredit = max(0, (int) ($transaction->plan?->token_limit ?: $subscription->plan?->token_limit ?: 0));
+
+        if ($tokenCredit <= 0) {
+            throw new RuntimeException('Kredit paket tidak dapat dipulihkan karena jumlah token paket tidak tersedia.');
+        }
+
+        $chatCredit = max(0, (int) ($transaction->plan?->chat_limit ?: $subscription->plan?->chat_limit ?: 0));
+        $subscription->update([
+            // Preserve any historical consumption, then restore precisely one
+            // paid package allocation as the remaining balance.
+            'token_limit' => (int) $subscription->tokens_used + $tokenCredit,
+            'chat_limit' => $chatCredit > 0
+                ? (int) $subscription->chats_used + $chatCredit
+                : 0,
+            'ends_at' => null,
+        ]);
+
+        $details['activated_subscription_id'] = $subscription->id;
+        $details['subscription_reconciliation'] = [
+            'reconciled_at' => now()->toISOString(),
+            'source' => $audit['source'] ?? 'manual_super_admin',
+            'reason' => $audit['reason'] ?? 'Paid transaction had an active subscription without token credit.',
+            'actor' => [
+                'user_id' => filled($audit['actor_user_id'] ?? null) ? (string) $audit['actor_user_id'] : null,
+                'name' => $audit['actor_name'] ?? null,
+                'email' => $audit['actor_email'] ?? null,
+            ],
+        ];
+        $transaction->update(['details' => $details]);
+
+        return $subscription->fresh('plan');
     }
 }

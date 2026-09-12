@@ -13,6 +13,8 @@ class PlanQuotaService
     public const DEFAULT_PROCTORING_SETTINGS = [
         'enable_anti_copy' => true,
         'enable_tab_switch_detection' => true,
+        'tab_switch_freeze' => true,
+        'tab_switch_reset_answer' => true,
         'enable_webcam_check' => false,
         'enable_screen_check' => false,
     ];
@@ -70,6 +72,13 @@ class PlanQuotaService
                 ? $request->boolean($field, self::DEFAULT_PROCTORING_SETTINGS[$field])
                 : false;
         }
+
+        if (! $resolvedSettings['enable_tab_switch_detection']) {
+            $resolvedSettings['tab_switch_freeze'] = false;
+            $resolvedSettings['tab_switch_reset_answer'] = false;
+        }
+
+        $resolvedSettings['tab_switch_freeze_seconds'] = max(1, min(300, (int) $request->input('tab_switch_freeze_seconds', 15)));
 
         return $resolvedSettings;
     }

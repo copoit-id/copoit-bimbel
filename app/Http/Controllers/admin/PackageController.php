@@ -8,6 +8,7 @@ use App\Models\DetailPackage;
 use App\Models\Material;
 use App\Models\MaterialCategory;
 use App\Models\Package;
+use App\Models\PackageBookingRule;
 use App\Models\Question;
 use App\Models\QuestionOption;
 use App\Models\Tentor;
@@ -40,7 +41,7 @@ class PackageController extends Controller
         return view('admin.pages.package.index', compact('packages'));
     }
 
-    public function create()
+    public function create(): View
     {
         // Cek quota package - backend validation
         $quotaCheck = PlanQuotaService::canCreatePackage();
@@ -53,7 +54,11 @@ class PackageController extends Controller
         $classes = ClassModel::all();
         $claimTryouts = Tryout::query()->orderBy('name')->get(['tryout_id', 'name', 'is_active']);
 
-        return view('admin.pages.package.create', compact('classes', 'claimTryouts'));
+        return view('admin.pages.package.create', [
+            'classes' => $classes,
+            'claimTryouts' => $claimTryouts,
+            ...$this->bookingFormContext(),
+        ]);
     }
 
     public function store(Request $request)
@@ -74,6 +79,7 @@ class PackageController extends Controller
             $validationRules = [
                 'name' => 'required|string|max:255',
                 'type_package' => 'required|in:'.implode(',', $packageTypes),
+                'enrollment_mode' => 'required|in:direct_purchase,program',
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'is_displayed' => 'boolean',
@@ -85,6 +91,8 @@ class PackageController extends Controller
                 'free_claim_tryout_id' => 'nullable|integer|exists:tryouts,tryout_id',
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
+                'allow_custom_booking' => 'nullable|boolean',
+                ...$this->bookingValidationRules(),
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -94,7 +102,7 @@ class PackageController extends Controller
             $validationRules['image'] = $thumbnailRule;
 
             // Add price validation only if type_price is 'paid'
-            if ($request->type_price === 'paid') {
+            if ($request->type_price === 'paid' && $request->input('enrollment_mode') !== Package::ENROLLMENT_PROGRAM) {
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
@@ -110,10 +118,11 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed', true);
             $this->normalizeAccessDuration($validated);
 
-            if ($request->type_price !== 'paid') {
+            if ($request->type_price !== 'paid' || $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM) {
                 $validated['price'] = 0;
             }
 
@@ -141,7 +150,8 @@ class PackageController extends Controller
                 $validated['image'] = $request->file('image')->store('packages', 'public');
             }
 
-            Package::create($validated);
+            $package = Package::create($validated);
+            $this->syncCustomBooking($package, $request);
 
             return redirect()->route('admin.package.index')->with('success', 'Paket berhasil ditambahkan.');
         } catch (\Exception $e) {
@@ -151,18 +161,33 @@ class PackageController extends Controller
         }
     }
 
-    public function edit($id)
+    public function edit($id): View|\Illuminate\Http\RedirectResponse
     {
         try {
-            $package = Package::findOrFail($id);
+            $package = Package::query()
+                ->with('bookingRule')
+                ->findOrFail($id);
             $classes = ClassModel::all();
             $claimTryouts = Tryout::query()->orderBy('name')->get(['tryout_id', 'name', 'is_active']);
 
-            return view('admin.pages.package.create', compact('package', 'classes', 'claimTryouts'));
+            return view('admin.pages.package.create', [
+                'package' => $package,
+                'classes' => $classes,
+                'claimTryouts' => $claimTryouts,
+                ...$this->bookingFormContext(),
+            ]);
         } catch (\Exception $e) {
             return redirect()->route('admin.package.index')
                 ->with('error', 'Paket tidak ditemukan');
         }
+    }
+
+    /** @return array{canManageBooking: bool} */
+    private function bookingFormContext(): array
+    {
+        return [
+            'canManageBooking' => $this->canManageBooking(),
+        ];
     }
 
     public function update(Request $request, $id)
@@ -177,6 +202,7 @@ class PackageController extends Controller
             $validationRules = [
                 'name' => 'required|string|max:255',
                 'type_package' => 'required|in:'.implode(',', $packageTypes),
+                'enrollment_mode' => 'required|in:direct_purchase,program',
                 'type_price' => 'required|in:paid,free_unconditional,free_conditional',
                 'status' => 'required|in:active,inactive',
                 'is_displayed' => 'boolean',
@@ -188,6 +214,8 @@ class PackageController extends Controller
                 'free_claim_tryout_id' => 'nullable|integer|exists:tryouts,tryout_id',
                 'access_duration_unit' => 'required|in:forever,day,week,month,year',
                 'access_duration_value' => 'nullable|integer|min:1|max:1200',
+                'allow_custom_booking' => 'nullable|boolean',
+                ...$this->bookingValidationRules(),
             ];
 
             $thumbnailRule = $allowVideoThumbnail
@@ -197,7 +225,7 @@ class PackageController extends Controller
             $validationRules['image'] = $thumbnailRule;
 
             // Add price validation only if type_price is 'paid'
-            if ($request->type_price === 'paid') {
+            if ($request->type_price === 'paid' && $request->input('enrollment_mode') !== Package::ENROLLMENT_PROGRAM) {
                 $validationRules['price'] = 'required|integer|min:1';
             } else {
                 $validationRules['price'] = 'nullable|integer|min:0';
@@ -213,10 +241,11 @@ class PackageController extends Controller
             }
 
             $validated = $request->validate($validationRules);
+            unset($validated['allow_custom_booking']);
             $validated['is_displayed'] = $request->boolean('is_displayed');
             $this->normalizeAccessDuration($validated);
 
-            if ($request->type_price !== 'paid') {
+            if ($request->type_price !== 'paid' || $request->input('enrollment_mode') === Package::ENROLLMENT_PROGRAM) {
                 $validated['price'] = 0;
             }
 
@@ -250,6 +279,7 @@ class PackageController extends Controller
             }
 
             $package->update($validated);
+            $this->syncCustomBooking($package, $request);
 
             return redirect()->route('admin.package.index', $request->query())
                 ->with('success', 'Paket berhasil diperbarui');
@@ -283,6 +313,62 @@ class PackageController extends Controller
             $unit,
             $validated['access_duration_value'] ?? null
         );
+    }
+
+    private function canManageBooking(): bool
+    {
+        return (bool) config('client.branding.booking_schedule_enabled', false)
+            && app(PlanModuleService::class)->allows('booking')
+            && (auth()->user()?->hasPermission('booking', 'view') ?? false);
+    }
+
+    /** @return array<string, string> */
+    private function bookingValidationRules(): array
+    {
+        return [
+            'allow_custom_booking' => 'nullable|boolean',
+        ];
+    }
+
+    private function syncCustomBooking(Package $package, Request $request): void
+    {
+        if ($package->type_package !== 'bimbel') {
+            $package->bookingRule()->update(['is_enabled' => false]);
+
+            return;
+        }
+
+        if (! $this->canManageBooking()) {
+            return;
+        }
+
+        $rule = PackageBookingRule::query()->firstOrCreate(
+            ['package_id' => $package->package_id],
+            [
+                'is_enabled' => false,
+                'session_quota' => 1,
+                'duration_minutes' => 60,
+                'min_notice_hours' => 12,
+                'max_advance_days' => 30,
+                'cancellation_hours' => 6,
+                'allow_custom_time' => true,
+                'allow_all_tutors' => true,
+                'delivery_mode' => 'online',
+                'learning_mode' => 'personal',
+                'min_participants' => 1,
+                'max_participants' => 1,
+                'payment_deadline_hours' => 24,
+                'group_pricing_mode' => 'same',
+                'payment_model' => 'upfront',
+            ],
+        );
+
+        $isEnabled = $request->boolean('allow_custom_booking');
+        $ruleValues = ['is_enabled' => $isEnabled];
+        if ($request->has('booking_payment_model')) {
+            $ruleValues['payment_model'] = $request->input('booking_payment_model');
+        }
+        $rule->update($ruleValues);
     }
 
     /**
@@ -550,7 +636,7 @@ class PackageController extends Controller
             $package = Package::where('package_id', $package_id)->firstOrFail();
 
             // Get all tryouts with their package relationship status
-            $tryouts = Tryout::with(['tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
+            $tryouts = Tryout::with(['tryoutDetails.materialCategory', 'tryoutDetails.questions', 'detailPackages' => function ($query) use ($package_id) {
                 $query->where('package_id', $package_id);
             }])
                 ->orderByRaw('(SELECT COUNT(*) FROM detail_packages WHERE detailable_type = ? AND detailable_id = tryouts.tryout_id AND package_id = ?) DESC', [Tryout::class, $package_id])
@@ -584,12 +670,12 @@ class PackageController extends Controller
 
     public function storeTryout(Request $request, $package_id)
     {
-        $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'type_tryout' => ['required', Rule::in(array_keys($this->packageTryoutTypeOptions()))],
             'duration_total' => 'required|integer|min:1',
-            'passing_score_total' => 'required|numeric|min:0|max:100',
+            'passing_score_total' => 'required|numeric|min:0|max:999.99',
             'passing_type_twk' => 'nullable|in:score,percentage',
             'passing_type_tiu' => 'nullable|in:score,percentage',
             'passing_type_tkp' => 'nullable|in:score,percentage',
@@ -606,7 +692,22 @@ class PackageController extends Controller
             'enable_webcam_check' => 'boolean',
             'enable_screen_check' => 'boolean',
             'order' => 'nullable|integer|min:0',
-        ]);
+        ];
+
+        foreach (['twk', 'tiu', 'tkp', 'general', 'certification'] as $subtest) {
+            $rules['passing_score_'.$subtest] = [
+                'nullable',
+                'numeric',
+                'min:0',
+                Rule::when(
+                    $request->input('passing_type_'.$subtest, 'score') === 'percentage',
+                    ['max:100'],
+                    ['max:999.99']
+                ),
+            ];
+        }
+
+        $request->validate($rules);
         $securitySettings = PlanQuotaService::proctoringSettingsFromRequest($request);
 
         // Buat tryout baru
@@ -755,8 +856,8 @@ class PackageController extends Controller
                 $package = Package::where('package_id', $package_id)->firstOrFail();
             }
 
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $questions = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->get();
 
             return view('admin.pages.package.tryout.soal', compact('package', 'tryout', 'questions'));
@@ -776,8 +877,8 @@ class PackageController extends Controller
                 $package = Package::where('package_id', $package_id)->firstOrFail();
             }
 
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
 
             return view('admin.pages.package.tryout.create-soal', compact('package', 'tryout'));
         } catch (\Exception $e) {
@@ -790,8 +891,8 @@ class PackageController extends Controller
     {
         try {
             $package = Package::where('package_id', $package_id)->firstOrFail();
-            $tryout_detail = TryoutDetail::find($tryout_detail_id);
-            $tryout = Tryout::with('tryoutDetails')->where('tryout_id', $tryout_detail->tryout_id)->first();
+            $tryout_detail = TryoutDetail::with('materialCategory')->find($tryout_detail_id);
+            $tryout = Tryout::with('tryoutDetails.materialCategory')->where('tryout_id', $tryout_detail->tryout_id)->first();
             $question = Question::with('questionOptions')->where('tryout_detail_id', $tryout_detail_id)->where('question_id', $question_id)->first();
 
             return view('admin.pages.package.tryout.create-soal', compact('package', 'tryout', 'question'));

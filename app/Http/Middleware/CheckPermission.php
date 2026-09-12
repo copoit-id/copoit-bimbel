@@ -101,6 +101,7 @@ class CheckPermission
                 'release',
                 'add-time',
                 'review',
+                'activate',
             ])) {
                 return 'update';
             }

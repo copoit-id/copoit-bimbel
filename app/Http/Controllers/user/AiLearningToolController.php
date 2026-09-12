@@ -44,10 +44,7 @@ class AiLearningToolController extends Controller
             ->sortDesc()
             ->first();
         $hasUsedAiLearning = $latestAiLearningUsageAt !== null;
-        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData(
-            $request,
-            $currentTool === 'quota',
-        );
+        $gatewayDashboardData = $aiGatewaySubscriptionController->dashboardData($request, false);
 
         $artifacts = AiLearningArtifact::query()
             ->with(['tryout:tryout_id,name', 'question:question_id,question_text'])
@@ -155,7 +152,7 @@ class AiLearningToolController extends Controller
             && ! $hasSkippedAiLearningOnboarding
             && ($requiresFirstAiLearningOnboarding || $request->boolean('onboarding') || ! $hasUsedAiLearning || $hasNewAiGatewaySubscriptionCycle)
             && ($hasActiveAiGatewaySubscription || $hasAvailableAiGatewayTrial);
-        $showAiPackageRequiredModal = $currentTool !== 'quota'
+        $isAiLearningPreview = $currentTool !== 'quota'
             && ! $hasActiveAiGatewaySubscription
             && ! $hasAvailableAiGatewayTrial
             && blank($gatewayDashboardData['gatewayError'] ?? null);
@@ -175,7 +172,7 @@ class AiLearningToolController extends Controller
             'showAiLearningOnboarding',
             'canSkipAiLearningOnboarding',
             'activeAiGatewaySubscriptionId',
-            'showAiPackageRequiredModal',
+            'isAiLearningPreview',
             'aiLearningOnboardingSample',
         ));
     }

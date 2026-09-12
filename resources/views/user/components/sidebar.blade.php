@@ -13,28 +13,6 @@
     $dropdownLinkInactive = $sidebarPrimary ? 'text-white/80 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100';
     $emptyTextClass = $sidebarPrimary ? 'text-white/70' : 'text-gray-500';
     $secondaryColor = $clientBranding['secondary_color'] ?? '#F3F3F3';
-    $planModules = app(\App\Services\PlanModuleService::class);
-    $canShowDashboard = $planModules->allows('dashboard');
-    $canShowPackage = $planModules->allows('package');
-    $canShowSchedule = $planModules->allows('schedule')
-        && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
-    $canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
-        && $planModules->allows('booking')
-        && \Illuminate\Support\Facades\Route::has('user.booking.index');
-    $canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
-        && $planModules->allows('booking')
-        && \Illuminate\Support\Facades\Route::has('user.development.index');
-    $canShowEvent = $planModules->allows('event');
-    $canShowMaterial = $planModules->allows('material');
-    $canShowTryout = $planModules->allows('tryout');
-    $canShowFaq = $planModules->allows('faq');
-    $canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
-        && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
-    $canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
-    $canShowCertificate = $planModules->allows('certificate');
-    $canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
-        && $planModules->allows('affiliate')
-        && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
     if ($sidebarPrimary) {
         $emptyCtaClasses = 'block w-full py-2 px-3 text-xs text-center text-primary rounded-lg hover:opacity-90 transition-colors duration-200';
         $emptyCtaStyle = "background-color: {$secondaryColor}; border: none;";
@@ -44,11 +22,28 @@
     }
 @endphp
 
-<aside id="logo-sidebar"
+<aside id="logo-sidebar" data-persistent-sidebar data-login-as-sidebar="{{ session('admin_login_as') ? 'true' : 'false' }}"
     class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} left-0 z-[99997] md:z-[99996] w-64 {{ session('admin_login_as') ? 'h-[calc(100vh-52px)]' : 'h-screen' }} {{ session('admin_login_as') ? 'pt-[68px]' : 'pt-20' }} transition-transform -translate-x-full sm:translate-x-0 {{ $sidebarWrapperClasses }}"
     aria-label="Sidebar">
     <div class="h-full px-3 pb-4 overflow-y-auto {{ $sidebarInnerClasses }}">
-        <p class="{{ $sectionLabelClass }} text-sm">Home</p>
+        <a href="{{ route('user.dashboard.index') }}" data-sidebar-brand>
+            <span data-sidebar-brand-mark>
+                <img src="{{ $clientBranding['logo_url'] }}" class="h-full w-full object-contain p-1" alt="{{ $clientBranding['name'] }}" />
+            </span>
+            <span class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold">{{ $clientBranding['name'] }}</p>
+                <small class="block truncate text-xs">{{ trim((string) app('view')->getSection('title')) ?: 'Portal Belajar' }}</small>
+            </span>
+        </a>
+        <div data-sidebar-divider class="border-t"></div>
+        <div class="flex items-center justify-between gap-2">
+            <p data-sidebar-section-label class="{{ $sectionLabelClass }} text-xs font-medium uppercase tracking-[0.12em]">Home</p>
+            <button type="button" data-persistent-sidebar-toggle aria-expanded="true"
+                class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg {{ $sidebarPrimary ? 'text-white/80 hover:bg-white/10 focus:ring-white/30' : 'text-gray-500 hover:bg-gray-100 focus:ring-gray-200' }} transition-colors focus:outline-none focus:ring-2">
+                <span class="sr-only" data-persistent-sidebar-toggle-label>Tutup sidebar</span>
+                <i class="ri-arrow-left-s-line text-xl" data-persistent-sidebar-toggle-icon aria-hidden="true"></i>
+            </button>
+        </div>
         <ul class="font-medium space-y-1">
             @if($canShowDashboard)
             <li>

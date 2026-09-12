@@ -67,7 +67,7 @@
         @foreach($tryout->tryoutDetails as $index => $detail)
         <a href="#subtest-{{ $detail->tryout_detail_id }}"
             class="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors">
-            {{ strtoupper($detail->type_subtest) }} ({{ $detail->questions->count() }} soal)
+            {{ $detail->display_name }} ({{ $detail->questions->count() }} soal)
         </a>
         @endforeach
     </div>

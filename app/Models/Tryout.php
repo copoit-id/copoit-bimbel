@@ -34,6 +34,7 @@ class Tryout extends Model
         'show_leaderboard' => 'boolean',
         'show_passing_grade' => 'boolean',
         'show_result_scores' => 'boolean',
+        'show_score_maximum' => 'boolean',
         'result_score_display' => 'string',
         'result_score_scale' => 'string',
         'section_break_duration' => 'integer',
@@ -49,6 +50,9 @@ class Tryout extends Model
         'user_card_display' => 'string',
         'enable_anti_copy' => 'boolean',
         'enable_tab_switch_detection' => 'boolean',
+        'tab_switch_freeze' => 'boolean',
+        'tab_switch_freeze_seconds' => 'integer',
+        'tab_switch_reset_answer' => 'boolean',
         'enable_webcam_check' => 'boolean',
         'enable_screen_check' => 'boolean',
         'price' => 'decimal:0',
@@ -64,7 +68,11 @@ class Tryout extends Model
                 return;
             }
 
-            $query->where($query->qualifyColumn('created_by'), $user->id);
+            app(TutorContentVisibilityService::class)->applyContentVisibilityScope(
+                $query,
+                $user,
+                $query->qualifyColumn('created_by')
+            );
         });
     }
 
@@ -88,6 +96,11 @@ class Tryout extends Model
     public function shouldShowResultScores(): bool
     {
         return $this->show_result_scores ?? true;
+    }
+
+    public function shouldShowScoreMaximum(): bool
+    {
+        return $this->show_score_maximum ?? true;
     }
 
     public function shouldShowPassingGrade(): bool

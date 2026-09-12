@@ -9,6 +9,9 @@ use App\Models\ClassModel;
 use App\Models\Tryout;
 use App\Models\TryoutDetail;
 use App\Models\Question;
+use App\Models\QuestionBank;
+use App\Models\QuestionBankQuestion;
+use App\Models\QuestionBankQuestionOption;
 use App\Models\QuestionOption;
 use App\Models\DetailPackage;
 use App\Models\Payment;
@@ -42,6 +45,9 @@ class CompleteSystemSeeder extends Seeder
             
             // 5. Create Tryout Details & Questions
             $this->createTryoutDetailsAndQuestions($tryouts);
+
+            // 5a. Create Question Bank content using the same demo question templates.
+            $this->createQuestionBanks($users->firstWhere('role', 'admin'));
             
             // 6. Create Detail Packages (Relations)
             $this->createDetailPackages($packages, $tryouts, $classes);
@@ -464,6 +470,53 @@ class CompleteSystemSeeder extends Seeder
                     'is_correct' => $index === $template['correct_answer'],
                     'weight' => $index === $template['correct_answer'] ? $template['weight'] : 0
                 ]);
+            }
+        }
+    }
+
+    private function createQuestionBanks(?User $admin): void
+    {
+        $this->command->info('Creating question banks...');
+
+        foreach ([
+            'tiu' => 'Bank Soal TIU Demo',
+            'twk' => 'Bank Soal TWK Demo',
+            'tkp' => 'Bank Soal TKP Demo',
+            'reading' => 'Bank Soal TOEFL Reading Demo',
+            'teknis' => 'Bank Soal PPPK Teknis Demo',
+        ] as $type => $name) {
+            $bank = QuestionBank::updateOrCreate(
+                ['name' => $name],
+                [
+                    'description' => 'Kumpulan soal demo untuk '.$name.'.',
+                    'created_by' => $admin?->id,
+                ]
+            );
+
+            if ($bank->questions()->exists()) {
+                continue;
+            }
+
+            foreach ($this->getQuestionTemplates($type) as $template) {
+                $question = QuestionBankQuestion::create([
+                    'question_bank_id' => $bank->id,
+                    'question_type' => $template['type'],
+                    'question_text' => str_replace('[NUMBER]', 'demo', $template['question']),
+                    'explanation' => $template['explanation'] ?? null,
+                    'default_weight' => $template['weight'],
+                    'custom_score' => 'no',
+                    'created_by' => $admin?->id,
+                ]);
+
+                foreach ($template['options'] as $position => $optionText) {
+                    QuestionBankQuestionOption::create([
+                        'question_bank_question_id' => $question->id,
+                        'option_text' => $optionText,
+                        'weight' => $position === $template['correct_answer'] ? $template['weight'] : 0,
+                        'is_correct' => $position === $template['correct_answer'],
+                        'position' => $position + 1,
+                    ]);
+                }
             }
         }
     }

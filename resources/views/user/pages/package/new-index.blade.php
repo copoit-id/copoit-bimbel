@@ -76,7 +76,17 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
     </div>
 </div>
 
+@if($showEnrollmentTabs)
+    <nav class="mb-6 flex w-fit rounded-xl border border-gray-200 bg-white p-1" aria-label="Jenis paket">
+        <a href="{{ route('user.package.index', array_merge(request()->query(), ['mode' => 'product'])) }}" class="rounded-lg px-4 py-2 text-sm font-semibold transition {{ $selectedEnrollmentMode === 'product' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">Produk</a>
+        <a href="{{ route('user.package.index', array_merge(request()->query(), ['mode' => 'program'])) }}" class="rounded-lg px-4 py-2 text-sm font-semibold transition {{ $selectedEnrollmentMode === 'program' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">Program</a>
+    </nav>
+@endif
+
 <form method="GET" action="{{ route('user.package.index') }}" class="bg-white border border-gray-100 rounded-xl p-3 mb-6 flex flex-col md:flex-row gap-3">
+    @if($showEnrollmentTabs)
+        <input type="hidden" name="mode" value="{{ $selectedEnrollmentMode }}">
+    @endif
     <div class="flex-1">
         <label for="package-search" class="sr-only">Cari paket</label>
         <div class="relative">
@@ -261,6 +271,10 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
         && data_get($combinedAiPayment, 'ai_payment_pending')
         && data_get($combinedAiPayment, 'product_type') === 'package'
         && (int) data_get($combinedAiPayment, 'product_item_id') === (int) $package->package_id;
+    $isGroupOnlyBooking = $package->type_package === 'bimbel'
+        && $package->bookingRule?->is_enabled
+        && $package->bookingRule?->learning_mode === 'group';
+    $isProgramPackage = $package->enrollment_mode === \App\Models\Package::ENROLLMENT_PROGRAM;
     @endphp
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group flex flex-col">
         <!-- Package Image/Header -->
@@ -282,7 +296,9 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
             </div>
             @endif
 
-            @if($package->type_price === 'paid')
+            @if($isProgramPackage)
+            <div class="absolute top-3 right-3 rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white">PROGRAM</div>
+            @elseif($package->type_price === 'paid')
             <div class="absolute top-3 right-3 flex flex-col items-end gap-1">
                 <!-- Crossed out original price -->
                 <div x-show="hasAnyDiscountFor({{ $package->package_id }}, {{ $package->price }})" 
@@ -316,6 +332,19 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                 <h3 class="font-bold text-lg text-gray-800 mb-2 hover:text-primary transition-colors">{{ $package->name }}</h3>
             </a>
             <div class="text-gray-500 text-sm mb-4 line-clamp-2">{!! $package->description ?? 'Paket belajar lengkap dengan materi dan tryout.' !!}</div>
+            @if($isProgramPackage)
+                <span class="mb-4 inline-flex w-fit items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
+                    <i class="ri-file-list-3-line"></i> Program
+                </span>
+            @elseif($isGroupOnlyBooking)
+                <span class="mb-4 inline-flex w-fit items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary">
+                    <i class="ri-group-line"></i> Pendaftaran melalui rombel
+                </span>
+            @elseif($package->type_package === 'bimbel' && $package->bookingRule?->is_enabled)
+                <span class="mb-4 inline-flex w-fit items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary">
+                    <i class="ri-calendar-check-line"></i> Termasuk booking jadwal custom
+                </span>
+            @endif
 
             <!-- Features -->
             @php
@@ -341,7 +370,15 @@ $aiGatewayPlansJson = $aiGatewayPlans->map(fn ($plan) => [
                     <i class="ri-eye-line"></i><span>Detail</span>
                 </a>
                 @auth
-                    @if($hasPendingAiPayment)
+                    @if($isProgramPackage)
+                    <a href="{{ route('user.package.detail', $package->package_id) }}" class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                        <i class="ri-information-line"></i><span>Lihat Program</span>
+                    </a>
+                    @elseif($isGroupOnlyBooking)
+                    <a href="{{ route('user.booking.index') }}" class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }}">
+                        <i class="ri-group-line"></i><span>Buat / Gabung Rombel</span>
+                    </a>
+                    @elseif($hasPendingAiPayment)
                     <button type="button" onclick="openResumePaymentLinksModal()"
                             class="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 text-center text-sm font-medium leading-tight text-white hover:opacity-90 transition-opacity"
                             style="background-color: {{ $primaryColor }}">

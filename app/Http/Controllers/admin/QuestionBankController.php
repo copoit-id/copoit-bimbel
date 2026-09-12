@@ -15,6 +15,7 @@ use App\Services\AiQuestionGeneratorService;
 use App\Services\AiReferencePdfService;
 use App\Services\PlanQuotaService;
 use App\Services\QuestionPptImportService;
+use App\ViewModels\QuestionFormViewData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,16 +57,22 @@ class QuestionBankController extends Controller
             'child_banks' => QuestionBank::whereNotNull('parent_id')->count(),
         ];
 
-        $bankOptions = QuestionBank::orderBy('name')->get();
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        $deletableBankIds = $rootBanks
+            ->flatMap(fn (QuestionBank $bank) => collect([$bank])->merge($bank->children))
+            ->filter(fn (QuestionBank $bank): bool => $visibility->canDeleteContentOwnedBy($bank->created_by, $request->user()))
+            ->pluck('id')
+            ->flip()
+            ->all();
 
         return view('admin.pages.question-bank.index', compact(
             'rootBanks',
             'stats',
-            'bankOptions',
             'tryoutDetail',
             'importTarget',
             'bankSort',
-            'recursiveQuestionCounts'
+            'recursiveQuestionCounts',
+            'deletableBankIds'
         ));
     }
 
@@ -106,8 +113,15 @@ class QuestionBankController extends Controller
         return back()->with('success', 'Bank soal berhasil diperbarui.');
     }
 
-    public function destroy(QuestionBank $questionBank)
+    public function destroy(Request $request, QuestionBank $questionBank)
     {
+        abort_unless(
+            app(\App\Services\TutorContentVisibilityService::class)
+                ->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
         // Delete all questions in this bank and sub-banks recursively
         $this->deleteBankRecursively($questionBank);
 
@@ -145,29 +159,30 @@ class QuestionBankController extends Controller
         $tryoutDetail = $importTarget
             ? TryoutDetail::with('tryout')->find($importTarget)
             : null;
-        $questionSort = $request->input('sort', 'newest');
-        $questionSortDirection = $questionSort === 'oldest' ? 'asc' : 'desc';
+        // Nomor soal mengikuti urutan pertama kali ditambahkan ke bank.
         $questionType = $request->input('question_type', 'all');
         $questionSearch = trim((string) $request->input('search', ''));
         $perPage = \App\Support\Pagination::perPage(5);
 
-        $questionBank->load(['children' => function ($query) use ($questionSortDirection) {
-            $query->withCount('questions')->orderBy('created_at', $questionSortDirection);
+        $questionBank->load(['children' => function ($query) {
+            $query->withCount('questions')->latest('created_at')->latest('id');
         }]);
-        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts(
-            QuestionBank::withCount('questions')->get(['id', 'parent_id'])
-        );
+        $bankHierarchy = QuestionBank::withCount('questions')->get(['id', 'parent_id']);
+        $recursiveQuestionCounts = $this->buildRecursiveQuestionCounts($bankHierarchy);
         $bankTotalQuestions = $recursiveQuestionCounts[$questionBank->id] ?? 0;
+        $questionBankIds = $this->descendantBankIds($questionBank->id, $bankHierarchy);
 
-        $questionTypeOptions = $questionBank->questions()
+        $questionTypeOptions = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
             ->select('question_type')
             ->whereNotNull('question_type')
             ->distinct()
             ->orderBy('question_type')
             ->pluck('question_type');
 
-        $questionsQuery = $questionBank->questions()
-            ->with('options');
+        $questionsQuery = QuestionBankQuestion::query()
+            ->whereIn('question_bank_id', $questionBankIds)
+            ->with(['options', 'creator:id,name,role']);
 
         if ($questionType !== 'all') {
             $questionsQuery->where('question_type', $questionType);
@@ -185,11 +200,18 @@ class QuestionBankController extends Controller
         }
 
         $questions = $questionsQuery
-            ->orderBy('created_at', $questionSortDirection)
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->paginate($perPage);
 
         $breadcrumbs = $this->buildBreadcrumbs($questionBank);
         $bankOptions = $this->buildBankOptions();
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        $deletableBankIds = $questionBank->children
+            ->filter(fn (QuestionBank $child): bool => $visibility->canDeleteContentOwnedBy($child->created_by, $request->user()))
+            ->pluck('id')
+            ->flip()
+            ->all();
 
         return view('admin.pages.question-bank.show', [
             'bank' => $questionBank,
@@ -197,12 +219,13 @@ class QuestionBankController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'tryoutDetail' => $tryoutDetail,
             'importTarget' => $importTarget,
-            'questionSort' => $questionSort,
             'questionType' => $questionType,
             'questionSearch' => $questionSearch,
             'perPage' => $perPage,
             'questionTypeOptions' => $questionTypeOptions,
             'bankOptions' => $bankOptions,
+            'canDeleteBank' => $visibility->canDeleteContentOwnedBy($questionBank->created_by, $request->user()),
+            'deletableBankIds' => $deletableBankIds,
             'pptImportPreview' => $pptImportPreview,
             'recursiveQuestionCounts' => $recursiveQuestionCounts,
             'bankTotalQuestions' => $bankTotalQuestions,
@@ -244,7 +267,8 @@ class QuestionBankController extends Controller
         $referenceBanks = QuestionBank::query()->withCount('questions')->orderBy('name')->get(['id', 'name']);
         $referenceTryouts = Tryout::query()
             ->with(['tryoutDetails' => fn ($query) => $query
-                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest'])
+                ->with('materialCategory:category_id,name')
+                ->select(['tryout_detail_id', 'tryout_id', 'type_subtest', 'material_category_id'])
                 ->orderBy('type_subtest')])
             ->latest('created_at')
             ->limit(100)
@@ -655,6 +679,8 @@ class QuestionBankController extends Controller
 
     public function previewPptQuestions(Request $request, QuestionBank $questionBank, QuestionPptImportService $pptImportService)
     {
+        abort_if($request->user()?->isTutor(), 403, 'Import PPT hanya tersedia untuk Admin.');
+
         $request->validate([
             'ppt_files' => ['required', 'array', 'min:1', 'max:10'],
             'ppt_files.*' => ['required', 'file', 'mimes:pptx', 'max:10240'],
@@ -713,6 +739,8 @@ class QuestionBankController extends Controller
 
     public function storePptQuestions(Request $request, QuestionBank $questionBank)
     {
+        abort_if($request->user()?->isTutor(), 403, 'Import PPT hanya tersedia untuk Admin.');
+
         $validated = $request->validate([
             'groups_json' => ['required', 'string'],
             'import_for' => ['nullable', 'integer', 'exists:tryout_details,tryout_detail_id'],
@@ -852,7 +880,7 @@ class QuestionBankController extends Controller
         return $token;
     }
 
-    public function createQuestionForm(Request $request, QuestionBank $questionBank)
+    public function createQuestionForm(Request $request, QuestionBank $questionBank, QuestionFormViewData $questionFormViewData)
     {
         // Cek quota question bank - backend validation
         $quotaCheck = PlanQuotaService::canCreateQuestionBank();
@@ -862,20 +890,12 @@ class QuestionBankController extends Controller
         }
 
         $importTarget = $request->integer('import_for');
-        $matchingPairs = old('matching_pairs', [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ]);
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.create-question', [
-            'bank' => $questionBank,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $questionBank,
+            null,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     /**
@@ -889,27 +909,17 @@ class QuestionBankController extends Controller
         ]);
     }
 
-    public function editQuestionForm(Request $request, QuestionBankQuestion $question)
+    public function editQuestionForm(Request $request, QuestionBankQuestion $question, QuestionFormViewData $questionFormViewData)
     {
         $importTarget = $request->integer('import_for');
         $question->load('options', 'bank');
 
-        $metadata = is_array($question->metadata) ? $question->metadata : [];
-        $matchingPairs = $metadata['matching_pairs'] ?? [
-            ['left' => '', 'right' => ''],
-            ['left' => '', 'right' => ''],
-        ];
-
-        if (is_array($matchingPairs) && count($matchingPairs) < 2) {
-            $matchingPairs = array_pad($matchingPairs, 2, ['left' => '', 'right' => '']);
-        }
-
-        return view('admin.pages.question-bank.edit-question', [
-            'bank' => $question->bank,
-            'question' => $question,
-            'importTarget' => $importTarget,
-            'matchingPairs' => $matchingPairs,
-        ]);
+        return view('admin.pages.question.create', $questionFormViewData->forQuestionBank(
+            $question->bank,
+            $question,
+            $importTarget,
+            $request->user()?->isTutor() ?? false,
+        ));
     }
 
     public function storeQuestion(Request $request, QuestionBank $questionBank)
@@ -1230,15 +1240,32 @@ class QuestionBankController extends Controller
             'question_ids' => 'Daftar soal',
         ]);
 
-        $deleted = QuestionBankQuestion::query()
+        $questions = QuestionBankQuestion::query()
+            ->with('bank:id,created_by')
             ->whereIn('id', $validated['question_ids'])
-            ->delete();
+            ->get();
+
+        $visibility = app(\App\Services\TutorContentVisibilityService::class);
+        abort_unless(
+            $questions->every(fn (QuestionBankQuestion $question): bool => $visibility->canDeleteContentOwnedBy($question->bank?->created_by, $request->user())),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
+        $deleted = QuestionBankQuestion::query()->whereKey($questions->modelKeys())->delete();
 
         return back()->with('success', $deleted.' soal berhasil dihapus dari bank.');
     }
 
-    public function destroyQuestion(QuestionBankQuestion $question)
+    public function destroyQuestion(Request $request, QuestionBankQuestion $question)
     {
+        abort_unless(
+            app(\App\Services\TutorContentVisibilityService::class)
+                ->canDeleteContentOwnedBy($question->bank?->created_by, $request->user()),
+            403,
+            'Konten Admin tidak dapat dihapus oleh Tutor.'
+        );
+
         $question->delete();
 
         return back()->with('success', 'Soal berhasil dihapus dari bank.');
@@ -1446,6 +1473,26 @@ class QuestionBankController extends Controller
         return $totals;
     }
 
+    /**
+     * @return list<int>
+     */
+    private function descendantBankIds(int $bankId, $banks): array
+    {
+        $childrenByParent = $banks->groupBy('parent_id');
+        $ids = [];
+        $collect = function (int $id) use (&$collect, &$ids, $childrenByParent): void {
+            $ids[] = $id;
+
+            foreach ($childrenByParent->get($id, collect()) as $child) {
+                $collect((int) $child->id);
+            }
+        };
+
+        $collect($bankId);
+
+        return array_values(array_unique($ids));
+    }
+
     private function normalizeImportScore($value, float $fallback = 0): float
     {
         if (is_string($value)) {
@@ -1464,8 +1511,8 @@ class QuestionBankController extends Controller
         $rules = [
             'option_a' => ['required', 'string'],
             'option_b' => ['required', 'string'],
-            'option_c' => ['required', 'string'],
-            'option_d' => ['required', 'string'],
+            'option_c' => ['nullable', 'string'],
+            'option_d' => ['nullable', 'string'],
             'option_e' => ['nullable', 'string'],
             'correct_answer' => ['required', 'in:A,B,C,D,E'],
             'correct_answers' => ['nullable', 'array', 'min:1'],
@@ -1494,6 +1541,31 @@ class QuestionBankController extends Controller
             'correct_answer' => 'Jawaban benar',
             'correct_answers' => 'Daftar jawaban benar',
         ]);
+
+        $availableOptionKeys = $this->availableOptionKeys($request);
+        if (count($availableOptionKeys) < 2) {
+            throw ValidationException::withMessages([
+                'option_b' => 'Soal pilihan ganda harus memiliki minimal dua opsi jawaban.',
+            ]);
+        }
+
+        $correctKeys = $isMultipleAnswer
+            ? array_map('strtoupper', (array) $request->input('correct_answers', []))
+            : [strtoupper((string) $request->input('correct_answer'))];
+
+        if (array_diff($correctKeys, $availableOptionKeys) !== []) {
+            throw ValidationException::withMessages([
+                $isMultipleAnswer ? 'correct_answers' : 'correct_answer' => 'Jawaban benar harus dipilih dari opsi yang diisi.',
+            ]);
+        }
+    }
+
+    private function availableOptionKeys(Request $request): array
+    {
+        return collect(['A', 'B', 'C', 'D', 'E'])
+            ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+            ->values()
+            ->all();
     }
 
     private function validateTrueFalse(Request $request): void
@@ -1531,7 +1603,7 @@ class QuestionBankController extends Controller
             'mtf_scoring_mode' => ['required', 'in:fullscore,partial'],
             'mtf_score_correct' => ['required', 'numeric'],
             'mtf_score_wrong' => ['required', 'numeric'],
-            'mtf_statements' => ['required', 'array', 'min:2'],
+            'mtf_statements' => ['required', 'array', 'min:1'],
             'mtf_statements.*.text' => ['required', 'string'],
             'mtf_statements.*.correct' => ['required', 'in:true,false'],
         ]);
@@ -1644,12 +1716,14 @@ class QuestionBankController extends Controller
 
     private function buildShortAnswerMetadata(Request $request, string $type): array
     {
-        $expectedRaw = $request->input('short_answer_expected', '');
-        $expectedAnswers = collect(preg_split("/\r\n|\r|\n/", $expectedRaw))
-            ->filter(fn ($line) => filled(trim($line)))
-            ->map(fn ($line) => trim($line))
-            ->values()
-            ->all();
+        $expectedRaw = trim((string) $request->input('short_answer_expected', ''));
+        $expectedAnswers = $type === 'essay'
+            ? ($expectedRaw === '' ? [] : [$expectedRaw])
+            : collect(preg_split("/\r\n|\r|\n/", $expectedRaw))
+                ->filter(fn ($line) => filled(trim($line)))
+                ->map(fn ($line) => trim($line))
+                ->values()
+                ->all();
 
         $evaluationMode = $type === 'essay'
             ? $request->input('essay_scoring_mode', 'manual')
@@ -1723,16 +1797,11 @@ class QuestionBankController extends Controller
                 ['key' => 'B', 'text' => $request->option_b ?: 'Salah'],
             ];
         } else {
-            $options = [
-                ['key' => 'A', 'text' => $request->option_a],
-                ['key' => 'B', 'text' => $request->option_b],
-                ['key' => 'C', 'text' => $request->option_c],
-                ['key' => 'D', 'text' => $request->option_d],
-            ];
-
-            if ($request->filled('option_e')) {
-                $options[] = ['key' => 'E', 'text' => $request->option_e];
-            }
+            $options = collect(['A', 'B', 'C', 'D', 'E'])
+                ->filter(fn (string $key) => $request->filled('option_'.strtolower($key)))
+                ->map(fn (string $key) => ['key' => $key, 'text' => $request->input('option_'.strtolower($key))])
+                ->values()
+                ->all();
         }
 
         $useCustomScores = $request->boolean('use_custom_scores') && $type !== 'multiple_answer';

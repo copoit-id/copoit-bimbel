@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use App\Services\MultipleAnswerScoringService;
+use App\Services\PlanModuleService;
 
 class DashboardController extends Controller
 {
@@ -31,7 +32,7 @@ class DashboardController extends Controller
      */
     private array $maxPossibleScoreCache = [];
 
-    public function index()
+    public function index(PlanModuleService $planModules)
     {
         $user = Auth::user();
         $showStatisticsDashboard = $this->showStatisticsDashboard();
@@ -75,6 +76,16 @@ class DashboardController extends Controller
             ->orderBy('end_date', 'asc')
             ->limit(5)
             ->get();
+
+        $canRequestScheduleBooking = (bool) config('client.branding.booking_schedule_enabled', false)
+            && $planModules->allows('booking')
+            && UserPackageAcces::query()
+                ->where('user_id', $user->id)
+                ->active()
+                ->whereHas('package.bookingRule', fn ($query) => $query
+                    ->where('is_enabled', true)
+                    ->whereIn('learning_mode', ['personal', 'both']))
+                ->exists();
 
         // The active dashboard layout does not render grouped attempt data. Avoid
         // loading up to 50 attempts and their questions on every dashboard visit.
@@ -258,7 +269,8 @@ class DashboardController extends Controller
             'targetChoices',
             'showStatisticsDashboard',
             'showLandingDashboard',
-            'showBillingDashboard'
+            'showBillingDashboard',
+            'canRequestScheduleBooking',
         ));
     }
 
@@ -294,12 +306,12 @@ class DashboardController extends Controller
             $result[$source] = $destinations
                 ->map(fn (array $destination) => [
                     'label' => $destination['label'],
-                    'value' => $this->resolveKeketatanLabel(
+                    ...$this->resolveDestinationStatistics(
                         $source,
                         $destination['institution_name'],
                         $destination['program_name'],
                         $destination['external_program_id']
-                    ) ?? '-',
+                    ),
                 ])
                 ->values()
                 ->all();
@@ -369,18 +381,18 @@ class DashboardController extends Controller
             ->values();
     }
 
-    private function resolveKeketatanLabel(string $source, string $institutionName, string $programName, string $externalProgramId): ?string
+    private function resolveDestinationStatistics(string $source, string $institutionName, string $programName, string $externalProgramId): array
     {
         $ptn = $this->findOfficialInstitution($source, $institutionName);
 
         if (! $ptn) {
-            return null;
+            return ['value' => '-'];
         }
 
         $program = $this->findOfficialProgram($source, (string) $ptn['id_ptn'], $programName, $externalProgramId);
 
         if (! $program) {
-            return null;
+            return ['value' => '-'];
         }
 
         $history = is_array($program['history_daya_tampung'] ?? null) ? $program['history_daya_tampung'] : [];
@@ -390,10 +402,14 @@ class DashboardController extends Controller
         $peminat = (int) ($latest['peminat'] ?? $program['peminat'] ?? 0);
 
         if ($dayaTampung <= 0 || $peminat <= 0) {
-            return '-';
+            return ['value' => '-', 'applicants' => $peminat, 'quota' => $dayaTampung];
         }
 
-        return number_format(($dayaTampung / $peminat) * 100, 2, ',', '.').'%';
+        return [
+            'value' => number_format(($dayaTampung / $peminat) * 100, 2, ',', '.').'%',
+            'applicants' => $peminat,
+            'quota' => $dayaTampung,
+        ];
     }
 
     private function findOfficialInstitution(string $source, string $institutionName): ?array

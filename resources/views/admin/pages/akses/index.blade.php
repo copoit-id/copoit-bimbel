@@ -5,66 +5,59 @@
     $canManageTesKoran = auth()->user()?->hasPermission('tes_koran', 'view') ?? false;
 @endphp
 
-<div class="flex justify-between items-center">
-    <x-breadcrumb>
-        <x-slot name="items">
-            <x-breadcrumb-item href="" title="Akses User" />
-        </x-slot>
-    </x-breadcrumb>
-</div>
 <x-page-desc title="{{ $canManageTesKoran ? 'Kelola Akses User - Paket, Materi, Kelas, Tryout & Tes Koran' : 'Kelola Akses User - Paket, Materi, Kelas & Tryout' }}"></x-page-desc>
 
 <!-- Tabs Navigation -->
-<div class="bg-white rounded-lg border border-gray-200 p-2 mb-6 inline-flex flex-wrap gap-1">
+<div class="mb-6 inline-flex flex-wrap gap-1 rounded-xl border border-slate-100 bg-white p-1.5">
     <a href="{{ route('admin.akses.index', ['tab' => 'packages']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'packages' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-folder-3-line mr-1"></i>Paket
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'packages' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $items->count() }}
-        </span>
+        @if($tab === 'packages')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'videos']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'videos' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-video-line mr-1"></i>Video
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'videos' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'videos' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'videos')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'documents']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'documents' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-text-line mr-1"></i>Dokumen
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'documents' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'documents' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'documents')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'live']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'live' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-live-line mr-1"></i>{{ $clientBranding['live_session_label'] ?? 'Kelas Belajar' }}
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'live' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'live' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'live')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'classes']) }}"
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'classes' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-video-on-line mr-1"></i>Kelas Zoom
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'classes' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'classes' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'classes')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     <a href="{{ route('admin.akses.index', ['tab' => 'tryouts']) }}" 
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tryouts' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-list-3-line mr-1"></i>Tryout
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'tryouts' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'tryouts' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'tryouts')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     @if($canManageTesKoran)
     <a href="{{ route('admin.akses.index', ['tab' => 'tes_koran']) }}"
        class="px-5 py-2.5 rounded-lg font-medium transition-all text-sm {{ $tab === 'tes_koran' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-50' }}">
         <i class="ri-file-edit-line mr-1"></i>Tes Koran
-        <span class="ml-1 px-2 py-0.5 text-xs rounded-full {{ $tab === 'tes_koran' ? 'bg-white/20' : 'bg-gray-100' }}">
-            {{ $tab === 'tes_koran' ? $items->count() : '' }}
-        </span>
+        @if($tab === 'tes_koran')
+            <span class="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{{ $items->count() }}</span>
+        @endif
     </a>
     @endif
 </div>
@@ -74,7 +67,7 @@
     @forelse($items as $item)
     @php
     $itemId = $item->package_id ?? $item->material_id ?? $item->class_id ?? $item->tryout_id ?? $item->id;
-    $itemName = $item->name ?? $item->title ?? 'Unknown';
+    $itemName = html_entity_decode((string) ($item->name ?? $item->title ?? 'Unknown'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $userCount = $item->user_access_count ?? $item->userAccess->count() ?? 0;
     $pendingCount = (int) ($item->pending_requests_count ?? 0);
     
@@ -102,7 +95,7 @@
         default => 'bg-gray-100 text-gray-600',
     };
     @endphp
-    <div class="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow group">
+    <div class="group rounded-xl border border-slate-100 bg-white">
         <div class="p-5 flex h-full flex-col">
             <div class="flex items-start gap-4">
                 <div class="w-12 h-12 {{ $colorClass }} rounded-xl flex items-center justify-center flex-shrink-0">
@@ -117,7 +110,7 @@
             </div>
             
             <div class="mt-auto pt-4">
-                <div class="mb-3 border-t pt-4">
+                <div class="mb-3 border-t border-slate-100/80 pt-4">
                     <span class="inline-flex max-w-full items-center rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500">
                     @if(in_array($tab, ['packages', 'tes_koran']) && $item->price > 0)
                         Rp {{ number_format($item->price, 0, ',', '.') }}

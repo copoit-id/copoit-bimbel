@@ -79,17 +79,27 @@
             <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
                 <div class="flex items-start gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><i class="{{ $activeTool['icon'] }} text-xl"></i></span><div><h2 class="text-lg font-bold text-gray-900">AI {{ $activeTool['label'] }}</h2><p class="mt-1 text-sm leading-6 text-gray-500">{{ $activeTool['description'] }}</p></div></div>
 
+                @if($isAiLearningPreview)
+                    <div class="mt-5 flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div class="flex items-start gap-3"><i class="ri-eye-line mt-0.5 text-lg text-primary"></i><div><p class="text-sm font-semibold text-gray-900">Mode pratinjau</p><p class="mt-1 text-sm leading-5 text-gray-600">Kamu dapat melihat alur fitur ini. Aktifkan paket AI untuk mulai membuat hasil.</p></div></div><a href="{{ route('user.ai-learning.index', ['tool' => 'quota']) }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-shopping-bag-3-line"></i>Lihat paket</a></div>
+                @endif
+
                 <form id="ai-learning-independent-form" class="mt-6 space-y-5">
                     <input type="hidden" name="tool" value="{{ $currentTool }}">
-                    <x-ui.input name="title" label="Judul atau topik (opsional)" maxlength="120" icon="ri-bookmark-3-line" placeholder="Contoh: Hukum Newton" class="h-11 max-w-xl rounded-xl" />
-                    <x-ui.input.textarea name="content" label="Soal atau materi" :required="true" minlength="20" maxlength="10000" rows="9" resize="vertical" helper="Minimal 20 karakter." placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..." class="rounded-xl leading-6" />
+                    <fieldset @disabled($isAiLearningPreview) @class(['space-y-5', 'opacity-60' => $isAiLearningPreview])>
+                        <x-ui.input name="title" label="Judul atau topik (opsional)" maxlength="120" icon="ri-bookmark-3-line" placeholder="Contoh: Hukum Newton" class="h-11 max-w-xl rounded-xl" />
+                        <x-ui.input.textarea name="content" label="Soal atau materi" :required="true" minlength="20" maxlength="10000" rows="9" resize="vertical" helper="Minimal 20 karakter." placeholder="Tempel soal, teks materi, rumus, atau konsep yang ingin diolah..." class="rounded-xl leading-6" />
 
-                    @if($currentTool === 'question')
-                        <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal', '4' => '4 soal', '5' => '5 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
-                    @endif
+                        @if($currentTool === 'question')
+                            <div id="ai-independent-question-settings" class="rounded-xl border border-primary/20 bg-primary/5 p-4"><p class="text-sm font-semibold text-primary">Pengaturan soal serupa</p><div class="mt-4 grid gap-3 sm:grid-cols-2"><x-ui.input.select name="question_count" label="Jumlah soal" :options="['1' => '1 soal', '2' => '2 soal', '3' => '3 soal', '4' => '4 soal', '5' => '5 soal']" value="1" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="difficulty" label="Kesulitan" :options="['mudah' => 'Mudah', 'sedang' => 'Sedang', 'sulit' => 'Sulit']" value="sedang" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="variation" label="Variasi" :options="['konteks' => 'Ubah konteks', 'angka' => 'Ubah angka', 'hots' => 'Naikkan HOTS']" value="konteks" class="h-10 rounded-lg border-primary/20" /><x-ui.input.select name="hots_level" label="Level HOTS" :options="['rendah' => 'Rendah', 'sedang' => 'Sedang', 'tinggi' => 'Tinggi']" value="sedang" class="h-10 rounded-lg border-primary/20" /></div></div>
+                        @endif
+                    </fieldset>
 
                     <p id="ai-independent-error" class="hidden text-sm text-red-600" role="alert"></p>
-                    <button id="ai-independent-submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line"></i><span>{{ $activeTool['action'] }}</span></button>
+                    @if($isAiLearningPreview)
+                        <a href="{{ route('user.ai-learning.index', ['tool' => 'quota']) }}" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90"><i class="ri-lock-2-line"></i><span>Aktifkan paket untuk menggunakan fitur</span></a>
+                    @else
+                        <button id="ai-independent-submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"><i class="ri-sparkling-2-line"></i><span>{{ $activeTool['action'] }}</span></button>
+                    @endif
                 </form>
 
                 <div id="ai-independent-result-wrap" class="mt-6 hidden rounded-2xl border border-gray-200 bg-gray-50 p-5"><div class="mb-4 flex items-center justify-between"><p class="text-sm font-semibold text-gray-900">Hasil terbaru</p><span class="text-xs text-gray-400">Masuk ke riwayat</span></div><div id="ai-independent-result"></div></div>
@@ -175,25 +185,6 @@
 </div>
 @endif
 
-@if($showAiPackageRequiredModal)
-<div id="ai-package-required-modal" class="fixed inset-0 z-[100001] overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ai-package-required-title">
-    <div class="flex min-h-full items-center justify-center">
-        <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <div class="bg-gradient-to-br from-primary/15 via-white to-amber-50 px-6 py-8 text-center sm:px-9">
-                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-2xl text-white shadow-lg shadow-primary/20"><i class="ri-lock-2-line"></i></span>
-                <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-primary">Paket AI diperlukan</p>
-                <h2 id="ai-package-required-title" class="mt-2 text-2xl font-black text-gray-900">Aktifkan paket untuk mulai belajar</h2>
-                <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-gray-600">Akunmu belum memiliki paket AI aktif. Pilih paket atau klaim paket gratis yang tersedia untuk melanjutkan.</p>
-            </div>
-            <div class="px-6 pb-7 sm:px-9">
-                <a href="{{ route('user.ai-learning.index', ['tool' => 'quota']) }}" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-4 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90"><i class="ri-shopping-bag-3-line text-xl"></i><span>Lihat & pilih paket AI</span></a>
-                <p class="mt-3 text-center text-xs leading-5 text-gray-500">Paket lama dan riwayat penggunaan tetap tersimpan, tetapi tidak dihitung sebagai kuota aktif.</p>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
 <div id="ai-learning-artifact-modal" class="fixed inset-0 z-[99999] hidden overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><div class="flex h-full w-full items-center justify-center"><div class="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"><div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Riwayat AI Learning</p><p class="mt-1 text-lg font-bold text-gray-900">Detail hasil</p></div><button type="button" data-artifact-modal-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Tutup detail hasil"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-artifact-modal-content" class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6"></div></div></div></div>
 <div id="ai-learning-flashcard-modal" class="fixed inset-0 z-[100000] hidden overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md" role="dialog" aria-modal="true"><div class="flex min-h-full items-center justify-center"><div class="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl"><div class="mb-5 flex items-start justify-between"><div><p class="text-xs font-semibold uppercase tracking-wide text-primary">Mode recall</p><p class="mt-1 text-lg font-semibold text-gray-900">Flashcard</p></div><button type="button" data-flashcard-close class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"><i class="ri-close-line text-xl"></i></button></div><div id="ai-learning-flashcard-modal-content"></div></div></div></div>
 @endsection
@@ -215,7 +206,6 @@
     const aiLearningOnboardingSkipUrl = @json(route('user.ai-learning.onboarding.skip'));
     const aiOnboardingSample = @json($aiLearningOnboardingSample);
     const aiOnboardingModal = document.getElementById('ai-learning-onboarding-modal');
-    const aiPackageRequiredModal = document.getElementById('ai-package-required-modal');
     const aiOnboardingPanel = document.getElementById('ai-onboarding-panel');
     const aiOnboardingIntro = document.getElementById('ai-onboarding-intro');
     const aiOnboardingFlow = document.getElementById('ai-onboarding-flow');
@@ -373,7 +363,7 @@
         }
     }
 
-    if (aiOnboardingModal || aiPackageRequiredModal) {
+    if (aiOnboardingModal) {
         document.body.classList.add('overflow-hidden');
     }
 

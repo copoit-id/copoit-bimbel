@@ -551,6 +551,7 @@ document.addEventListener('alpine:init', () => {
         prodiError: null,
         
         prodiCache: {}, 
+        prodiRequestId: 0,
         isProdiModalOpen: false,
         selectedProdi: null,
 
@@ -558,9 +559,7 @@ document.addEventListener('alpine:init', () => {
             this.isLoadingPtn = true;
             this.ptnError = null;
             try {
-                const res = await fetch(this.ptnDataUrl);
-                if (!res.ok) throw new Error('Gagal memuat data PTN');
-                this.ptnList = await res.json();
+                this.ptnList = await this.fetchJson(this.ptnDataUrl, 'Gagal memuat data PTN');
                 
                 // Sort PTN list alphabetically by default
                 this.ptnList.sort((a, b) => a.nama.localeCompare(b.nama));
@@ -607,9 +606,11 @@ document.addEventListener('alpine:init', () => {
             this.prodiError = null;
 
             const ptnId = ptn.id_ptn;
+            const requestId = ++this.prodiRequestId;
 
             // Check Cache
             if (this.prodiCache[ptnId]) {
+                this.isLoadingProdi = false;
                 this.prodiList = this.prodiCache[ptnId];
                 this.applyProdiFilters();
                 return;
@@ -617,9 +618,8 @@ document.addEventListener('alpine:init', () => {
 
             this.isLoadingProdi = true;
             try {
-                const res = await fetch(`${this.prodiDataUrl}?ptn=${ptnId}`);
-                if (!res.ok) throw new Error('Gagal memuat program studi');
-                const data = await res.json();
+                const data = await this.fetchJson(`${this.prodiDataUrl}?ptn=${encodeURIComponent(ptnId)}`, 'Gagal memuat program studi');
+                if (requestId !== this.prodiRequestId) return;
                 
                 // Parse and enrich prodi data
                 this.prodiList = data.map(prodi => {
@@ -648,10 +648,42 @@ document.addEventListener('alpine:init', () => {
                 this.applyProdiFilters();
             } catch (err) {
                 console.error(err);
-                this.prodiError = 'Gagal memuat daftar program studi dari server SNPMB.';
+                if (requestId === this.prodiRequestId) {
+                    this.prodiError = 'Gagal memuat daftar program studi. Silakan coba pilih kampus kembali.';
+                }
             } finally {
-                this.isLoadingProdi = false;
+                if (requestId === this.prodiRequestId) {
+                    this.isLoadingProdi = false;
+                }
             }
+        },
+
+        async fetchJson(url, errorMessage) {
+            let lastError;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const controller = new AbortController();
+                const timeout = window.setTimeout(() => controller.abort(), 25000);
+
+                try {
+                    const response = await fetch(url, {
+                        headers: { Accept: 'application/json' },
+                        signal: controller.signal,
+                    });
+                    if (!response.ok) throw new Error(`${errorMessage} (${response.status})`);
+
+                    return await response.json();
+                } catch (error) {
+                    lastError = error;
+                    if (attempt === 0) {
+                        await new Promise((resolve) => window.setTimeout(resolve, 600));
+                    }
+                } finally {
+                    window.clearTimeout(timeout);
+                }
+            }
+
+            throw lastError || new Error(errorMessage);
         },
 
         applyProdiFilters() {

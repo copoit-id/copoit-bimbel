@@ -5,6 +5,7 @@
 <div class="package-bimbel bg-white p-4 rounded-lg border border-border">
     @php
         $showResultScores = $tryout->shouldShowResultScores();
+        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
         $showPassingGrade = $tryout->shouldShowPassingGrade();
         $showTotalResultScore = $tryout->shouldShowTotalResultScore();
     @endphp
@@ -21,7 +22,7 @@
         <div class="text-center">
             <h2 class="text-2xl font-bold mb-2">Skor Total</h2>
             <div class="text-5xl font-bold mb-2">{{ number_format($overallPercentage, 1) }}%</div>
-            <p class="text-lg">{{ $rawScore }} dari {{ $maxScore }} poin</p>
+            <p class="text-lg">{{ $rawScore }}@if($showScoreMaximum) dari {{ $maxScore }} poin@endif</p>
 
             @if($showPassingGrade && $tryout->type_tryout === 'computer')
             @if($overallPercentage >= 70)
@@ -148,17 +149,6 @@
         </div>
     @endif
 
-    @php
-        $shortLabels = [
-            'general' => 'G', 'tpa' => 'TPA', 'tbi' => 'TBI', 'listening' => 'L', 'reading' => 'R', 'writing' => 'W',
-            'twk' => 'TWK', 'tiu' => 'TIU', 'tkp' => 'TKP',
-            'penalaran_umum' => 'PU', 'pengetahuan_umum' => 'PPU', 
-            'pengetahuan_kuantitatif' => 'PK', 'pemahaman_bacaan_menulis' => 'PBM',
-            'literasi_bahasa_indonesia' => 'LBI', 'literasi_bahasa_inggris' => 'LBE',
-            'penalaran_matematika' => 'PM', 'word' => 'W', 'excel' => 'E', 'ppt' => 'P',
-            'teknis' => 'T', 'social culture' => 'SC', 'interview' => 'I'
-        ];
-    @endphp
     <!-- Subtest Results -->
     <div class="mb-6 {{ $totalPending > 0 ? 'opacity-60' : '' }}">
         <div class="flex items-center justify-between mb-4">
@@ -173,15 +163,11 @@
         
         <div class="space-y-3">
             @foreach($subtestResults as $subtest)
-            @php
-                $typeKey = strtolower($subtest['type'] ?? '');
-                $shortLabel = $shortLabels[$typeKey] ?? strtoupper(substr($subtest['alias'] ?? $subtest['type'] ?? 'S', 0, 2));
-            @endphp
             <div class="border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                        <div class="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-xs font-bold text-white">
-                            {{ $shortLabel }}
+                        <div class="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-xs font-bold text-white" aria-hidden="true">
+                            <i class="ri-book-open-line"></i>
                         </div>
                         <h4 class="font-medium text-gray-900">{{ $subtest['name'] }}</h4>
                     </div>
@@ -207,7 +193,7 @@
                     @if($showResultScores || $showPassingGrade)
                         <p class="text-sm text-gray-500">
                             @if($showResultScores)
-                                {{ $subtest['raw_score'] }}/{{ $subtest['max_score'] }}
+                                {{ $subtest['display_score']['formatted'] ?? $subtest['raw_score'] }}@if($showScoreMaximum)/{{ $subtest['display_score']['formatted_maximum'] ?? $subtest['max_score'] }}@endif
                             @endif
                             @if($showResultScores && $showPassingGrade)
                                 <span class="mx-1">-</span>
@@ -284,10 +270,10 @@
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
         @endif
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
             <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
-        </a>
+        </x-ui.history-back>
         @else
         @if($tryout->show_discussion)
         <a href="{{ route('user.package.tryout.pembahasan', ['free', $tryout->tryout_id, $latestAttemptToken]) }}"
@@ -301,10 +287,10 @@
             <i class="ri-trophy-line mr-2"></i>Lihat Ranking
         </a>
         @endif
-        <a href="{{ route('user.event.index') }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', 'free')"
             class="flex-1 bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-        </a>
+            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+        </x-ui.history-back>
         @endif
     </div>
 </div>

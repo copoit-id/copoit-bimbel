@@ -1,8 +1,8 @@
 @extends('user.layout.tryout')
 @section('title', 'Lobby')
 @section('content')
-    <div class="lobby flex justify-center items-center w-full min-h-screen text-black">
-        <div class="w-3xl mx-auto p-8 mt-18 bg-white shadow rounded-lg flex justify-center items-center flex-col gap-2">
+<div class="lobby flex min-h-[calc(100vh-4rem)] w-full items-center justify-center py-6 text-black sm:py-8">
+        <div class="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-2 rounded-xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8">
             <div class="rounded-lg text-center">
                 <h1 class="text-2xl font-bold mb-4">{{ $tryout->name }}</h1>
                 @if(filled($tryout->description))
@@ -37,16 +37,7 @@
                                 {{ $index + 1 }}
                             </div>
                             <div class="text-left">
-                                <div class="font-semibold">{{ strtoupper($detail->type_subtest) }}</div>
-                                <div class="text-sm text-gray-600">
-                                    @if ($detail->type_subtest === 'twk')
-                                    Tes Wawasan Kebangsaan
-                                    @elseif($detail->type_subtest === 'tiu')
-                                    Tes Intelegensi Umum
-                                    @elseif($detail->type_subtest === 'tkp')
-                                    Tes Karakteristik Pribadi
-                                    @endif
-                                </div>
+                                <div class="font-semibold">{{ $detail->display_name }}</div>
                             </div>
                         </div>
                         <div class="text-right">

@@ -48,21 +48,37 @@
                 @php
                     $selectedUserIds = collect(old('user_ids', $selectedUserIds ?? []))->map(fn ($id) => (int) $id)->all();
                 @endphp
-                <div class="max-h-72 overflow-auto rounded-lg border border-gray-200">
+                <div class="mb-3 grid gap-3 md:grid-cols-2">
+                    <div class="relative">
+                        <i class="ri-search-line pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400"></i>
+                        <input type="search" placeholder="Cari nama peserta" data-rombel-participant-search
+                            class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                    <div class="relative">
+                        <i class="ri-school-line pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400"></i>
+                        <input type="search" placeholder="Cari nama sekolah" data-rombel-school-search
+                            class="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    </div>
+                </div>
+                <div class="max-h-72 overflow-auto rounded-lg border border-gray-200" data-rombel-participant-list>
                     @forelse($users as $user)
-                        <label class="flex items-start gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 hover:bg-gray-50">
+                        <label class="flex items-start gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 hover:bg-gray-50" data-rombel-participant data-name="{{ strtolower($user->name) }}" data-school="{{ strtolower($user->origin_institution ?? '') }}">
                             <input type="checkbox" name="user_ids[]" value="{{ $user->id }}"
                                 @checked(in_array((int) $user->id, $selectedUserIds, true))
                                 class="mt-1 rounded border-gray-300 text-primary focus:ring-primary">
                             <span>
                                 <span class="block text-sm font-medium text-gray-900">{{ $user->name }}</span>
                                 <span class="block text-xs text-gray-500">{{ $user->email }}</span>
+                                @if($user->origin_institution)
+                                    <span class="block text-xs text-gray-500">{{ $user->origin_institution }}</span>
+                                @endif
                             </span>
                         </label>
                     @empty
                         <div class="px-4 py-6 text-center text-sm text-gray-500">Belum ada peserta.</div>
                     @endforelse
                 </div>
+                <p class="mt-2 hidden text-sm text-gray-500" data-rombel-empty-search>Tidak ada peserta yang sesuai.</p>
             </div>
 
             <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -83,3 +99,30 @@
         </div>
     </form>
 </div>
+
+@once
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-rombel-participant-list]').forEach((list) => {
+        const section = list.parentElement;
+        const nameField = section.querySelector('[data-rombel-participant-search]');
+        const schoolField = section.querySelector('[data-rombel-school-search]');
+        const emptyMessage = section.querySelector('[data-rombel-empty-search]');
+        const participants = [...list.querySelectorAll('[data-rombel-participant]')];
+        const filter = () => {
+            const name = nameField.value.trim().toLocaleLowerCase('id-ID');
+            const school = schoolField.value.trim().toLocaleLowerCase('id-ID');
+            let visible = 0;
+            participants.forEach((participant) => {
+                const matches = participant.dataset.name.includes(name) && participant.dataset.school.includes(school);
+                participant.classList.toggle('hidden', !matches);
+                visible += matches ? 1 : 0;
+            });
+            emptyMessage.classList.toggle('hidden', visible !== 0);
+        };
+        nameField.addEventListener('input', filter);
+        schoolField.addEventListener('input', filter);
+    });
+});
+</script>
+@endonce

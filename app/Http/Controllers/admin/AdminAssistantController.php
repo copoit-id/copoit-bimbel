@@ -23,4 +23,13 @@ class AdminAssistantController extends Controller
 
         return response()->json($this->assistantService->chat($validated['message']));
     }
+
+    public function history(Request $request): JsonResponse
+    {
+        abort_unless(config('client.branding.admin_assistant_enabled', false), 404);
+
+        return response()->json([
+            'messages' => $this->assistantService->history($request->user()),
+        ]);
+    }
 }

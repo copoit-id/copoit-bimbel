@@ -1,12 +1,13 @@
 @extends('user.layout.new-user')
 @section('title', 'Pembahasan Tryout')
 @section('content')
-<div class="package-bimbel flex flex-col gap-4">
+<div class="package-bimbel flex flex-col gap-4 pb-40 md:pb-28">
     @php
         $formatScore = function ($value) {
             return rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
         };
         $showPassingGrade = $tryout->shouldShowPassingGrade();
+        $showScoreMaximum = $tryout->shouldShowScoreMaximum();
         $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
         $aiDiscussionEnabled = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
             && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
@@ -139,6 +140,12 @@
                 transition-duration: 1ms;
             }
         }
+
+        @media (max-width: 767px) {
+            #floating-whatsapp {
+                bottom: 12rem;
+            }
+        }
     </style>
     @if(request('payment') === 'success')
         <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">Pembayaran paket AI berhasil diterima. Status paket akan tersinkron otomatis dari gateway pusat.</div>
@@ -151,7 +158,7 @@
             <div class="flex flex-wrap items-center justify-center gap-2">
                 <p class="font-semibold">Pembahasan - {{ $tryout->name }}</p>
             </div>
-            <p class="text-5xl font-medium">{{ $formatScore($overallStats['total_score']) }}</p>
+            <p class="text-5xl font-medium">{{ $overallStats['display_score'] ?? $formatScore($overallStats['total_score']) }}</p>
             @if($showPassingGrade)
                 <span
                     class="flex items-center gap-1 border px-6 py-0.5 rounded-lg {{ $overallStats['is_passed'] ? 'border-green bg-green-light text-green' : 'border-red bg-red-light text-red' }}">
@@ -162,7 +169,7 @@
             @if(isset($tryoutDetails) && $tryoutDetails->count() > 1)
             <div class="mt-2">
                 <span class="inline-flex px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-                    SKD Full - {{ $tryoutDetails->count() }} Subtest
+                    {{ $subtestGroupLabel }}
                 </span>
             </div>
             @endif
@@ -214,7 +221,7 @@
         </div>
     </div>
 
-    <!-- SKD Full Subtest Summary (if multiple subtests) -->
+    <!-- Subtest Summary (if multiple subtests) -->
     @if(!empty($subtestSummaries))
     <div class="bg-white px-4 py-6 rounded-lg border border-border">
         <h3 class="text-lg font-bold mb-4 text-gray-800">Ringkasan Per Subtest</h3>
@@ -223,13 +230,13 @@
             <div
                 class="p-4 border rounded-lg {{ $showPassingGrade ? ($summary['is_passed'] ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50') : 'border-gray-200 bg-white' }}">
                 <div class="text-center mb-3">
-                    <h4 class="font-semibold text-gray-800">{{ strtoupper($summary['type']) }}
+                    <h4 class="font-semibold text-gray-800">{{ $summary['abbreviation'] ?? \App\Models\TryoutDetail::abbreviationFromName($summary['name'] ?? '') }}
                     </h4>
                     <p class="text-sm text-gray-600">{{ $summary['name'] }}</p>
                 </div>
                 <div class="text-center">
                     <div class="text-2xl font-bold {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-800' }}">
-                        {{ $formatScore($summary['score']) }}/{{ $formatScore($summary['max_score']) }}
+                        {{ $summary['display_score'] ?? $formatScore($summary['score']) }}@if($showScoreMaximum)/{{ $summary['display_maximum'] ?? $formatScore($summary['max_score']) }}@endif
                     </div>
                     <div class="text-sm {{ $showPassingGrade ? ($summary['is_passed'] ? 'text-green-600' : 'text-red-600') : 'text-gray-600' }}">
                         {{ number_format($summary['percentage'], 1) }}%
@@ -391,7 +398,7 @@
             <div class="flex items-center gap-3 mb-4">
                 <div
                     class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    {{ strtoupper($detail->subtest_type) }}
+                    <i class="ri-book-open-line"></i>
                 </div>
                 <h3 class="text-xl font-bold text-primary">{{ $detail->subtest_name }}</h3>
             </div>
@@ -419,7 +426,7 @@
             <div class="flex flex-wrap items-center justify-start gap-4">
                 <p class="font-semibold">Soal {{ $index + 1 }}</p>
                 <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                    {{ strtoupper($detail->subtest_type) }}
+                    {{ $detail->subtest_name }}
                 </span>
                 @if($scoringModeInfo)
                 <span class="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-1 text-xs font-semibold text-primary">
@@ -654,7 +661,7 @@
                                     : ($mtfFalseLabel !== '' ? $mtfFalseLabel : 'Salah');
                             @endphp
                             <tr class="border-t border-gray-200">
-                                <td class="px-5 py-3.5 text-gray-800 align-top">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="question-rich-text px-5 py-3.5 text-gray-800 align-top [&_img]:h-auto [&_img]:max-w-full">{!! $stmt['text'] ?? '-' !!}</td>
                                 <td class="px-5 py-3.5 text-center align-middle">
                                     @if($userAnswer === 'true')
                                     <i class="ri-checkbox-circle-fill {{ $isStmtCorrect ? 'text-green' : 'text-red' }} text-lg"></i>
@@ -882,8 +889,7 @@
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Total Skor:</span>
-                        <span class="font-semibold">{{ number_format($overallStats['total_score'], 0) }}/{{
-                            number_format($overallStats['max_score'], 0) }}</span>
+                        <span class="font-semibold">{{ $overallStats['display_score'] ?? number_format($overallStats['total_score'], 0) }}@if($showScoreMaximum)/{{ $overallStats['display_maximum'] ?? number_format($overallStats['max_score'], 0) }}@endif</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Persentase:</span>
@@ -942,16 +948,19 @@
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex flex-wrap justify-center gap-3">
+    <!-- Floating Action Buttons -->
+    <div class="fixed inset-x-3 bottom-20 z-40 flex justify-center sm:inset-x-6 md:bottom-5">
+    <div class="flex max-w-4xl flex-wrap justify-center gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl backdrop-blur sm:gap-3 sm:p-3">
         @if($package)
-            <x-ui.button :href="route('user.package.tryout', $package->package_id)" variant="outline" size="md" icon="ri-arrow-left-line">
+            <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
                 Kembali ke Tryout
-            </x-ui.button>
+            </x-ui.history-back>
         @else
-            <x-ui.button :href="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" variant="outline" size="md" icon="ri-arrow-left-line">
+            <x-ui.history-back :fallback="route('user.tryout.result', [$packageRouteId, $tryout->tryout_id])" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i class="ri-arrow-left-line"></i>
                 Kembali ke Hasil
-            </x-ui.button>
+            </x-ui.history-back>
         @endif
 
         @if($package)
@@ -976,9 +985,10 @@
             Coba Lagi
         </x-ui.button>
     </div>
+    </div>
 
     @if(filled(config('services.ai_gateway.url')) && filled(config('services.ai_gateway.key')) && $aiDiscussionEnabled)
-    <a id="ai-gateway-usage-badge" href="{{ $hasActiveAiGatewayPackage ? route('user.ai-gateway.index') : '#' }}" @if($shouldOpenAiGatewayBuyModal) onclick="event.preventDefault(); openAiDiscussionFeatureModal();" @endif class="group fixed bottom-24 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $aiGatewayBadgeTitle }}">
+    <a id="ai-gateway-usage-badge" href="{{ $hasActiveAiGatewayPackage ? route('user.ai-gateway.index') : '#' }}" @if($shouldOpenAiGatewayBuyModal) onclick="event.preventDefault(); openAiDiscussionFeatureModal();" @endif class="group fixed bottom-48 left-4 z-40 flex h-20 w-20 items-center justify-center rounded-full p-1 shadow-lg transition hover:-translate-y-1 hover:shadow-xl md:bottom-6" style="background: {{ $aiGatewayUsedPercentage !== null ? 'conic-gradient(' . $primaryColor . ' ' . $aiGatewayUsedPercentage . '%, #e5e7eb 0)' : '#e5e7eb' }}" title="{{ $aiGatewayBadgeTitle }}">
         <span class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center text-gray-700">
         @if($hasActiveAiGatewayPackage)
             <i class="ri-robot-2-line mb-1 text-xs text-primary"></i><span id="ai-gateway-used-percentage" class="text-base font-bold leading-none">{{ $aiGatewayUsedPercentage !== null ? number_format($aiGatewayUsedPercentage, 0) . '%' : '∞' }}</span>

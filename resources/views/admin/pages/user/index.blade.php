@@ -19,15 +19,9 @@
                 <i class="ri-upload-line"></i>
                 Import CSV
             </a>
-            {{-- Button dengan Cek Plan Quota --}}
-            <x-plan-quota-button 
-                feature="user"
-                href="{{ route('admin.user.create') }}"
-                icon="ri-add-line"
-                label="Tambah User"
-                variant="primary"
-                size="md"
-                tooltipPosition="bottom" />
+            <x-ui.button :href="route('admin.user.create', request()->only(['role', 'search', 'status']))" icon="ri-add-line">
+                Tambah Pengguna
+            </x-ui.button>
         </div>
     </div>
 
@@ -82,6 +76,9 @@
         @csrf
         @method('DELETE')
     </form>
+    <form id="bulk-reset-password-form" action="{{ route('admin.user.bulk-reset-password', request()->query()) }}" method="POST" class="hidden">
+        @csrf
+    </form>
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border">
         <div class="mb-4 flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
@@ -110,27 +107,34 @@
                 </a>
             </form>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-end gap-3">
                 <div id="user-count" class="text-sm text-gray-500">
                     Menampilkan: <span class="font-medium text-gray-700">{{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }}</span>
                     <span class="mx-1 text-gray-300">•</span>
                     Total {{ $roleOptions[$activeRole] ?? 'User' }}: <span class="font-medium text-gray-700 total-count">{{ $users->total() }} User</span>
                 </div>
-                <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
-                    class="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
-                    <i class="ri-delete-bin-5-line"></i>
-                    Hapus Terpilih
-                    <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
-                        <span id="bulk-selected-count">0</span>
-                    </span>
-                </button>
+                <div id="bulk-actions" class="hidden flex-wrap items-center gap-2">
+                    <button type="submit" form="bulk-delete-form" id="bulk-delete-button" disabled
+                        class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-white px-4 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="ri-delete-bin-5-line"></i>
+                        Hapus Terpilih
+                        <span class="inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">
+                            <span id="bulk-selected-count">0</span>
+                        </span>
+                    </button>
+                    <button type="button" id="bulk-reset-password-button" disabled
+                        class="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border border-primary/20 bg-white px-4 text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="ri-lock-password-line"></i>
+                        Reset Password Terpilih
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- User Table -->
         <div>
             <div class="relative overflow-x-auto">
-                <table class="w-full text-sm text-left rtl:text-right text-gray-500">
+                <table class="{{ $userTable['min_width_class'] }} w-full text-sm text-left rtl:text-right text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 w-12">
@@ -139,13 +143,18 @@
                             </th>
                             <th scope="col" class="px-6 py-3">User</th>
                             <th scope="col" class="px-6 py-3">Username</th>
-                            <th scope="col" class="px-6 py-3">Tujuan Belajar</th>
+                            @if($userTable['shows_student_profile'])
+                            <th scope="col" class="w-[360px] min-w-[360px] px-6 py-3">Tujuan Belajar</th>
                             <th scope="col" class="px-6 py-3">Program & Kelas</th>
                             <th scope="col" class="px-6 py-3">Kehadiran</th>
-                            <th scope="col" class="px-6 py-3">Role</th>
+                            @elseif($userTable['shows_tutor_profile'])
+                            <th scope="col" class="px-6 py-3">Profil Tutor</th>
+                            @elseif($userTable['shows_children'])
+                            <th scope="col" class="px-6 py-3">Anak Terhubung</th>
+                            @endif
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Dibuat</th>
-                            <th scope="col" class="px-6 py-3 text-center">Aksi</th>
+                            <th scope="col" class="sticky right-0 z-20 w-[220px] min-w-[220px] border-l border-gray-200 bg-gray-50 px-6 py-3 text-center shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.25)]">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="user-tbody">
@@ -155,7 +164,7 @@
                             data-username="{{ Str::lower($user->username) }}" data-phone="{{ Str::lower($user->phone) }}"
                             data-role="{{ $user->role }}" data-status="{{ $user->status }}">
                             <td class="px-6 py-4">
-                                <input type="checkbox" name="ids[]" value="{{ $user->id }}" form="bulk-delete-form"
+                                <input type="checkbox" value="{{ $user->id }}"
                                     class="user-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/50">
                             </td>
                             <td class="px-6 py-4">
@@ -174,10 +183,18 @@
                             <td class="px-6 py-4">
                                 <span class="text-gray-700">{{ $user->username }}</span>
                             </td>
-                            <td class="px-6 py-4">
-                                <span class="text-gray-700">
-                                    {{ $user->participant_destination_display_name ?? '-' }}
-                                </span>
+                            @if($userTable['shows_student_profile'])
+                            <td class="w-[360px] min-w-[360px] px-6 py-4">
+                                <div class="space-y-1">
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-gray-700">
+                                        <span class="shrink-0 text-xs text-gray-500">Pilihan 1:</span>
+                                        <span class="truncate">{{ $user->participant_destination_display_name ?: ($user->major_choice_1 ?: '—') }}</span>
+                                    </p>
+                                    <p class="flex items-center gap-2 whitespace-nowrap text-xs text-gray-600">
+                                        <span class="shrink-0 text-gray-500">Pilihan 2:</span>
+                                        <span class="truncate">{{ $user->second_participant_destination_display_name ?: ($user->major_choice_2 ?: '—') }}</span>
+                                    </p>
+                                </div>
                             </td>
                             <td class="px-6 py-4">
                                 @php
@@ -207,21 +224,25 @@
                                     <span class="text-xs text-gray-400">Belum ada data</span>
                                 @endif
                             </td>
+                            @elseif($userTable['shows_tutor_profile'])
                             <td class="px-6 py-4">
-                                @php
-                                $roleClass = match($user->role) {
-                                'admin' => 'bg-red-100 text-red-800',
-                                'admin_demo' => 'bg-amber-100 text-amber-800',
-                                'user' => 'bg-green-100 text-green-800',
-                                'konsultan' => 'bg-blue-100 text-blue-800',
-                                default => 'bg-gray-100 text-gray-800'
-                                };
-                                $roleLabel = $roleOptions[$user->role] ?? \Illuminate\Support\Str::headline($user->role);
-                                @endphp
-                                <span class="px-2 py-1 text-xs font-medium rounded-full {{ $roleClass }}">
-                                    {{ $roleLabel }}
-                                </span>
+                                @if($user->tentorProfile)
+                                    <p class="max-w-56 truncate font-medium text-gray-700" title="{{ $user->tentorProfile->expertise }}">{{ $user->tentorProfile->expertise ?: 'Keahlian belum diisi' }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $user->tentorProfile->education ?: 'Pendidikan belum diisi' }}@if($user->tentorProfile->experience_years) · {{ $user->tentorProfile->experience_years }} th pengalaman @endif</p>
+                                @else
+                                    <span class="text-xs text-gray-400">Profil tutor belum diatur</span>
+                                @endif
                             </td>
+                            @elseif($userTable['shows_children'])
+                            <td class="px-6 py-4">
+                                @if($user->children->isNotEmpty())
+                                    <p class="max-w-56 truncate font-medium text-gray-700" title="{{ $user->children->pluck('name')->implode(', ') }}">{{ $user->children->pluck('name')->implode(', ') }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $user->children_count }} anak terhubung</p>
+                                @else
+                                    <span class="text-xs text-gray-400">Belum ada anak terhubung</span>
+                                @endif
+                            </td>
+                            @endif
                             <td class="px-6 py-4">
                                 @php
                                 $statusClass = match($user->status) {
@@ -237,7 +258,7 @@
                             <td class="px-6 py-4">
                                 {{ optional($user->created_at)->format('Y-m-d') }}
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="sticky right-0 z-10 min-w-[220px] border-l border-gray-100 bg-white px-6 py-4 shadow-[-4px_0_8px_-6px_rgba(0,0,0,0.15)]">
                                 <div class="flex items-center justify-center gap-1.5">
                                     <a href="{{ route('admin.user.show', $user->id) }}"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -245,12 +266,14 @@
                                         <i class="ri-eye-line text-base"></i>
                                         <span class="sr-only">Lihat detail user</span>
                                     </a>
+                                    @if($userTable['shows_student_profile'])
                                     <a href="{{ route('admin.user.report', $user->id) }}"
                                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                                         title="Lihat laporan belajar" aria-label="Lihat laporan belajar">
                                         <i class="ri-bar-chart-line text-base"></i>
                                         <span class="sr-only">Lihat laporan belajar</span>
                                     </a>
+                                    @endif
                                     @if($user->role === 'user')
                                     <form action="{{ route('admin.user.login-as', $user->id) }}" method="POST" 
                                         class="inline-flex"
@@ -270,6 +293,14 @@
                                         <i class="ri-edit-line text-base"></i>
                                         <span class="sr-only">Edit user</span>
                                     </a>
+                                    <button type="button"
+                                        data-password-reset-url="{{ route('admin.user.reset-password', array_merge(request()->query(), ['user' => $user])) }}"
+                                        data-password-reset-message="Reset password {{ $user->name }} ke password default dari emailnya?"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        title="Reset password ke default email" aria-label="Reset password ke default email">
+                                        <i class="ri-lock-password-line text-base"></i>
+                                        <span class="sr-only">Reset password</span>
+                                    </button>
                                     <form action="{{ route('admin.user.destroy', $user->id) }}" method="POST"
                                         onsubmit="return confirm('Hapus user {{ addslashes($user->name) }}?')" class="inline-flex">
                                         @csrf
@@ -286,7 +317,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="{{ $userTable['empty_colspan'] }}" class="px-6 py-10 text-center text-gray-500">
                                 Tidak ada user.
                             </td>
                         </tr>
@@ -307,8 +338,11 @@
         document.addEventListener('DOMContentLoaded', function () {
             const selectAll = document.getElementById('select-all-users');
             const bulkButton = document.getElementById('bulk-delete-button');
+            const bulkResetButton = document.getElementById('bulk-reset-password-button');
+            const bulkActions = document.getElementById('bulk-actions');
             const bulkCount = document.getElementById('bulk-selected-count');
             const bulkForm = document.getElementById('bulk-delete-form');
+            const bulkResetForm = document.getElementById('bulk-reset-password-form');
 
             function getRowCheckboxes() {
                 return Array.from(document.querySelectorAll('.user-checkbox'));
@@ -320,6 +354,15 @@
 
                 if (bulkButton) {
                     bulkButton.disabled = checked.length === 0;
+                }
+
+                if (bulkResetButton) {
+                    bulkResetButton.disabled = checked.length === 0;
+                }
+
+                if (bulkActions) {
+                    bulkActions.classList.toggle('hidden', checked.length === 0);
+                    bulkActions.classList.toggle('flex', checked.length > 0);
                 }
 
                 if (bulkCount) {
@@ -340,6 +383,22 @@
                 }
             }
 
+            function syncBulkFormIds() {
+                const selected = getRowCheckboxes().filter(cb => cb.checked);
+
+                [bulkForm, bulkResetForm].filter(Boolean).forEach(form => {
+                    form.querySelectorAll('[data-bulk-user-id]').forEach(input => input.remove());
+                    selected.forEach(checkbox => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ids[]';
+                        input.value = checkbox.value;
+                        input.dataset.bulkUserId = 'true';
+                        form.appendChild(input);
+                    });
+                });
+            }
+
             if (selectAll) {
                 selectAll.addEventListener('change', function () {
                     getRowCheckboxes().forEach(cb => {
@@ -348,11 +407,26 @@
                         }
                     });
                     updateBulkState();
+                    syncBulkFormIds();
                 });
             }
 
             getRowCheckboxes().forEach(cb => {
-                cb.addEventListener('change', updateBulkState);
+                cb.addEventListener('change', function () {
+                    updateBulkState();
+                    syncBulkFormIds();
+                });
+            });
+
+            document.querySelectorAll('[data-password-reset-url]').forEach(button => {
+                button.addEventListener('click', function () {
+                    openConfirmModal(
+                        'confirm-reset-password',
+                        button.dataset.passwordResetUrl,
+                        'POST',
+                        button.dataset.passwordResetMessage
+                    );
+                });
             });
 
 
@@ -370,115 +444,34 @@
                 });
             }
 
+            if (bulkResetButton) {
+                bulkResetButton.addEventListener('click', function () {
+                    const selected = getRowCheckboxes().filter(cb => cb.checked);
+                    if (selected.length === 0) {
+                        return;
+                    }
+
+                    syncBulkFormIds();
+                    openConfirmModal(
+                        'confirm-reset-password',
+                        '',
+                        'POST',
+                        `Reset password ${selected.length} user terpilih ke password default dari emailnya?`,
+                        'bulk-reset-password-form'
+                    );
+                });
+            }
+
             updateBulkState();
+            syncBulkFormIds();
         });
     </script>
 </div>
 
-<!-- Add User Modal -->
-<div id="add-user-modal" tabindex="-1" aria-hidden="true"
-    class="fixed top-0 left-0 right-0 z-50 hidden w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full">
-    <div class="relative w-full max-w-2xl max-h-full">
-        <div class="relative bg-white rounded-lg shadow">
-            <div class="flex items-start justify-between p-4 border-b rounded-t">
-                <h3 class="text-xl font-semibold text-gray-900">
-                    Tambah User Baru
-                </h3>
-                <button type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center"
-                    data-modal-hide="add-user-modal">
-                    <i class="ri-close-line text-lg"></i>
-                </button>
-            </div>
-
-            {{-- Form disesuaikan dengan validasi di controller --}}
-            <form action="{{ route('admin.user.store') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Nama Lengkap</label>
-                            <input type="text" name="name" value="{{ old('name') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
-                            <input type="text" name="username" value="{{ old('username') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('username') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Email</label>
-                            <input type="email" name="email" value="{{ old('email') }}"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Password</label>
-                            <input type="password" name="password"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                            @error('password') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Role</label>
-                            <select name="role"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                                <option value="" @selected(old('role')==='' )>Pilih role</option>
-                                @foreach($roleOptions as $roleSlug => $roleName)
-                                    <option value="{{ $roleSlug }}" @selected(old('role') === $roleSlug)>{{ $roleName }}</option>
-                                @endforeach
-                            </select>
-                            @error('role') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Status</label>
-                            <select name="status"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5"
-                                required>
-                                <option value="" @selected(old('status')==='' )>Pilih status</option>
-                                <option value="aktif" @selected(old('status')==='aktif' )>Aktif</option>
-                                <option value="nonaktif" @selected(old('status')==='nonaktif' )>Tidak Aktif</option>
-                            </select>
-                            @error('status') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        {{-- Optional: foto profil (tidak divalidasi di controller) --}}
-                        <div class="col-span-2">
-                            <label class="block mb-2 text-sm font-medium text-gray-900">Foto Profil</label>
-                            <div class="flex items-center justify-center w-full">
-                                <label for="dropzone-file"
-                                    class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <i class="ri-upload-cloud-2-line text-4xl text-gray-500 mb-2"></i>
-                                        <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Klik untuk
-                                                upload</span> atau drag and drop</p>
-                                        <p class="text-xs text-gray-500">Ukuran ideal: 512 × 512 px (rasio 1:1). PNG atau JPG (maks. 2MB)</p>
-                                    </div>
-                                    <input id="dropzone-file" type="file" name="avatar" accept="image/png,image/jpeg"
-                                        class="hidden" />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center justify-end p-6 space-x-2 border-t border-gray-200 rounded-b">
-                    <button type="button" data-modal-hide="add-user-modal"
-                        class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary/20 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10">
-                        Batal
-                    </button>
-                    <button type="submit"
-                        class="text-white bg-primary hover:bg-primary/90 focus:ring-4 focus:outline-none focus:ring-primary/20 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-                        Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<x-confirm-modal
+    id="confirm-reset-password"
+    title="Reset Password"
+    message="Password akan direset ke default dari bagian email sebelum @."
+    confirmText="Ya, reset"
+    confirmVariant="primary" />
 @endsection

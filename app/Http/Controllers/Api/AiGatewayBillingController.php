@@ -52,6 +52,7 @@ class AiGatewayBillingController extends Controller
     {
         $client = $this->client($request);
         $scope = $this->scope($request);
+        $includeAllScopes = $request->boolean('include_all_scopes');
         $externalUserId = trim((string) $request->validate([
             'external_user_id' => 'required|string|max:120',
         ])['external_user_id']);
@@ -60,7 +61,7 @@ class AiGatewayBillingController extends Controller
         $subscriptions = AiGatewaySubscription::with('plan')
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
-            ->where('scope', $scope)
+            ->when(! $includeAllScopes, fn ($query) => $query->where('scope', $scope))
             ->where('status', 'active')
             ->notExpired()
             ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
@@ -77,13 +78,13 @@ class AiGatewayBillingController extends Controller
             ->where('status', 'pending')
             ->where('created_at', '>', now()->subDay())
             ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
-            ->whereHas('plan', fn ($query) => $query->where('scope', $scope))
+            ->when(! $includeAllScopes, fn ($query) => $query->whereHas('plan', fn ($query) => $query->where('scope', $scope)))
             ->latest()
             ->first();
         $claimedFreePlanIds = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
-            ->where('scope', $scope)
+            ->when(! $includeAllScopes, fn ($query) => $query->where('scope', $scope))
             ->where('status', 'active')
             ->notExpired()
             ->whereNotNull('free_claim_key')
@@ -94,7 +95,7 @@ class AiGatewayBillingController extends Controller
         $hasInactivePackageHistory = AiGatewaySubscription::query()
             ->where('ai_gateway_client_id', $client->id)
             ->where('external_user_id', $externalUserId)
-            ->where('scope', $scope)
+            ->when(! $includeAllScopes, fn ($query) => $query->where('scope', $scope))
             ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
             ->where(function ($query): void {
                 $query->where('status', '!=', 'active')
@@ -105,7 +106,7 @@ class AiGatewayBillingController extends Controller
             ->where('ai_gateway_client_id', $client->id)
             ->where('status', 'paid')
             ->whereHas('subscription', fn ($query) => $query->where('external_user_id', $externalUserId))
-            ->whereHas('plan', fn ($query) => $query->where('scope', $scope))
+            ->when(! $includeAllScopes, fn ($query) => $query->whereHas('plan', fn ($query) => $query->where('scope', $scope)))
             ->latest('paid_at')
             ->limit(20)
             ->get()
@@ -122,7 +123,7 @@ class AiGatewayBillingController extends Controller
 
         return response()->json([
             'project' => $client->name,
-            'scope' => $scope,
+            'scope' => $includeAllScopes ? 'all' : $scope,
             'subscription' => $subscription,
             'subscriptions' => $subscriptions,
             'pending_payment' => $pendingPayment ? [
@@ -149,6 +150,7 @@ class AiGatewayBillingController extends Controller
     public function checkout(Request $request): JsonResponse
     {
         $client = $this->client($request);
+        $scope = $this->scope($request);
         $data = $request->validate([
             'plan_id' => 'required|integer|exists:ai_gateway_plans,id',
             'external_user_id' => 'required|string|max:120',
@@ -161,6 +163,7 @@ class AiGatewayBillingController extends Controller
         $successRedirectUrl = $this->allowedRedirectUrl($client, $data['success_redirect_url'] ?? null);
         $failureRedirectUrl = $this->allowedRedirectUrl($client, $data['failure_redirect_url'] ?? null);
         $plan = AiGatewayPlan::where('is_active', true)
+            ->where('scope', $scope)
             ->where('token_limit', '>', 0)
             ->findOrFail($data['plan_id']);
 
@@ -297,7 +300,10 @@ class AiGatewayBillingController extends Controller
                 ->with('plan')
                 ->where('ai_gateway_client_id', $client->id)
                 ->where('external_user_id', trim((string) $data['external_user_id']))
-                ->where('scope', AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR)
+                ->whereIn('scope', [
+                    AiGatewayPlan::SCOPE_ADMIN_QUESTION_GENERATOR,
+                    AiGatewayPlan::SCOPE_LEARNING_TOOLS,
+                ])
                 ->where('status', 'active')
                 ->notExpired()
                 ->whereHas('transactions', fn ($query) => $query->where('status', 'paid'))
@@ -512,7 +518,12 @@ class AiGatewayBillingController extends Controller
             ->where('status', 'paid')
             ->whereHas('subscription', fn ($query) => $query
                 ->where('external_user_id', $externalUserId)
-                ->where('status', 'pending'))
+                ->where(function ($query): void {
+                    $query->where('status', 'pending')
+                        ->orWhere(fn ($query) => $query
+                            ->where('status', 'active')
+                            ->where('token_limit', '<=', 0));
+                }))
             ->latest('paid_at')
             ->limit(10)
             ->get();
@@ -526,7 +537,7 @@ class AiGatewayBillingController extends Controller
             try {
                 $this->subscriptionService->reconcilePaidTransaction($transaction, [
                     'source' => 'gateway_status_auto',
-                    'reason' => 'Transaksi sudah terverifikasi, tetapi subscription masih pending.',
+                    'reason' => 'Transaksi sudah terverifikasi, tetapi subscription belum memperoleh kredit paket yang valid.',
                 ]);
             } catch (\Throwable $exception) {
                 report($exception);

@@ -178,12 +178,19 @@ class AksesController extends Controller
         };
 
         // Get all users (with pagination and search)
-        $search = $request->get('search');
+        $search = trim((string) $request->get('search', ''));
+        $school = trim((string) $request->get('school', ''));
         $usersQuery = User::where('status', 'aktif')
-            ->when($search, fn ($q, $s) => $q->where(function ($query) use ($s) {
-                $query->where('name', 'like', "%{$s}%")
-                    ->orWhere('email', 'like', "%{$s}%");
-            }))
+            ->when($search !== '', function ($query) use ($search): void {
+                $term = '%'.mb_strtolower($search).'%';
+                $query->where(function ($userQuery) use ($term): void {
+                    $userQuery->whereRaw('LOWER(name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(email) LIKE ?', [$term]);
+                });
+            })
+            ->when($school !== '', function ($query) use ($school): void {
+                $query->whereRaw('LOWER(origin_institution) LIKE ?', ['%'.mb_strtolower($school).'%']);
+            })
             ->orderBy('name');
 
         $allUsers = $usersQuery->paginate(Pagination::perPage(20))->withQueryString();
@@ -208,7 +215,7 @@ class AksesController extends Controller
             : collect();
 
         return view('admin.pages.akses.manage', compact(
-            'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'studyGroups', 'canUseStudyGroupAccess'
+            'type', 'item', 'usersWithAccess', 'allUsers', 'search', 'school', 'studyGroups', 'canUseStudyGroupAccess'
         ));
     }
 
@@ -557,7 +564,13 @@ class AksesController extends Controller
     {
         return UserPackageAcces::where('requirement_status', 'pending')
             ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
-            ->with(['user', 'package'])
+            ->with([
+                'user',
+                'package',
+                'bookingRequests' => fn ($query) => $query
+                    ->with('tentor:id,name')
+                    ->latest('created_at'),
+            ])
             ->orderBy('created_at', 'asc')
             ->get();
     }

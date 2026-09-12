@@ -15,6 +15,9 @@
         return (int) (data_get($item, 'chat_limit') ?: data_get($plan, 'chat_limit', 0));
     });
     $subscriptionChatsUsed = $activeSubscriptions->sum(fn ($item) => (int) data_get($item, 'chats_used', 0));
+    $subscriptionChatPercentage = $subscriptionChatLimit > 0
+        ? min(100, ($subscriptionChatsUsed / $subscriptionChatLimit) * 100)
+        : null;
     $subscriptionExhausted = $activeSubscriptions->isNotEmpty()
         && (($subscriptionTokenLimit > 0 && $subscriptionTokensUsed >= $subscriptionTokenLimit)
             || ($subscriptionChatLimit > 0 && $subscriptionChatsUsed >= $subscriptionChatLimit));
@@ -99,11 +102,30 @@
     </section>
 
     <section class="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
-        <div><h3 class="text-lg font-bold text-gray-900">Riwayat penggunaan saya</h3><p class="mt-1 text-sm text-gray-500">Riwayat chat AI dari akun ini di project saat ini.</p></div>
-        @if($subscriptionTokenPercentage !== null)
-            <div class="mt-4 rounded-xl bg-gray-50 p-4"><div class="flex items-center justify-between gap-3 text-sm"><span class="font-medium text-gray-700">Token terpakai dari semua paket aktif</span><span class="font-semibold text-gray-900">{{ number_format($subscriptionTokensUsed, 0, ',', '.') }} / {{ number_format($subscriptionTokenLimit, 0, ',', '.') }} · {{ number_format($subscriptionTokenPercentage, 1, ',', '.') }}%</span></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary" style="width: {{ $subscriptionTokenPercentage }}%"></div></div><p class="mt-3 text-xs text-gray-600">{{ $subscriptionChatLimit > 0 ? number_format($subscriptionChatsUsed, 0, ',', '.') . ' / ' . number_format($subscriptionChatLimit, 0, ',', '.') . ' chat terpakai' : 'Chat AI unlimited sampai token habis' }}</p></div>
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between"><div><h3 class="text-lg font-bold text-gray-900">Penggunaan kuota saya</h3><p class="mt-1 text-sm text-gray-500">Pantau pemakaian token dan chat AI dari semua paket yang masih aktif.</p></div><span class="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"><i class="ri-pulse-line"></i>Live quota</span></div>
+
+        @if($activeSubscriptions->isEmpty())
+            <div class="mt-5 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-5 py-8 text-center text-sm text-gray-500"><i class="ri-pie-chart-2-line mb-2 block text-2xl text-gray-300"></i>Aktifkan paket AI untuk melihat penggunaan kuota.</div>
+        @else
+            <div class="mt-5 grid gap-4 lg:grid-cols-2">
+                <article class="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:p-5">
+                    <div class="flex items-start justify-between gap-3"><div><p class="text-sm font-semibold text-gray-900"><i class="ri-coin-line mr-1 text-primary"></i>Token AI</p><p class="mt-1 text-xs text-gray-500">{{ $subscriptionTokenLimit > 0 ? 'Akumulasi semua paket aktif' : 'Token tidak dibatasi paket' }}</p></div><span class="text-right text-sm font-bold text-gray-900">{{ $subscriptionTokenLimit > 0 ? number_format(max(0, $subscriptionTokenLimit - $subscriptionTokensUsed), 0, ',', '.') : '∞' }}<span class="ml-1 text-xs font-medium text-gray-500">tersisa</span></span></div>
+                    @if($subscriptionTokenPercentage !== null)
+                        <div class="mt-5 flex items-end justify-between gap-3"><p class="text-2xl font-bold text-gray-900">{{ number_format($subscriptionTokenPercentage, 1, ',', '.') }}<span class="text-sm font-semibold text-gray-500">%</span></p><p class="text-right text-xs text-gray-500">{{ number_format($subscriptionTokensUsed, 0, ',', '.') }} terpakai dari {{ number_format($subscriptionTokenLimit, 0, ',', '.') }}</p></div><div class="mt-2 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary transition-all" style="width: {{ $subscriptionTokenPercentage }}%"></div></div>
+                    @else
+                        <p class="mt-5 text-sm font-medium text-gray-700">Paket ini tidak membatasi token.</p>
+                    @endif
+                </article>
+
+                <article class="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:p-5">
+                    <div class="flex items-start justify-between gap-3"><div><p class="text-sm font-semibold text-gray-900"><i class="ri-message-3-line mr-1 text-primary"></i>Chat AI</p><p class="mt-1 text-xs text-gray-500">Jumlah percakapan yang digunakan</p></div><span class="text-right text-sm font-bold text-gray-900">{{ $subscriptionChatLimit > 0 ? number_format(max(0, $subscriptionChatLimit - $subscriptionChatsUsed), 0, ',', '.') : '∞' }}<span class="ml-1 text-xs font-medium text-gray-500">tersisa</span></span></div>
+                    @if($subscriptionChatPercentage !== null)
+                        <div class="mt-5 flex items-end justify-between gap-3"><p class="text-2xl font-bold text-gray-900">{{ number_format($subscriptionChatPercentage, 1, ',', '.') }}<span class="text-sm font-semibold text-gray-500">%</span></p><p class="text-right text-xs text-gray-500">{{ number_format($subscriptionChatsUsed, 0, ',', '.') }} terpakai dari {{ number_format($subscriptionChatLimit, 0, ',', '.') }}</p></div><div class="mt-2 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-primary/80 transition-all" style="width: {{ $subscriptionChatPercentage }}%"></div></div>
+                    @else
+                        <p class="mt-5 text-sm font-medium text-gray-700">Chat AI tidak dibatasi selama token masih tersedia.</p>
+                    @endif
+                </article>
+            </div>
         @endif
-        <div class="mt-4 overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th class="px-3 py-3">Waktu</th><th class="px-3 py-3 text-right">Chat</th><th class="px-3 py-3 text-right">Respons</th></tr></thead><tbody class="divide-y divide-gray-100">@forelse($usageLogs as $log)<tr><td class="px-3 py-3 text-gray-500">{{ $log->created_at->format('d M Y H:i') }}</td><td class="px-3 py-3 text-right">1</td><td class="px-3 py-3 text-right">{{ number_format(($log->response_time_ms ?? 0) / 1000, 2, ',', '.') }} dtk</td></tr>@empty<tr><td colspan="3" class="px-3 py-8 text-center text-gray-500">Belum ada riwayat penggunaan AI.</td></tr>@endforelse</tbody></table></div>
-        <div class="mt-4">{{ $usageLogs->links() }}</div>
     </section>
 </div>

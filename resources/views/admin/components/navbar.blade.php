@@ -1,10 +1,12 @@
 @php
     $portalLabel = auth()->user()?->isTutor() ? 'Tutor' : 'Admin';
+    $workspaceLabel = auth()->user()?->isTutor() ? 'Manajemen Tutor' : 'Manajemen Bimbel';
+    $pageTitle = trim((string) app('view')->getSection('title')) ?: $workspaceLabel;
     $profileUrl = auth()->user()?->isTutor()
         ? route('user.profile.index')
         : route('admin.profile.index');
     $canShowProfile = app(\App\Services\PlanModuleService::class)->allows('profile');
-    $headerPrimary = $clientBranding['header_primary_color'] ?? false;
+    $headerPrimary = false;
     $logoDisplayMode = ($clientBranding['logo_display_mode'] ?? 'square') === 'original'
         ? 'original'
         : 'square';
@@ -33,7 +35,7 @@
         : 'client-brand-logo h-full w-full object-contain';
 @endphp
 
-<nav class="fixed {{ !empty($isQuestionPickerMode) ? 'top-14' : 'top-0' }} z-50 w-full {{ $navClasses }}">
+<nav data-persistent-navbar class="sticky {{ !empty($isPickerMode) ? 'top-14' : 'top-0' }} z-50 w-full {{ $navClasses }}">
     <div class="px-2 py-2 sm:px-3 sm:py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex min-w-0 flex-1 items-center justify-start rtl:justify-end">
@@ -47,7 +49,7 @@
                         </path>
                     </svg>
                 </button>
-                <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" class="{{ $brandLinkClasses }} {{ $headerPrimary ? 'focus:ring-white/50' : 'focus:ring-primary/30' }}">
+                <a href="{{ auth()->user()?->isTutor() ? route('tutor.dashboard') : route('admin.dashboard') }}" class="{{ $brandLinkClasses }} sm:hidden {{ $headerPrimary ? 'focus:ring-white/50' : 'focus:ring-primary/30' }}">
                     <span class="{{ $logoContainerClasses }}">
                         <img src="{{ $clientBranding['logo_url'] }}" class="{{ $logoClasses }}"
                         alt="{{ $clientBranding['name'] }} Logo" />
@@ -57,6 +59,11 @@
                         <p class="hidden sm:block text-[12px] font-medium {{ $brandSubtitleClass }}">{{ $portalLabel }} Panel</p>
                     </div>
                 </a>
+                <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500">
+                    <span>{{ $clientBranding['name'] }}</span>
+                    <i class="ri-arrow-right-s-line text-gray-300" aria-hidden="true"></i>
+                    <span class="font-medium text-gray-900">{{ $pageTitle }}</span>
+                </div>
             </div>
 
             <div class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -87,10 +94,10 @@
                 @endif
 
                 <!-- Logout Button -->
-                <form action="{{ route('logout') }}" method="POST" class="inline">
+                <form id="admin-logout-form" action="{{ route('logout') }}" method="POST" class="inline">
                     @csrf
                     <button type="submit" class="{{ $logoutButtonClasses }} px-2 sm:px-3"
-                        onclick="return confirm('Yakin ingin logout?')">
+                        data-logout-confirm data-logout-form="admin-logout-form">
                         <i class="ri-logout-circle-r-line"></i>
                         <span class="hidden sm:inline">Logout</span>
                     </button>

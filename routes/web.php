@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\admin\AdminAssistantController;
+use App\Http\Controllers\admin\AdminTourController;
 use App\Http\Controllers\admin\AffiliateController as AdminAffiliateController;
 use App\Http\Controllers\admin\AiQuestionGeneratorBillingController;
 use App\Http\Controllers\admin\AksesController;
@@ -26,7 +27,6 @@ use App\Http\Controllers\admin\LaporanController;
 use App\Http\Controllers\admin\LeaderboardController;
 use App\Http\Controllers\admin\MaterialCategoryController;
 use App\Http\Controllers\admin\MaterialManagementController;
-use App\Http\Controllers\admin\PackageBookingRuleController;
 use App\Http\Controllers\admin\PackageController as AdminPackageController;
 use App\Http\Controllers\admin\ParticipantDestinationCategoryController;
 use App\Http\Controllers\admin\PembayaranController;
@@ -36,34 +36,44 @@ use App\Http\Controllers\admin\QuestionController;
 use App\Http\Controllers\admin\QuestionImportController;
 use App\Http\Controllers\admin\RecurringBillController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\SchoolAdminDashboardController;
 use App\Http\Controllers\admin\StudyGroupController;
 use App\Http\Controllers\admin\TentorController;
 use App\Http\Controllers\admin\TesKoranController as AdminTesKoranController;
 use App\Http\Controllers\admin\TryoutAiQuestionGeneratorController;
 use App\Http\Controllers\admin\TryoutController as AdminTryoutController;
 use App\Http\Controllers\admin\TutorPayrollController;
+use App\Http\Controllers\admin\TutorLeaveController as AdminTutorLeaveController;
 use App\Http\Controllers\admin\UpdateNotificationController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\admin\UserImportController;
 use App\Http\Controllers\Api\AiGatewayBillingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DemoRequestController;
+use App\Http\Controllers\DeploymentMigrationController;
+use App\Http\Controllers\DeploymentSuperAdminController;
 use App\Http\Controllers\GeneralPageController;
 use App\Http\Controllers\IndividualPurchaseController;
 use App\Http\Controllers\parent\ParentPortalController;
 use App\Http\Controllers\ParticipantDestinationLookupController;
+use App\Http\Controllers\OriginInstitutionLookupController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\superadmin\AiGatewayPlanController;
 use App\Http\Controllers\superadmin\AiUsageController;
+use App\Http\Controllers\superadmin\DataResetController;
 use App\Http\Controllers\superadmin\GeneralSettingController;
 use App\Http\Controllers\superadmin\PlanController;
 use App\Http\Controllers\superadmin\PlanManagementController;
 use App\Http\Controllers\superadmin\RoleController;
 use App\Http\Controllers\superadmin\SuperAdminController;
+use App\Http\Controllers\superadmin\TryoutLoadTestController;
 use App\Http\Controllers\tutor\ScheduleBookingController as TutorScheduleBookingController;
+use App\Http\Controllers\tutor\TutorTeachingScheduleController;
 use App\Http\Controllers\tutor\StudentDevelopmentController as TutorStudentDevelopmentController;
 use App\Http\Controllers\tutor\TutorDashboardController;
 use App\Http\Controllers\tutor\TutorProfileController;
+use App\Http\Controllers\tutor\TutorLeaveController;
 use App\Http\Controllers\user\AffiliateController as UserAffiliateController;
 use App\Http\Controllers\user\AiGatewaySubscriptionController;
 use App\Http\Controllers\user\AiLearningToolController;
@@ -86,6 +96,14 @@ use App\Models\Tentor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/_deploy/migrate/{token}', DeploymentMigrationController::class)
+    ->middleware('throttle:3,1')
+    ->name('deployment.migrate');
+
+Route::get('/_deploy/super-admin/{token}', DeploymentSuperAdminController::class)
+    ->middleware('throttle:3,1')
+    ->name('deployment.super-admin');
+
 Route::get('/', [GeneralPageController::class, 'landing'])->name('landing');
 Route::get('/statistik-ptn', [GeneralPageController::class, 'statistics'])->name('statistics');
 Route::get('/statistik-ptn/data-ptn', [GeneralPageController::class, 'proxyPtnList'])->name('statistics.proxy.ptn');
@@ -95,9 +113,12 @@ Route::get('/statistik-ptn/snbt/data-ptn', [GeneralPageController::class, 'proxy
 Route::get('/statistik-ptn/snbt/data-prodi', [GeneralPageController::class, 'proxyProdiListSnbt'])->name('statistics.snbt.proxy.prodi');
 Route::get('/participant-destinations/official/institutions', [ParticipantDestinationLookupController::class, 'institutions'])->name('participant-destinations.official.institutions');
 Route::get('/participant-destinations/official/programs', [ParticipantDestinationLookupController::class, 'programs'])->name('participant-destinations.official.programs');
+Route::get('/origin-institutions', OriginInstitutionLookupController::class)->name('origin-institutions.lookup');
 Route::get('/artikel', [GeneralPageController::class, 'articles'])->name('articles.index');
 Route::get('/artikel/{slug}', [GeneralPageController::class, 'showArticle'])->name('articles.show');
 Route::get('/ai-gateway-payments/{externalId}/qris', [AiGatewayBillingController::class, 'showQrisPayment'])->name('ai-gateway-payments.qris.show');
+Route::get('/pengajuan-demo', [DemoRequestController::class, 'create'])->name('demo-requests.create');
+Route::post('/pengajuan-demo', [DemoRequestController::class, 'store'])->middleware('throttle:10,1')->name('demo-requests.store');
 
 Route::prefix('general')->name('general.')->group(function () {
     Route::get('/', [GeneralPageController::class, 'landing'])->name('index');
@@ -140,11 +161,16 @@ Route::post('/logout-as', [UserController::class, 'logoutAs'])->middleware('auth
 
 // Parent portal: read-only access to students explicitly linked by Admin.
 Route::prefix('orang-tua')->name('parent.')->middleware(['auth', 'parent', 'module:parent_portal', 'no-cache'])->group(function (): void {
+    Route::post('/pilih-anak', [ParentPortalController::class, 'selectChild'])->name('select-child');
     Route::get('/', [ParentPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('/presensi', [ParentPortalController::class, 'attendance'])->name('attendance');
     Route::get('/paket-dan-pembayaran', [ParentPortalController::class, 'packages'])->name('packages');
+    Route::get('/katalog-belajar', [ParentPortalController::class, 'catalog'])->name('catalog');
+    Route::post('/katalog-belajar/{package}/checkout', [ParentPortalController::class, 'checkoutPackage'])->middleware('throttle:15,1')->name('catalog.checkout');
     Route::get('/riwayat-ujian', [ParentPortalController::class, 'assessments'])->name('assessments');
+    Route::get('/riwayat-ujian/{tryout}', [ParentPortalController::class, 'assessmentDetail'])->name('assessments.detail');
     Route::get('/perkembangan', [ParentPortalController::class, 'development'])->name('development');
+    Route::get('/laporan-cetak/tryout/{tryout}/attempt/{attemptToken}', [ParentPortalController::class, 'reportAttempt'])->name('report.attempt');
     Route::get('/laporan-cetak', [ParentPortalController::class, 'report'])->name('report');
     Route::get('/chat-tutor', [ChatController::class, 'parentIndex'])->name('chat.index');
     Route::get('/chat-tutor/anak/{child}/jadwal/{classSchedule}', [ChatController::class, 'parentShow'])->name('chat.schedule.show');
@@ -208,6 +234,7 @@ Route::prefix('user')->middleware('auth')->group(function () {
 
     Route::prefix('paket-pembelian')->group(function () {
         Route::post('/{package_id}/buy', [PackageController::class, 'buyPackage'])->name('user.package.buy');
+        Route::post('/{package_id}/ikuti-program', [PackageController::class, 'requestProgram'])->name('user.package.program.request');
         Route::post('/{package_id}/discount/preview', [PackageController::class, 'previewDiscount'])->name('user.package.discount.preview');
         Route::get('/payment/success', [PackageController::class, 'paymentSuccess'])->name('user.package.payment.success');
         Route::get('/payment/failed', [PackageController::class, 'paymentFailed'])->name('user.package.payment.failed');
@@ -404,6 +431,23 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
     // Legacy URL retained for existing links/bookmarks.
     Route::redirect('dashboard', '/tutor/dashboard')->name('dashboard.legacy');
     Route::get('/', [TutorDashboardController::class, 'schedule'])->name('schedule.index');
+    Route::get('cuti', [TutorLeaveController::class, 'index'])->name('leave.index');
+    Route::post('cuti', [TutorLeaveController::class, 'store'])->name('leave.store');
+    Route::middleware('module:schedule')->group(function (): void {
+        Route::get('jadwal/tambah', [TutorTeachingScheduleController::class, 'create'])->name('schedule.create');
+        Route::post('jadwal', [TutorTeachingScheduleController::class, 'store'])->middleware('throttle:20,1')->name('schedule.store');
+        Route::delete('jadwal/{session}', [TutorTeachingScheduleController::class, 'cancel'])->middleware('throttle:20,1')->name('schedule.cancel');
+        Route::get('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'createFeedbackForSession'])->name('schedule.feedback.create');
+        Route::post('jadwal/{session}/feedback', [TutorStudentDevelopmentController::class, 'storeFeedbackForSession'])->middleware('throttle:20,1')->name('schedule.feedback.store');
+        Route::get('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'createForSession'])->name('schedule.progress.create');
+        Route::post('jadwal/{session}/laporan-perkembangan', [TutorStudentDevelopmentController::class, 'storeForSession'])->middleware('throttle:20,1')->name('schedule.progress.store');
+        Route::get('jadwal/{session}/laporan-perkembangan/{report}/edit', [TutorStudentDevelopmentController::class, 'editForSession'])->name('schedule.progress.edit');
+        Route::put('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'updateForSession'])->middleware('throttle:20,1')->name('schedule.progress.update');
+        Route::delete('jadwal/{session}/laporan-perkembangan/{report}', [TutorStudentDevelopmentController::class, 'destroyForSession'])->middleware('throttle:20,1')->name('schedule.progress.destroy');
+    });
+    Route::get('penghasilan', [TutorDashboardController::class, 'earnings'])
+        ->middleware('module:tutor_payroll')
+        ->name('earnings.index');
     Route::get('profile', [TutorProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [TutorProfileController::class, 'update'])->name('profile.update');
     Route::prefix('booking')->name('booking.')->middleware('client-feature:schedule-booking')->group(function () {
@@ -417,15 +461,6 @@ Route::prefix('tutor/jadwal-tutor')->name('tutor.')->middleware(['auth', 'tutor'
         Route::post('/{booking}/usulkan-waktu', [TutorScheduleBookingController::class, 'propose'])
             ->middleware('throttle:20,1')
             ->name('propose');
-    });
-    Route::prefix('perkembangan')->name('development.')->middleware('client-feature:learning-progress')->group(function () {
-        Route::get('/', [TutorStudentDevelopmentController::class, 'index'])->name('index');
-        Route::post('/feedback', [TutorStudentDevelopmentController::class, 'storeFeedback'])
-            ->middleware('throttle:30,1')
-            ->name('feedback.store');
-        Route::post('/progres', [TutorStudentDevelopmentController::class, 'storeProgress'])
-            ->middleware('throttle:30,1')
-            ->name('progress.store');
     });
     Route::middleware('module:attendance')->group(function () {
         Route::get('absensi', [TutorDashboardController::class, 'attendanceIndex'])->name('attendance.index');
@@ -442,18 +477,33 @@ Route::post('/webhook/midtrans', [PackageController::class, 'midtransWebhook'])-
 Route::post('/webhook/ipaymu', [PackageController::class, 'ipaymuWebhook'])->middleware('throttle:120,1')->name('webhook.ipaymu');
 
 // Add route for checking payment status (for debugging)
-Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::get('/admin/payment/{paymentId}/check', [PackageController::class, 'checkPaymentStatus'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.check');
 
 // Add route for manual payment activation
-Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])->middleware(['auth', AdminMiddleware::class, 'admin.expiry']);
+Route::post('/admin/payment/{paymentId}/activate', [PackageController::class, 'manualActivatePayment'])
+    ->middleware(['auth', AdminMiddleware::class, 'admin.expiry', 'permission'])
+    ->name('admin.pembayaran.payment.activate');
 
 // Super Admin Routes
 Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-admin', 'no-cache'])->group(function () {
+    Route::get('/load-test', [TryoutLoadTestController::class, 'index'])->name('load-test.index');
+    Route::post('/load-test', [TryoutLoadTestController::class, 'create'])->middleware('throttle:2,1')->name('load-test.create');
+    Route::get('/load-test/{batch}/users.csv', [TryoutLoadTestController::class, 'download'])->name('load-test.download');
+    Route::post('/load-test/{batch}/reset', [TryoutLoadTestController::class, 'reset'])->middleware('throttle:3,1')->name('load-test.reset');
+    Route::delete('/load-test/{batch}', [TryoutLoadTestController::class, 'destroy'])->middleware('throttle:2,1')->name('load-test.destroy');
+    Route::get('/reset-data', [DataResetController::class, 'index'])->name('data-reset.index');
+    Route::delete('/reset-data', [DataResetController::class, 'destroy'])->middleware('throttle:3,1')->name('data-reset.destroy');
     Route::get('/admins', [SuperAdminController::class, 'index'])->name('admins.index');
+    Route::get('/admins/export-excel', [SuperAdminController::class, 'exportExcel'])->name('admins.export-excel');
+    Route::get('/admins/copy-text', [SuperAdminController::class, 'copyText'])->name('admins.copy-text');
     Route::post('/admins', [SuperAdminController::class, 'store'])->name('admins.store');
     Route::put('/admins/{admin}', [SuperAdminController::class, 'update'])->name('admins.update');
     Route::post('/admins/{admin}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('admins.reset-password');
     Route::patch('/admins/{admin}/extend', [SuperAdminController::class, 'extend'])->name('admins.extend');
+    Route::post('/admins/requests/{demoRequest}/approve', [SuperAdminController::class, 'approveRequest'])->name('admins.requests.approve');
+    Route::delete('/admins/requests/{demoRequest}', [SuperAdminController::class, 'rejectRequest'])->name('admins.requests.reject');
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
@@ -478,6 +528,8 @@ Route::prefix('super-admin')->name('super-admin.')->middleware(['auth', 'super-a
     Route::post('/ai-usage/projects', [AiUsageController::class, 'storeGatewayClient'])->name('ai-usage.projects.store');
     Route::put('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'updateGatewayClient'])->name('ai-usage.projects.update');
     Route::delete('/ai-usage/projects/{gatewayClient}', [AiUsageController::class, 'destroyGatewayClient'])->name('ai-usage.projects.destroy');
+    Route::patch('/ai-gateway-plans/{aiGatewayPlan}/activate', [AiGatewayPlanController::class, 'activate'])
+        ->name('ai-gateway-plans.activate');
     Route::resource('ai-gateway-plans', AiGatewayPlanController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Plan Master Data Routes (CRUD Plan templates)
@@ -502,12 +554,34 @@ Route::prefix('{portal}')
     ->name('admin.')
     ->middleware(['auth', AdminMiddleware::class, 'panel.portal', 'admin.expiry', 'permission', 'no-cache'])
     ->group(function () {
+        Route::prefix('sekolah')->name('school.')->group(function () {
+            Route::get('/', [SchoolAdminDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/siswa', [SchoolAdminDashboardController::class, 'students'])->name('students');
+            Route::get('/siswa/{user}', [SchoolAdminDashboardController::class, 'showStudent'])->name('students.show');
+            Route::get('/leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard');
+            Route::get('/leaderboard/{package_id}/{tryout_id}', [LeaderboardController::class, 'show'])->name('leaderboard.show');
+            Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+            Route::get('/laporan/{id}', [LaporanController::class, 'schoolShow'])->name('laporan.show');
+            Route::get('/data-tryout-siswa', [LaporanController::class, 'students'])->name('student-tryouts.index');
+            Route::get('/data-tryout-siswa/{user}', [LaporanController::class, 'studentDetail'])->name('student-tryouts.show');
+        });
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/ai-question-generator/quota', [AiQuestionGeneratorBillingController::class, 'index'])->name('question-generator.quota.index');
         Route::post('/ai-question-generator/quota/checkout', [AiQuestionGeneratorBillingController::class, 'checkout'])->name('question-generator.quota.checkout');
-        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])->name('assistant.chat');
+        Route::post('/assistant/chat', [AdminAssistantController::class, 'chat'])
+            ->middleware('throttle:20,10')
+            ->name('assistant.chat');
+        Route::get('/assistant/history', [AdminAssistantController::class, 'history'])
+            ->name('assistant.history');
+        Route::get('/tours/{tourKey}', [AdminTourController::class, 'show'])->name('tours.show');
+        Route::post('/tours/{tourKey}/start', [AdminTourController::class, 'start'])->name('tours.start');
+        Route::post('/tours/{tourKey}/steps/{stepId}', [AdminTourController::class, 'storeStep'])->name('tours.steps.store');
+        Route::post('/tours/{tourKey}/complete', [AdminTourController::class, 'complete'])->name('tours.complete');
         Route::get('/csrf-token', [FaqController::class, 'csrfToken'])->name('csrf-token');
         Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
+        Route::get('/cuti-tutor', [AdminTutorLeaveController::class, 'index'])->name('tutor-leave.index');
+        Route::post('/cuti-tutor/{leave}/setujui', [AdminTutorLeaveController::class, 'approve'])->name('tutor-leave.approve');
+        Route::post('/cuti-tutor/{leave}/tolak', [AdminTutorLeaveController::class, 'reject'])->name('tutor-leave.reject');
         Route::get('/update-notifications', [UpdateNotificationController::class, 'index'])->name('update-notifications.index');
         Route::get('/update-notifications/{updateNotification}', [UpdateNotificationController::class, 'show'])->name('update-notifications.show');
         Route::prefix('keuangan')->name('finance.')->group(function () {
@@ -574,10 +648,6 @@ Route::prefix('{portal}')
         Route::put('/paket/{package_id}/update', [AdminPackageController::class, 'update'])->name('package.update');
         Route::delete('/paket/{package_id}/destroy', [AdminPackageController::class, 'destroy'])->name('package.destroy');
         Route::middleware('client-feature:schedule-booking')->group(function (): void {
-            Route::get('/paket/{package}/booking', [PackageBookingRuleController::class, 'edit'])
-                ->name('package-booking.edit');
-            Route::put('/paket/{package}/booking', [PackageBookingRuleController::class, 'update'])
-                ->name('package-booking.update');
             Route::get('/paket-booking/kelompok', [GroupBookingController::class, 'index'])
                 ->name('package-booking.cohorts.index');
             Route::post('/paket-booking/invoice/{invoice}/pembayaran', [GroupBookingController::class, 'recordPayment'])
@@ -754,11 +824,13 @@ Route::prefix('{portal}')
         Route::resource('class', ClassController::class);
         Route::resource('certification', CertificationController::class);
         Route::delete('/user/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('user.bulk-destroy');
+        Route::post('/user/bulk-reset-password', [UserController::class, 'bulkResetPassword'])->name('user.bulk-reset-password');
         Route::get('/user/export/excel', [UserController::class, 'exportExcel'])->name('user.export-excel');
         Route::get('/user/relationship-options', [UserController::class, 'searchRelationshipUsers'])->name('user.relationship-options');
         Route::get('user/{user}/report', [UserController::class, 'report'])->name('user.report');
         Route::get('user/login-as-page', [UserController::class, 'loginAsPage'])->name('user.login-as-page');
         Route::post('user/{user}/login-as', [UserController::class, 'loginAs'])->name('user.login-as');
+        Route::post('user/{user}/reset-password', [UserController::class, 'resetPassword'])->name('user.reset-password');
         Route::resource('user', UserController::class);
         Route::get('participant-destination-categories/official/institutions', [ParticipantDestinationCategoryController::class, 'officialInstitutions'])
             ->name('participant-destination-categories.official.institutions');
@@ -774,6 +846,7 @@ Route::prefix('{portal}')
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['participant-destination-categories' => 'participantDestinationCategory']);
         Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/pengaturan/smtp/test', [SettingController::class, 'testSmtp'])->name('settings.smtp.test');
         Route::put('/pengaturan', [SettingController::class, 'update'])->name('settings.update');
 
         // Route untuk admin leaderboard

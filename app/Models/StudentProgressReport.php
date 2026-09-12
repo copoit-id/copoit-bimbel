@@ -16,6 +16,7 @@ class StudentProgressReport extends Model
         'package_id',
         'study_group_id',
         'user_package_access_id',
+        'class_session_id',
         'period_start',
         'period_end',
         'progress_percent',
@@ -64,5 +65,10 @@ class StudentProgressReport extends Model
             'user_package_access_id',
             'user_package_access_id'
         );
+    }
+
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(ClassSession::class, 'class_session_id');
     }
 }

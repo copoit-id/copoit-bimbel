@@ -867,7 +867,10 @@ class TryoutController extends Controller
         }
 
         // Get tryout details untuk menampilkan info di lobby
-        $tryoutDetails = $tryout->tryoutDetails()->orderBy('tryout_detail_id')->get();
+        $tryoutDetails = $tryout->tryoutDetails()
+            ->with('materialCategory')
+            ->orderBy('tryout_detail_id')
+            ->get();
 
         // Calculate total duration dan questions untuk SKD Full
         $extraMinutes = $this->getExtraMinutesForUser($tryout->tryout_id, Auth::id());
@@ -1018,7 +1021,7 @@ class TryoutController extends Controller
         }
 
         // Get all tryout details dalam urutan yang benar
-        $tryoutDetails = $tryout->tryoutDetails()->get(); // ambil semua dulu
+        $tryoutDetails = $tryout->tryoutDetails()->with('materialCategory')->get(); // ambil semua dulu
 
         if ($tryout->system_tryout === 'toefl') {
             // Tentukan urutan khusus TOEFL
@@ -1052,7 +1055,7 @@ class TryoutController extends Controller
 
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
-                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->subtest_name = $this->getSubtestName($detail);
                 $question->tryout_detail = $detail;
             }
 
@@ -1060,8 +1063,8 @@ class TryoutController extends Controller
 
             $subtestInfo[] = [
                 'type' => $detail->type_subtest,
-                'name' => $this->getSubtestName($detail->type_subtest),
-                'alias' => $this->getSubtestAlias($detail->type_subtest),
+                'name' => $this->getSubtestName($detail),
+                'alias' => $this->getSubtestAlias($detail),
                 'start_number' => $allQuestions->count() - $questions->count() + 1,
                 'end_number' => $allQuestions->count(),
                 'duration' => $detail->duration,
@@ -1149,7 +1152,7 @@ class TryoutController extends Controller
             $questions = $renderedQuestionsByDetail->get($detail->tryout_detail_id, collect());
             foreach ($questions as $question) {
                 $question->subtest_type = $detail->type_subtest;
-                $question->subtest_name = $this->getSubtestName($detail->type_subtest);
+                $question->subtest_name = $this->getSubtestName($detail);
                 $question->tryout_detail = $detail;
                 $question->setAttribute('tryout_number', $questionNumbersById->get($question->question_id));
             }
@@ -1297,6 +1300,9 @@ class TryoutController extends Controller
             ]);
         }
         $effectiveProctoringSettings = $this->effectiveProctoringSettings($tryout);
+        $tabSwitchFreezeRemainingSeconds = $allUserAnswers
+            ->map(fn (UserAnswer $answer): int => $this->tabSwitchFreezeRemainingSeconds($answer, $now))
+            ->max() ?? 0;
 
         return view('user.pages.tryout.index', compact(
             'package',
@@ -1326,25 +1332,64 @@ class TryoutController extends Controller
             'displayRemainingSeconds',
             'attemptToken',
             'extraMinutes',
-            'effectiveProctoringSettings'
+            'effectiveProctoringSettings',
+            'tabSwitchFreezeRemainingSeconds'
         ));
     }
 
     private function effectiveProctoringSettings(Tryout $tryout): array
     {
         $globalSettings = PlanQuotaService::getDefaultProctoringSettings();
+        $tabSwitchEnabled = (bool) $tryout->enable_tab_switch_detection
+            && (bool) ($globalSettings['enable_tab_switch_detection'] ?? true);
 
         return [
             'enable_anti_copy' => (bool) $tryout->enable_anti_copy && (bool) ($globalSettings['enable_anti_copy'] ?? true),
-            'enable_tab_switch_detection' => (bool) $tryout->enable_tab_switch_detection && (bool) ($globalSettings['enable_tab_switch_detection'] ?? true),
+            'enable_tab_switch_detection' => $tabSwitchEnabled,
+            'tab_switch_freeze' => $tabSwitchEnabled && (bool) $tryout->tab_switch_freeze,
+            'tab_switch_freeze_seconds' => max(1, min(300, (int) ($tryout->tab_switch_freeze_seconds ?? 15))),
+            'tab_switch_reset_answer' => $tabSwitchEnabled && (bool) $tryout->tab_switch_reset_answer,
             'enable_webcam_check' => (bool) $tryout->enable_webcam_check && (bool) ($globalSettings['enable_webcam_check'] ?? false),
             'enable_screen_check' => (bool) $tryout->enable_screen_check && (bool) ($globalSettings['enable_screen_check'] ?? false),
         ];
     }
 
-
-    private function getSubtestName($type)
+    private function tabSwitchFreezeRemainingSeconds(UserAnswer $userAnswer, Carbon $now): int
     {
+        if (! $userAnswer->tab_switch_frozen_until) {
+            return 0;
+        }
+
+        $frozenUntil = Carbon::parse($userAnswer->tab_switch_frozen_until, 'Asia/Jakarta');
+
+        return $frozenUntil->greaterThan($now)
+            ? $now->diffInSeconds($frozenUntil)
+            : 0;
+    }
+
+    private function isPartiallyCorrectMultipleAnswerDetail(UserAnswerDetail $detail): bool
+    {
+        $question = $detail->question;
+
+        if (! $question || $this->normalizeQuestionType($question->question_type ?? '') !== 'multiple_answer') {
+            return false;
+        }
+
+        $scoringService = app(MultipleAnswerScoringService::class);
+
+        return $scoringService->isPartiallyCorrect(
+            $scoringService->evaluateDetail($question, $detail)
+        );
+    }
+
+
+    private function getSubtestName(TryoutDetail|string|null $subtest): string
+    {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_name;
+        }
+
+        $type = $subtest;
         switch ($type) {
             case 'twk':
                 return 'Tes Wawasan Kebangsaan';
@@ -1399,8 +1444,13 @@ class TryoutController extends Controller
         }
     }
 
-    private function getSubtestAlias($type)
+    private function getSubtestAlias(TryoutDetail|string|null $subtest): string
     {
+        if ($subtest instanceof TryoutDetail) {
+            return $subtest->display_abbreviation;
+        }
+
+        $type = $subtest;
         $map = [
             'penalaran_umum' => 'PU',
             'pengetahuan_umum' => 'PPU',
@@ -1451,6 +1501,18 @@ class TryoutController extends Controller
                     return response()->json(['error' => 'Session not found'], 404);
                 }
                 return redirect()->back()->with('error', 'Session tryout tidak ditemukan');
+            }
+
+            $freezeRemainingSeconds = $this->tabSwitchFreezeRemainingSeconds($userAnswer, $now);
+            if ($freezeRemainingSeconds > 0) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Tryout sedang dibekukan karena pelanggaran pindah tab.',
+                        'freeze_remaining_seconds' => $freezeRemainingSeconds,
+                    ], 423);
+                }
+
+                return back()->with('error', 'Tryout sedang dibekukan karena pelanggaran pindah tab.');
             }
 
             $tryout = Tryout::findOrFail($id_tryout);
@@ -1729,6 +1791,25 @@ class TryoutController extends Controller
             $answers = $this->decodeAnswersPayload($validated['answers_payload'] ?? null);
             $now = Carbon::now('Asia/Jakarta');
 
+            $frozenUserAnswer = UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('tryout_detail_id', (int) $validated['tryout_detail_id'])
+                ->where('attempt_token', $validated['attempt_token'])
+                ->where('status', 'in_progress')
+                ->first();
+
+            $freezeRemainingSeconds = $frozenUserAnswer
+                ? $this->tabSwitchFreezeRemainingSeconds($frozenUserAnswer, $now)
+                : 0;
+
+            if ($freezeRemainingSeconds > 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Tryout sedang dibekukan karena pelanggaran pindah tab.',
+                    'freeze_remaining_seconds' => $freezeRemainingSeconds,
+                ], 423);
+            }
+
             $updatedDetailIds = $this->persistAnswersPayload(
                 (int) $id_tryout,
                 $attemptToken,
@@ -1780,7 +1861,7 @@ class TryoutController extends Controller
                 'live_score' => [
                     'tryout_detail_id' => $tryoutDetailId,
                     'type' => $userAnswer->tryoutDetail->type_subtest,
-                    'name' => $this->getSubtestName($userAnswer->tryoutDetail->type_subtest),
+                    'name' => $this->getSubtestName($userAnswer->tryoutDetail),
                     'raw_score' => $rawScore,
                     'max_score' => $maxScore,
                     'percentage' => round($percentage, 2),
@@ -1837,18 +1918,57 @@ class TryoutController extends Controller
         $userAnswer->increment('tab_switch_count');
         $userAnswer->refresh();
 
+        if ($effectiveProctoringSettings['tab_switch_freeze']) {
+            $frozenUntil = now('Asia/Jakarta')->addSeconds($effectiveProctoringSettings['tab_switch_freeze_seconds']);
+
+            UserAnswer::where('user_id', Auth::id())
+                ->where('tryout_id', $id_tryout)
+                ->where('attempt_token', $validated['attempt_token'])
+                ->where('status', 'in_progress')
+                ->update(['tab_switch_frozen_until' => $frozenUntil]);
+        }
+
+        $resetAnswerEnabled = $effectiveProctoringSettings['tab_switch_reset_answer']
+            && ! empty($validated['question_id']);
+        $answerWasReset = false;
+        $questionId = $validated['question_id'] ?? null;
+        if ($resetAnswerEnabled) {
+            $activeDetail = UserAnswerDetail::where('user_answer_id', $userAnswer->user_answer_id)
+                ->where('question_id', $questionId)
+                ->first();
+
+            if ($activeDetail) {
+                if ($activeDetail->answer_file_path && Storage::disk('public')->exists($activeDetail->answer_file_path)) {
+                    Storage::disk('public')->delete($activeDetail->answer_file_path);
+                }
+
+                $activeDetail->delete();
+                $answerWasReset = true;
+            }
+        }
+
         ActivityLogger::log('tryout_tab_switch_detected', 'warning', Auth::user(), [
             'package_id' => $id_package,
             'tryout_id' => $id_tryout,
             'attempt_token' => $validated['attempt_token'],
             'question_id' => $validated['question_id'] ?? null,
             'tab_switch_count' => $userAnswer->tab_switch_count,
+            'punishment_freeze' => $effectiveProctoringSettings['tab_switch_freeze'],
+            'punishment_freeze_seconds' => $effectiveProctoringSettings['tab_switch_freeze_seconds'],
+            'punishment_reset_answer' => $resetAnswerEnabled,
+            'answer_was_reset_on_server' => $answerWasReset,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Pelanggaran tab tercatat.',
             'count' => $userAnswer->tab_switch_count,
+            'punishments' => [
+                'freeze' => $effectiveProctoringSettings['tab_switch_freeze'],
+                'freeze_seconds' => $effectiveProctoringSettings['tab_switch_freeze_seconds'],
+                'reset_answer' => $resetAnswerEnabled,
+                'answer_was_reset_on_server' => $answerWasReset,
+            ],
         ]);
     }
 
@@ -2106,6 +2226,22 @@ class TryoutController extends Controller
             return redirect()->route('user.tryout.result', [$id_package, $id_tryout]);
         }
 
+        $freezeRemainingSeconds = $userAnswers
+            ->map(fn (UserAnswer $answer): int => $this->tabSwitchFreezeRemainingSeconds($answer, $now))
+            ->max() ?? 0;
+
+        if ($freezeRemainingSeconds > 0) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Tryout sedang dibekukan karena pelanggaran pindah tab.',
+                    'freeze_remaining_seconds' => $freezeRemainingSeconds,
+                ], 423);
+            }
+
+            return back()->with('error', 'Tryout sedang dibekukan karena pelanggaran pindah tab.');
+        }
+
         $answers = $this->decodeAnswersPayload($request->input('answers_payload'));
 
         if (!empty($answers)) {
@@ -2347,7 +2483,7 @@ class TryoutController extends Controller
             ->where('tryout_id', $id_tryout)
             ->whereIn('status', ['completed', 'pending_release'])
             ->when($requestedAttemptToken !== '', fn ($query) => $query->where('attempt_token', $requestedAttemptToken))
-            ->with(['tryout.tryoutDetails', 'userAnswerDetails.question.questionOptions', 'tryoutDetail'])
+            ->with(['tryout.tryoutDetails.materialCategory', 'userAnswerDetails.question.questionOptions', 'tryoutDetail.materialCategory'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -2421,7 +2557,7 @@ class TryoutController extends Controller
                 })->count();
                 $sectionResults[] = [
                     'type'             => $sectionType,
-                    'name'             => $this->getSubtestName($sectionType),
+                    'name'             => $this->getSubtestName($userAnswer->tryoutDetail),
                     'raw_score'        => $toeflResults[$sectionKey]['raw_score'],
                     'scaled_score'     => $toeflResults[$sectionKey]['scaled_score'],
                     'correct_answers'  => $correctCount,
@@ -2486,11 +2622,17 @@ class TryoutController extends Controller
             $correctCount = $answer->userAnswerDetails->where('is_correct', true)->count();
             $wrongCount = max(0, $answeredCount - $correctCount);
             $unansweredCount = max(0, $totalQuestions - $answeredCount);
-            $displayScore = $scoreDisplayService->present($tryout, $subtestScore);
+            $displayScore = $scoreDisplayService->present(
+                $tryout,
+                $subtestScore,
+                $correctCount,
+                $totalQuestions,
+                1000
+            );
 
             return [
                 'type' => $answer->tryoutDetail->type_subtest,
-                'name' => $this->getSubtestName($answer->tryoutDetail->type_subtest),
+                'name' => $this->getSubtestName($answer->tryoutDetail),
                 'correct' => $correctCount,
                 'wrong' => $wrongCount,
                 'unanswered' => $unansweredCount,
@@ -2503,7 +2645,14 @@ class TryoutController extends Controller
         })->values();
 
         $totalScore = (int) ($sortedAnswers->first()->utbk_total_score ?? 0);
-        $totalDisplayScore = $scoreDisplayService->present($tryout, $totalScore);
+        $totalDisplayScore = $scoreDisplayService->present(
+            $tryout,
+            $totalScore,
+            $subtests->sum('correct'),
+            $subtests->sum(fn (array $subtest) => $subtest['correct'] + $subtest['wrong'] + $subtest['unanswered']),
+            1000,
+            $subtests->count()
+        );
         $overallPassed = $subtests->every('is_passed');
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
@@ -2547,7 +2696,7 @@ class TryoutController extends Controller
                     continue;
                 }
 
-                if ($detail->is_correct) {
+                if ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail)) {
                     $correctAnswers++;
                 } else {
                     $wrongAnswers++;
@@ -2580,6 +2729,26 @@ class TryoutController extends Controller
 
         // Calculate overall percentage
         $overallPercentage = $maxScore > 0 ? ($rawScore / $maxScore) * 100 : 0;
+        $scoreDisplayService = app(TryoutScoreDisplayService::class);
+        $subtestResults = collect($subtestResults)->map(function (array $result) use ($tryout, $scoreDisplayService) {
+            $result['display_score'] = $scoreDisplayService->present(
+                $tryout,
+                $result['raw_score'],
+                $result['correct_answers'],
+                $result['total_questions'],
+                $result['max_score']
+            );
+
+            return $result;
+        })->values()->all();
+        $displayScore = $scoreDisplayService->present(
+            $tryout,
+            $rawScore,
+            $correctAnswers,
+            $totalQuestions,
+            $maxScore,
+            count($subtestResults)
+        );
 
         $feedbackContext = $this->buildFeedbackContext($tryout, $latestAttemptToken);
 
@@ -2599,6 +2768,7 @@ class TryoutController extends Controller
             'subtestResults',
             'singleIsPassed',
             'overallPercentage'
+            ,'displayScore'
         ), $feedbackContext));
     }
 
@@ -2642,11 +2812,14 @@ class TryoutController extends Controller
 
             $correctCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                return empty($meta['pending_review']) && $detail->is_correct;
+                return empty($meta['pending_review'])
+                    && ($detail->is_correct || $this->isPartiallyCorrectMultipleAnswerDetail($detail));
             })->count();
             $wrongCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
-                return empty($meta['pending_review']) && !$detail->is_correct;
+                return empty($meta['pending_review'])
+                    && ! $detail->is_correct
+                    && ! $this->isPartiallyCorrectMultipleAnswerDetail($detail);
             })->count();
             $pendingCount = $userAnswer->userAnswerDetails->filter(function ($detail) {
                 $meta = is_array($detail->answer_json) ? $detail->answer_json : [];
@@ -2655,8 +2828,8 @@ class TryoutController extends Controller
 
             $subtestResults[] = [
                 'type' => $detail->type_subtest,
-                'name' => $this->getSubtestName($detail->type_subtest),
-                'alias' => $this->getSubtestAlias($detail->type_subtest),
+                'name' => $this->getSubtestName($detail),
+                'alias' => $this->getSubtestAlias($detail),
                 'total_questions' => $totalQuestions,
                 'correct_answers' => $correctCount,
                 'wrong_answers' => $wrongCount,

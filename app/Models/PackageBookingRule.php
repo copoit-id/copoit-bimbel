@@ -30,6 +30,7 @@ class PackageBookingRule extends Model
         'default_location',
         'payment_deadline_hours',
         'group_pricing_mode',
+        'payment_model',
     ];
 
     protected $casts = [

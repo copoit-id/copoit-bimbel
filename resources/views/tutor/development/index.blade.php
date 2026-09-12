@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends('tutor.layout')
 
 @section('content')
 <div class="space-y-6" x-data="{ tab: @js(old('form_tab', 'feedback')), feedbackScope: @js(old('scope', 'personal')) }">

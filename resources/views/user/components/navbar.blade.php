@@ -1,5 +1,5 @@
 @php
-    $headerPrimary = $clientBranding['header_primary_color'] ?? false;
+    $headerPrimary = false;
     $navClasses = $headerPrimary ? 'bg-primary border-b border-primary text-white' : 'bg-white border-b border-gray-200';
     $toggleButtonClasses = $headerPrimary
         ? 'inline-flex items-center p-2 text-sm text-white rounded-lg sm:hidden hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30'
@@ -14,9 +14,10 @@
         ? 5000
         : (request()->routeIs('user.tryout.index') ? 10000 : null);
     $isTryoutPage = $tryoutSignalInterval !== null;
+    $pageTitle = trim((string) app('view')->getSection('title')) ?: 'Portal Belajar';
 @endphp
 
-<nav class="fixed {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-[99998] w-full {{ $navClasses }}">
+<nav data-persistent-navbar data-login-as-navbar="{{ session('admin_login_as') ? 'true' : 'false' }}" class="sticky {{ session('admin_login_as') ? 'top-[52px]' : 'top-0' }} z-[99998] w-full {{ $navClasses }}">
     <div class="px-2 py-2 sm:px-3 sm:py-3 lg:px-5 lg:pl-3">
         <div class="flex items-center justify-between">
             <div class="flex min-w-0 flex-1 items-center justify-start rtl:justify-end">
@@ -30,7 +31,7 @@
                         </path>
                     </svg>
                 </button>
-                <a href="/" class="flex min-w-0 ms-2 md:me-12 items-center">
+                <a href="/" class="flex min-w-0 ms-2 md:me-12 items-center sm:hidden">
                     <img src="{{ $clientBranding['logo_url'] }}" class="client-brand-logo w-9 h-9 sm:w-12 sm:h-12 object-cover me-1"
                         alt="{{ $clientBranding['name'] }} Logo" />
                     <div @class(['flex min-w-0 flex-col justify-start', 'hidden sm:flex' => $isTryoutPage])>
@@ -38,6 +39,11 @@
                         <p class="hidden sm:block font-light text-[13px] mt-[-8px] {{ $brandSubtitleClass }}">Learning Platform</p>
                     </div>
                 </a>
+                <div class="hidden sm:flex items-center gap-2 text-sm text-gray-500">
+                    <span>{{ $clientBranding['name'] }}</span>
+                    <i class="ri-arrow-right-s-line text-gray-300" aria-hidden="true"></i>
+                    <span class="font-medium text-gray-900">{{ $pageTitle }}</span>
+                </div>
             </div>
             @if($tryoutSignalInterval)
                 <div class="mr-2 shrink-0 sm:mr-3">
@@ -45,6 +51,18 @@
                 </div>
             @endif
             <div class="flex shrink-0 items-center">
+                @if($canShowAiLearning)
+                    <a href="{{ route('user.ai-learning.index') }}"
+                        @class([
+                            'mr-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors sm:mr-2 sm:px-3',
+                            'bg-white/15 text-white hover:bg-white/25' => $headerPrimary,
+                            'bg-primary/10 text-primary hover:bg-primary/15' => ! $headerPrimary,
+                        ])
+                        aria-current="{{ request()->routeIs('user.ai-learning.*') ? 'page' : 'false' }}">
+                        <i class="ri-sparkling-2-line text-base"></i>
+                        <span class="hidden sm:inline">AI Learning Tools</span>
+                    </a>
+                @endif
                 <div class="flex items-center ms-3">
                     <div>
                         @php
@@ -83,9 +101,9 @@
                             </li>
                             @endif
                             <li>
-                                <form action="{{ route('logout') }}" method="POST">
+                                <form id="user-logout-form" action="{{ route('logout') }}" method="POST">
                                     @csrf
-                                    <button type="submit" class="{{ $dropdownLinkClasses }}">Logout</button>
+                                    <button type="submit" class="{{ $dropdownLinkClasses }}" data-logout-confirm data-logout-form="user-logout-form">Logout</button>
                                 </form>
                             </li>
                         </ul>

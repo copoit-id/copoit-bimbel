@@ -9,6 +9,7 @@
         </div>
         <form id="tutor-attendance-form" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
             @csrf
+            <input id="tutor-attendance-return-to" type="hidden" name="return_to" value="">
             <div>
                 <label for="tutor-attendance-photo" class="mb-2 block text-sm font-medium text-gray-700">Foto kehadiran</label>
                 <input id="tutor-attendance-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="user" required class="block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
@@ -24,9 +25,10 @@
 
 @push('scripts')
 <script>
-    function openTutorAttendanceModal(action, sessionTitle) {
+    function openTutorAttendanceModal(action, sessionTitle, returnTo = '') {
         document.getElementById('tutor-attendance-form').action = action;
         document.getElementById('tutor-attendance-session').textContent = sessionTitle;
+        document.getElementById('tutor-attendance-return-to').value = returnTo;
         document.getElementById('tutor-attendance-modal').classList.remove('hidden');
         document.getElementById('tutor-attendance-modal').classList.add('flex');
     }

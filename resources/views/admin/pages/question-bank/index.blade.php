@@ -1,4 +1,4 @@
-@extends('admin.layout.admin')
+@extends(auth()->user()?->isTutor() ? 'tutor.question-bank-layout' : 'admin.layout.admin')
 @section('title', 'Bank Soal')
 @section('content')
 <div class="space-y-6">
@@ -7,18 +7,20 @@
             <h1 class="text-2xl font-bold text-gray-900">Bank Soal</h1>
             <p class="text-gray-500">Atur koleksi soal dan sub bank untuk mempermudah penyusunan tryout.</p>
         </div>
-        @unless ($tryoutDetail)
-            {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
-            <x-plan-quota-button
-                feature="question_bank"
-                href="#"
-                icon="ri-add-circle-line"
-                label="Tambah Bank"
-                variant="primary"
-                size="md"
-                tooltipPosition="bottom"
-                id="openCreateBank" />
-        @endunless
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            @unless ($tryoutDetail)
+                {{-- Button dengan Cek Plan Quota (batasan jumlah soal) --}}
+                <x-plan-quota-button
+                    feature="question_bank"
+                    href="#"
+                    icon="ri-add-circle-line"
+                    label="Tambah Bank"
+                    variant="primary"
+                    size="md"
+                    tooltipPosition="bottom"
+                    id="openCreateBank" />
+            @endunless
+        </div>
     </div>
 
     @if (session('success'))
@@ -126,10 +128,12 @@
                             class="flex-1 inline-flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 px-3 py-2 text-xs font-medium hover:bg-gray-50">
                             <i class="ri-edit-line mr-1"></i>Edit
                         </button>
-                        <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
-                            class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
-                            <i class="ri-delete-bin-line mr-1"></i>Hapus
-                        </button>
+                        @if($deletableBankIds[$bank->id] ?? false)
+                            <button type="button" onclick="deleteBank({{ $bank->id }}, '{{ addslashes($bank->name) }}', {{ $bankQuestionCount }})"
+                                class="flex-1 inline-flex items-center justify-center rounded-lg border border-red-200 text-red-600 px-3 py-2 text-xs font-medium hover:bg-red-50">
+                                <i class="ri-delete-bin-line mr-1"></i>Hapus
+                            </button>
+                        @endif
                     </div>
                 @endunless
                 <a href="{{ route('admin.question-bank.show', ['questionBank' => $bank->id, 'import_for' => $importTarget]) }}"
@@ -160,16 +164,6 @@
                 <input type="text" name="name" required
                     class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     placeholder="Contoh: Bank Soal TPS TKA">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Sub Bank Dari</label>
-                <select name="parent_id"
-                    class="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-primary focus:ring-2 focus:ring-primary/20">
-                    <option value="">(Tidak ada - Bank utama)</option>
-                    @foreach ($bankOptions as $option)
-                    <option value="{{ $option->id }}">{{ $option->name }}</option>
-                    @endforeach
-                </select>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>

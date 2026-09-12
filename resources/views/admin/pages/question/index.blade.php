@@ -31,7 +31,7 @@
                 Hasil Import & Manajemen Soal
             </div>
             <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $tryout->name }}</h1>
-            <p class="mt-2 text-sm text-white/80">{{ $tryout_detail->type_subtest == 'social culture' ? 'Sosial Kultural & Manajerial' : strtoupper($tryout_detail->type_subtest) }} · Durasi {{ $tryout_detail->duration }} menit</p>
+            <p class="mt-2 text-sm text-white/80">{{ $tryout_detail->display_name }} · Durasi {{ $tryout_detail->duration }} menit</p>
         </div>
         <div class="flex shrink-0 items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-inset ring-white/15">
             <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary"><i class="ri-question-answer-line text-xl"></i></span>
@@ -166,7 +166,7 @@
                 'multiple_choice' => 'Multiple Choice',
                 'multiple_answer' => 'Multiple Answer',
                 'multiple_true_false' => 'Multiple True/False',
-                'true_false' => 'Benar/Salah',
+                'true_false' => 'True/False',
                 'matching' => 'Pencocokan',
                 'essay' => 'Essay',
                 'audio' => 'Jawaban Audio',
@@ -264,7 +264,7 @@
                             @foreach($mtfStatements as $stmt)
                             @php $isTrue = (($stmt['correct'] ?? 'true') === 'true'); @endphp
                             <tr class="border-t border-gray-200">
-                                <td class="px-5 py-3.5 text-gray-800">{{ $stmt['text'] ?? '-' }}</td>
+                                <td class="question-rich-text px-5 py-3.5 text-gray-800 [&_img]:h-auto [&_img]:max-w-full">{!! $stmt['text'] ?? '-' !!}</td>
                                 <td class="px-5 py-3.5 text-center align-middle">
                                     @if($isTrue)<i class="ri-checkbox-circle-fill text-green text-lg"></i>@endif
                                 </td>

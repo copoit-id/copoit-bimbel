@@ -44,11 +44,19 @@ class ChatController extends Controller
     {
         $parent = $request->user();
         $children = $parent->children()->orderBy('name')->get(['users.id', 'users.name']);
+        $selectedChildId = (int) $request->session()->get('parent.selected_child.'.$parent->id, $children->first()?->id);
+        $child = $children->firstWhere('id', $selectedChildId) ?? $children->first();
+
+        if ($child) {
+            $request->session()->put('parent.selected_child.'.$parent->id, $child->id);
+        }
 
         return view('parent.chat-index', [
             'children' => $children,
-            'child' => $children->first(),
-            'contacts' => $this->chatService->chatContactsForParent($parent),
+            'child' => $child,
+            'contacts' => $this->chatService->chatContactsForParent($parent)
+                ->where('child_id', $child?->id)
+                ->values(),
         ]);
     }
 
@@ -56,6 +64,7 @@ class ChatController extends Controller
     {
         [$conversation] = $this->chatService->openForParent($request->user(), $child, $classSchedule);
         $children = $request->user()->children()->orderBy('name')->get(['users.id', 'users.name']);
+        $request->session()->put('parent.selected_child.'.$request->user()->id, $child->id);
 
         return $this->showConversation(
             $request,
@@ -96,7 +105,7 @@ class ChatController extends Controller
         return $this->showConversation(
             $request,
             $conversation,
-            'admin.layout.admin',
+            'tutor.layout',
             'Chat dengan '.$conversation->student()->value('name').($scheduleTitle ? ' · '.$scheduleTitle : ''),
             route('tutor.chat.index'),
             'Daftar Chat',

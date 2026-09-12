@@ -30,6 +30,7 @@
     </script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-AMS_HTML"></script>
     @vite('resources/css/app.css')
+    <x-ui.persistent-sidebar />
     @include('components.branding-styles')
     @include('components.favicon-link')
     <x-website-translation-head />
@@ -39,15 +40,17 @@
     @include('components.login-as-header')
     @include('user.components.navbar')
     @include('user.components.sidebar')
+    <x-ui.persistent-sidebar-reopen />
 
-    <div class="responsive-shell p-3 md:p-4 sm:ml-64 pt-4 mt-14">
+    <div data-persistent-sidebar-content="margin" class="responsive-shell p-3 md:p-4 sm:ml-64 pt-4 mt-4">
         @yield('content')
     </div>
-    <div class="sm:ml-64">
+    <div data-persistent-sidebar-content="margin" class="sm:ml-64">
         @include('user.components.footer')
     </div>
     @include('user.components.floating-whatsapp')
     @include('components.flash-alert')
+    <x-logout-confirm-modal />
 
     {{-- jquery --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

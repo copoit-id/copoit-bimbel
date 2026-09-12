@@ -66,7 +66,7 @@
             </x-ui.card>
 
             <form class="mt-6" action="{{ route('register.store') }}" method="POST" id="registerForm" data-initial-step="{{ $initialRegisterStep }}">
-                <x-ui.card padding="lg" class="auth-surface space-y-6 rounded-2xl">
+                <x-ui.card padding="lg" class="auth-surface space-y-6 overflow-visible rounded-2xl">
                 @csrf
                 <input type="hidden" name="register_step" id="register_step" value="{{ $initialRegisterStep }}">
                 @if(!empty($affiliateRefCode))
@@ -99,7 +99,11 @@
                         <x-ui.input.select name="education_level" label="Kelas" placeholder="Pilih kelas"
                             :options="['SD' => 'SD', 'SMP' => 'SMP', 'SMA' => 'SMA', 'ALUMNI' => 'ALUMNI']"
                             :value="old('education_level')" />
-                        <x-ui.input name="origin_institution" label="Asal Sekolah" placeholder="Contoh: SMA Negeri 1 Jakarta" :value="old('origin_institution')" />
+                        <div>
+                            <label for="origin_institution" class="mb-1 block text-sm font-medium text-gray-700">Asal Sekolah</label>
+                            <x-form.origin-institution-input :value="old('origin_institution')" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            <p class="mt-1 text-xs text-gray-500">Cari sekolah yang sudah ada atau isi nama sekolah baru.</p>
+                        </div>
                     </div>
                 </section>
 

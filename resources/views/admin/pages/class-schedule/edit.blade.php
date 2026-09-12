@@ -3,10 +3,6 @@
 @section('title', 'Edit Kelas & Jadwal')
 
 @section('content')
-@php
-    $selectedPackageIds = collect(old('package_ids', $classSchedule->packages->pluck('package_id')->all()))
-        ->map(fn ($id) => (int) $id);
-@endphp
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Edit Kelas & Jadwal</h1>
@@ -53,7 +49,7 @@
                     @forelse($packages as $package)
                         <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary/30 hover:bg-primary/5">
                             <input type="checkbox" name="package_ids[]" value="{{ $package->package_id }}"
-                                @checked($selectedPackageIds->contains((int) $package->package_id))
+                                @checked(in_array((int) $package->package_id, $selectedPackageIds, true))
                                 class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
                             <span class="text-sm text-gray-700">{{ $package->name }}</span>
                         </label>

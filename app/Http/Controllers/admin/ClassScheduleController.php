@@ -141,9 +141,12 @@ class ClassScheduleController extends Controller
         $tentors = Tentor::active()->orderBy('name')->get(['id', 'name', 'expertise']);
         $preselectedDay = $request->integer('day_of_week') ?: now()->dayOfWeekIso;
         $preselectedPackageId = $request->integer('package_id') ?: null;
+        $selectedPackageIds = collect(old('package_ids', $preselectedPackageId ? [$preselectedPackageId] : []))
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
 
         return view('admin.pages.class-schedule.create', compact(
             'classes',
@@ -152,6 +155,7 @@ class ClassScheduleController extends Controller
             'tentors',
             'preselectedDay',
             'preselectedPackageId',
+            'selectedPackageIds',
             'canUseClass',
             'canUseAttendance',
             'bookingScheduleEnabled',
@@ -218,7 +222,7 @@ class ClassScheduleController extends Controller
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
         $allowCustomBooking = $bookingScheduleEnabled && $request->boolean('allow_custom_booking');
 
         DB::transaction(function () use (
@@ -341,6 +345,9 @@ class ClassScheduleController extends Controller
         $classSchedule->load(['class', 'tentor', 'attendanceSetting', 'destinationCategories', 'packages']);
         $classes = ClassModel::orderBy('title')->get(['class_id', 'title']);
         $selectedPackageIds = $classSchedule->packages->pluck('package_id');
+        $selectedPackageIds = collect(old('package_ids', $selectedPackageIds->all()))
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
         $packages = Package::query()
             ->where(function ($query) use ($selectedPackageIds): void {
                 $query->where('status', 'active')
@@ -361,7 +368,7 @@ class ClassScheduleController extends Controller
         $preselectedDay = $classSchedule->day_of_week ?: 1;
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
 
         return view('admin.pages.class-schedule.edit', compact(
             'classSchedule',
@@ -373,6 +380,7 @@ class ClassScheduleController extends Controller
             'canUseClass',
             'canUseAttendance',
             'bookingScheduleEnabled',
+            'selectedPackageIds',
         ));
     }
 
@@ -425,7 +433,7 @@ class ClassScheduleController extends Controller
 
         $canUseClass = $planModules->allows('class');
         $canUseAttendance = $planModules->allows('attendance');
-        $bookingScheduleEnabled = (bool) config('client.branding.booking_schedule_enabled', false);
+        $bookingScheduleEnabled = (bool) config('client.branding.legacy_schedule_booking_sync', false);
         $allowCustomBooking = $bookingScheduleEnabled
             ? $request->boolean('allow_custom_booking')
             : (bool) $classSchedule->allow_custom_booking;

@@ -35,6 +35,7 @@ $totalCorrect = $totalCorrect ?? 0;
 $accuracyPercent = $accuracyPercent ?? 0;
 $hasUnpaid = $showBillingDashboard && $canShowPayments && $unpaidInvoices->isNotEmpty();
 $hasSessions = $canShowSchedule && $upcomingClassSessions->isNotEmpty();
+$canRequestScheduleBooking = $canRequestScheduleBooking ?? false;
 $whatsappNumber = preg_replace('/\D+/', '', (string) ($clientBranding['contact_whatsapp_number'] ?? '')) ?: '628561078411';
 $communityWhatsappHref = "https://wa.me/{$whatsappNumber}?text=Halo%20Admin%2C%20saya%20ingin%20konsultasi%20program%20persiapan%20PKN%20STAN.";
 
@@ -117,7 +118,7 @@ $primaryRgb = "$r, $g, $b";
                                     Masuk / Daftar
                                 </a>
                             @elseif($canShowProfile)
-                                <a href="{{ route('user.profile.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
+                                <a href="{{ route('user.profile.index') }}" class="relative z-20 inline-flex cursor-pointer pointer-events-auto items-center px-4 py-2 text-xs font-bold rounded-xl transition-colors border" style="color: {{ $primaryColor }}; background-color: {{ $primaryColor }}10; border-color: {{ $primaryColor }}25;">
                                     Ubah Target
                                 </a>
                             @endif
@@ -134,14 +135,15 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBP</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
                             @php $snbpOpportunities = $destinationKeketatan['snbp'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
                             <div class="shrink-0 space-y-1 text-right">
                                 @foreach($snbpOpportunities as $opportunity)
-                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    <p class="whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-right text-[10px] font-bold text-emerald-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-emerald-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
                                     </p>
                                 @endforeach
                             </div>
@@ -155,14 +157,15 @@ $primaryRgb = "$r, $g, $b";
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-gray-800 text-sm">SNBT</h4>
-                                    <p class="text-[10px] text-gray-400 font-semibold">Tingkat Peluang</p>
+                                    <p class="text-[10px] text-gray-400 font-semibold">Pendaftar & Kuota</p>
                                 </div>
                             </div>
                             @php $snbtOpportunities = $destinationKeketatan['snbt'] ?? [['label' => null, 'value' => 'Pilih Target']]; @endphp
                             <div class="shrink-0 space-y-1 text-right">
                                 @foreach($snbtOpportunities as $opportunity)
-                                    <p class="inline-flex whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
-                                        @if($opportunity['label'])<span class="mr-1 text-[10px] text-amber-600/70">{{ $opportunity['label'] }}</span>@endif{{ $opportunity['value'] }}
+                                    <p class="whitespace-nowrap rounded-lg bg-amber-50 px-2 py-1 text-right text-[10px] font-bold text-amber-700">
+                                        @if($opportunity['label'])<span class="mr-1 text-amber-600/70">{{ $opportunity['label'] }}</span>@endif
+                                        {{ isset($opportunity['applicants']) ? number_format($opportunity['applicants'], 0, ',', '.') . ' pendaftar · ' . number_format($opportunity['quota'], 0, ',', '.') . ' kuota' : $opportunity['value'] }}
                                     </p>
                                 @endforeach
                             </div>
@@ -219,11 +222,12 @@ $primaryRgb = "$r, $g, $b";
     $quickAccessCount = ($canShowMaterial ? 1 : 0)
         + ($canShowTryout ? 1 : 0)
         + ($canShowSchedule ? 1 : 0)
+        + ($canRequestScheduleBooking ? 1 : 0)
         + ($canShowMaterial && $liveSessionAvailable ? 1 : 0)
         + ($canShowPackage ? 2 : 0);
     $usesQuickAccessCarousel = $quickAccessCount > 6;
 @endphp
-@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule)
+@if($canShowMaterial || $canShowTryout || $canShowPackage || $canShowSchedule || $canRequestScheduleBooking)
 <section x-data class="mb-6">
     <div class="mb-3 flex items-center justify-between">
         <h2 class="text-base font-bold text-gray-800">Akses Cepat</h2>
@@ -270,6 +274,15 @@ $primaryRgb = "$r, $g, $b";
             <i class="ri-calendar-check-line text-xl"></i>
         </div>
         <h3 class="font-semibold text-gray-800 text-sm">Jadwal Kelas</h3>
+    </a>
+    @endif
+
+    @if($canRequestScheduleBooking)
+    <a href="{{ route('user.booking.index') }}" class="group {{ $usesQuickAccessCarousel ? 'w-36 shrink-0 snap-start sm:w-40' : 'w-full' }} rounded-xl border border-gray-100 bg-white p-4 transition-all hover:shadow-lg">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3" style="background-color: {{ $primaryColor }}">
+            <i class="ri-calendar-schedule-line text-xl"></i>
+        </div>
+        <h3 class="font-semibold text-gray-800 text-sm">Pilih Tutor & Jadwal</h3>
     </a>
     @endif
 

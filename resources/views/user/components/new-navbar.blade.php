@@ -1,6 +1,4 @@
 @php
-$user = auth()->user();
-$currentRoute = request()->route()->getName();
 $primaryColor = $clientBranding['primary_color'] ?? '#10b981';
 $headerPrimary = $clientBranding['header_primary_color'] ?? false;
 $liveSessionLabel = $clientBranding['live_session_label'] ?? 'Kelas Belajar';
@@ -8,42 +6,6 @@ $bimbelNavLabel = $clientBranding['bimbel_nav_label'] ?? 'Bimbel';
 $materialNavLabel = $clientBranding['material_nav_label'] ?? 'Kelas & Materi';
 $packageNavLabel = $clientBranding['package_nav_label'] ?? 'Paket Belajar';
 $tryoutNavLabel = $clientBranding['tryout_nav_label'] ?? 'Ujian & Try Out';
-$planModules = app(\App\Services\PlanModuleService::class);
-$canShowDashboard = $planModules->allows('dashboard');
-$canShowProfile = $planModules->allows('profile');
-$canShowPackage = $planModules->allows('package');
-$canShowSchedule = $user
-    && $planModules->allows('schedule')
-    && \Illuminate\Support\Facades\Route::has('user.class-schedule.index');
-$canShowBooking = ($clientBranding['booking_schedule_enabled'] ?? false)
-    && $planModules->allows('booking')
-    && \Illuminate\Support\Facades\Route::has('user.booking.index');
-$canShowLearningProgress = ($clientBranding['learning_progress_enabled'] ?? false)
-    && $planModules->allows('booking')
-    && \Illuminate\Support\Facades\Route::has('user.development.index');
-$canShowMaterial = $planModules->allows('material');
-$canShowTryout = $planModules->allows('tryout');
-$canShowTesKoran = $planModules->allows('tes_koran');
-$canUseAiDiscussion = (bool) ($clientBranding['ai_discussion_feature_enabled'] ?? false)
-    && (bool) data_get($clientBranding, 'ai_discussion_settings.enabled', false);
-$canShowAiLearning = $canUseAiDiscussion && $planModules->allows('ai_learning');
-$tesKoranEnabled = ($clientBranding['tes_koran_enabled'] ?? true) && $canShowTesKoran;
-$canShowAffiliateMenu = ($clientBranding['affiliate_menu_enabled'] ?? false)
-    && $planModules->allows('affiliate')
-    && \Illuminate\Support\Facades\Route::has('user.affiliate.index');
-$canUseTutorChat = $user
-    && ! $user->isTutor()
-    && (bool) ($clientBranding['tutor_chat_enabled'] ?? false)
-    && $planModules->allows('discussion')
-    && \Illuminate\Support\Facades\Route::has('user.chat.schedule.show');
-$tutorChatService = $canUseTutorChat ? app(\App\Services\TutorChatService::class) : null;
-$tutorChatContacts = $tutorChatService
-    ? $tutorChatService->chatContactsForStudent($user)
-    : collect();
-$canShowTutorChat = $tutorChatContacts->isNotEmpty();
-$tutorChatUnreadCount = $canShowTutorChat
-    ? $tutorChatService->unreadCountFor($user)
-    : 0;
 $canShowBimbel = $canShowPackage || $canShowSchedule || $canShowBooking || $canShowLearningProgress || $canShowMaterial || $canShowTryout || $canShowAiLearning;
 $bimbelUrl = match (true) {
     $canShowPackage => route('user.package.index'),
@@ -63,11 +25,10 @@ $bimbelActive = isActive('user.material', $currentRoute)
     || isActive('user.booking', $currentRoute)
     || isActive('user.development', $currentRoute)
     || isActive('user.class-schedule', $currentRoute)
-    || $currentRoute === 'user.package.index'
-    || isActive('user.ai-gateway', $currentRoute);
+    || $currentRoute === 'user.package.index';
 
 function isActive($route, $current) {
-    return str_starts_with($current, $route);
+    return str_starts_with((string) $current, $route);
 }
 @endphp
 
@@ -223,8 +184,8 @@ function isActive($route, $current) {
                             @if($canShowTesKoran && \Illuminate\Support\Facades\Route::has('user.tes-kecermatan.index'))<a href="{{ route('user.tes-kecermatan.index') }}" class="dropdown-item">Tes Kecermatan</a>@endif
                         </div></div>
                         @endif
-                        @if($canShowPackage || $canShowAiLearning)
-                        <div class="dropdown-submenu"><a href="{{ $canShowPackage ? route('user.package.index') : route('user.ai-gateway.index') }}" class="dropdown-item justify-between {{ $currentRoute === 'user.package.index' || isActive('user.ai-gateway', $currentRoute) ? 'font-bold text-primary' : '' }}"><span><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</span><i class="ri-arrow-right-s-line !mr-0"></i></a><div class="dropdown-submenu-menu">@if($canShowPackage)<a href="{{ route('user.package.index') }}" class="dropdown-item">Semua Paket</a>@endif @if($user && $canShowAiLearning)<a href="{{ route('user.ai-gateway.index') }}" class="dropdown-item">Paket AI</a>@endif</div></div>
+                        @if($canShowPackage)
+                        <a href="{{ route('user.package.index') }}" class="dropdown-item {{ $currentRoute === 'user.package.index' ? 'font-bold text-primary' : '' }}"><i class="ri-store-3-line"></i>{{ $packageNavLabel }}</a>
                         @endif
                         @if($canShowSchedule)
                         <a href="{{ route('user.class-schedule.index') }}" class="dropdown-item {{ isActive('user.class-schedule', $currentRoute) ? 'font-bold text-primary' : '' }}"><i class="ri-calendar-2-line"></i>Jadwal Kelas</a>
@@ -242,7 +203,7 @@ function isActive($route, $current) {
                 @if($user && $canShowAiLearning)
                 <a href="{{ route('user.ai-learning.index') }}"
                    class="user-nav-link px-4 py-2 rounded-lg text-sm font-medium transition-colors {{ isActive('user.ai-learning', $currentRoute) ? 'nav-item-active' : 'text-gray-600 hover:bg-gray-100' }}">
-                    <i class="ri-sparkling-2-line mr-1.5 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}"></i>AI Learning
+                    <i class="ri-sparkling-2-line mr-1.5 {{ isActive('user.ai-learning', $currentRoute) ? '' : 'text-gray-400' }}"></i>AI Learning Tools
                 </a>
                 @endif
 
@@ -352,9 +313,9 @@ function isActive($route, $current) {
                             <i class="ri-share-forward-line mr-2"></i>Affiliate
                         </a>
                         @endif
-                        <form action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
+                        <form id="user-logout-form" action="{{ route('logout') }}" method="POST" class="border-t border-gray-100 mt-1 pt-1">
                             @csrf
-                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-logout-confirm data-logout-form="user-logout-form">
                                 <i class="ri-logout-box-line mr-2"></i>Keluar
                             </button>
                         </form>

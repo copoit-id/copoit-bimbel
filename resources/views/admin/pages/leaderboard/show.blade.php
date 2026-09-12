@@ -15,17 +15,19 @@
                 <i class="ri-file-excel-line"></i>
                 Export Excel
             </a>
+            @unless($schoolLeaderboard)
             <a href="{{ route('admin.leaderboard.export-pdf', ['package_id' => $package->package_id, 'tryout_id' => $tryout->tryout_id] + request()->only(['destination_category_id', 'destination_subcategory_id'])) }}"
                 class="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:bg-red-700">
                 <i class="ri-file-pdf-line"></i>
                 Export PDF
             </a>
+            @endunless
         </div>
     </div>
     <x-page-desc title="Peringkat - {{ $tryout->name }}"></x-page-desc>
 
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div @class(['grid gap-4 mb-6', 'grid-cols-3' => $schoolLeaderboard, 'grid-cols-4' => ! $schoolLeaderboard])>
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
@@ -38,7 +40,7 @@
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600">Rata-rata {{ $statistics['score_label'] }}</p>
+                    <p class="text-sm text-gray-600">Rata-rata Nilai</p>
                     <p class="text-2xl font-bold text-dark">{{ $statistics['average_score_display'] }}</p>
                 </div>
                 <i class="ri-bar-chart-line text-3xl text-dark"></i>
@@ -53,6 +55,7 @@
                 <i class="ri-trophy-line text-3xl text-dark"></i>
             </div>
         </div>
+        @unless($schoolLeaderboard)
         <div class="bg-white p-4 rounded-lg border border-border">
             <div class="flex items-center justify-between">
                 <div>
@@ -62,10 +65,52 @@
                 <i class="ri-check-double-line text-3xl text-dark"></i>
             </div>
         </div>
+        @endunless
     </div>
+
+    @if($podiumRankings->isNotEmpty())
+        <section class="leaderboard-podium mb-6" x-data="{ isPodiumVisible: true }" :class="{ 'leaderboard-podium--collapsed': !isPodiumVisible }">
+            <button type="button" class="leaderboard-podium__toggle" @click="isPodiumVisible = !isPodiumVisible" :aria-expanded="isPodiumVisible.toString()">
+                <span x-text="isPodiumVisible ? 'Sembunyikan' : 'Tampilkan'"></span>
+                <i :class="isPodiumVisible ? 'ri-eye-off-line' : 'ri-eye-line'" aria-hidden="true"></i>
+            </button>
+            <div class="leaderboard-podium__content" :aria-hidden="(!isPodiumVisible).toString()">
+                <div class="leaderboard-podium__heading">
+                    <span class="leaderboard-podium__trophy"><i class="ri-trophy-fill"></i></span>
+                    <div><h2>Podium Peringkat</h2><p>Tiga nilai final tertinggi</p></div>
+                </div>
+                <div class="leaderboard-podium__stage">
+                @foreach([2, 1, 3] as $podiumRank)
+                    @php $podium = $podiumRankings->get($podiumRank); @endphp
+                    @if($podium)
+                        <article class="leaderboard-podium__entry leaderboard-podium__entry--{{ $podiumRank }}">
+                            <span class="leaderboard-podium__medal"><i class="ri-medal-fill"></i></span>
+                            <p class="leaderboard-podium__name" title="{{ $podium['name'] }}">{{ $podium['name'] }}</p>
+                            @if(! $schoolLeaderboard && ($podium['origin_institution'] || $podium['major_choices']))
+                                <div class="leaderboard-podium__profile">
+                                    @if($podium['origin_institution'])
+                                        <p title="{{ $podium['origin_institution'] }}">{{ $podium['origin_institution'] }}</p>
+                                    @endif
+                                        @foreach($podium['major_choices'] as $majorChoice)
+                                            <p title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}</p>
+                                        @endforeach
+                                </div>
+                            @endif
+                            <p class="leaderboard-podium__score">{{ $podium['score'] }}@if($podium['maximum'])<span>/ {{ $podium['maximum'] }}</span>@endif</p>
+                            <div class="leaderboard-podium__block" aria-label="Peringkat {{ $podium['rank'] }}">
+                                <span>{{ $podium['rank'] }}</span>
+                            </div>
+                        </article>
+                    @endif
+                @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
 
     <div class="package-bimbel bg-white p-8 rounded-lg border border-border mt-6">
         <div class="flex flex-col gap-4 mb-4">
+            @unless($schoolLeaderboard)
             @if($destinationCategories->isEmpty())
                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                     <div>
@@ -121,22 +166,26 @@
                     </div>
                 </form>
             @endif
+            @endunless
 
-            <div class="flex items-center gap-2">
-                <div class="relative">
-                    <input type="text" placeholder="Cari peserta..."
-                        class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <i class="ri-search-line absolute left-3 top-2.5 text-gray-400"></i>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div class="relative w-full sm:max-w-xs">
+                    <label for="leaderboard-search" class="mb-1 block text-xs font-medium text-gray-500">Cari Peserta</label>
+                    <input id="leaderboard-search" type="text" placeholder="Nama atau email..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                    <i class="ri-search-line absolute left-3 top-8 text-gray-400"></i>
                 </div>
-                <select
-                    class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option value="">Semua Skor</option>
-                    <option value="90-100">90-100</option>
-                    <option value="80-89">80-89</option>
-                    <option value="70-79">70-79</option>
-                    <option value="<70">
-                        < 70</option>
-                </select>
+                <div class="w-full sm:w-44">
+                    <label for="leaderboard-score-option" class="mb-1 block text-xs font-medium text-gray-500">Opsi Skor</label>
+                    <select id="leaderboard-score-option"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                        <option value="">Semua Skor</option>
+                        <option value="90-100">90–100</option>
+                        <option value="80-89">80–89</option>
+                        <option value="70-79">70–79</option>
+                        <option value="<70">Di bawah 70</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -144,8 +193,12 @@
             <table class="w-full text-left rtl:text-right text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3">Peringkat</th>
-                        <th scope="col" class="px-6 py-3">Peserta</th>
+                        <th scope="col" class="sticky left-0 z-20 w-[76px] min-w-[76px] bg-gray-50 px-6 py-3 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Peringkat</th>
+                        <th scope="col" class="sticky left-[76px] z-20 min-w-[220px] bg-gray-50 px-6 py-3 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Peserta</th>
+                        @unless($schoolLeaderboard)
+                            <th scope="col" class="px-6 py-3">Asal Sekolah / Instansi</th>
+                            <th scope="col" class="px-6 py-3">Pilihan Jurusan</th>
+                        @endunless
                         @php
                             $hasMultipleSubtests = $tryout->tryoutDetails->count() > 1;
                         @endphp
@@ -201,7 +254,7 @@
                                 $bgClass = 'bg-orange-50/50';
                         @endphp
                         <tr class="bg-white border-b border-dashed border-gray-200 text-grey3 {{ $bgClass }}">
-                            <td class="py-3 px-4">
+                            <td class="sticky left-0 z-10 w-[76px] min-w-[76px] bg-inherit py-3 px-4 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                                 <div class="flex items-center gap-3">
                                     @if($rank == 1)
                                         <div class="relative">
@@ -229,19 +282,40 @@
                                 </div>
                             </td>
 
-                            <td class="py-3 px-4">
+                            <td class="sticky left-[76px] z-10 min-w-[220px] bg-inherit py-3 px-4 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                                 <div class="flex items-center gap-3">
                                     <img src="https://ui-avatars.com/api/?name={{ urlencode($ranking->user->name ?? 'Unknown User') }}&background=444444&color=fff"
                                         class="w-10 h-10 rounded-full">
                                     <div>
                                         <p class="font-medium">{{ $ranking->user->name ?? 'Unknown User' }}</p>
                                         <p class="text-md text-gray-500">{{ $ranking->user->email ?? 'No Email' }}</p>
-                                        <p class="text-xs text-gray-400">
-                                            {{ $ranking->user?->participant_destination_display_name ?? 'Tujuan belum dipilih' }}
-                                        </p>
+                                        @unless($schoolLeaderboard)
+                                            <p class="text-xs text-gray-400">
+                                                {{ $ranking->user?->participant_destination_display_name ?? 'Tujuan belum dipilih' }}
+                                            </p>
+                                        @endunless
                                     </div>
                                 </div>
                             </td>
+
+                            @unless($schoolLeaderboard)
+                            <td class="px-6 py-4">
+                                <p class="min-w-[150px] text-sm font-medium text-gray-700">{{ $ranking->user?->origin_institution ?: '—' }}</p>
+                            </td>
+
+                            <td class="px-6 py-4">
+                                <div class="min-w-[220px] space-y-1 text-sm font-medium text-gray-700">
+                                    @forelse($ranking->user?->leaderboard_major_choices ?? [] as $majorChoice)
+                                        <p class="flex gap-1.5" title="{{ $majorChoice['label'] }}: {{ $majorChoice['value'] }}">
+                                            <span class="shrink-0 text-gray-500">{{ $majorChoice['label'] }}:</span>
+                                            <span>{{ $majorChoice['value'] }}</span>
+                                        </p>
+                                    @empty
+                                        <p>—</p>
+                                    @endforelse
+                                </div>
+                            </td>
+                            @endunless
 
                             @if($hasMultipleSubtests)
                                 @foreach($tryout->tryoutDetails->sortBy('tryout_detail_id') as $subtest)
@@ -252,15 +326,15 @@
                                             : number_format($subscoreValue, 2));
                                     @endphp
                                     <td class="px-6 py-4 text-center">
-                                        <span class="text-md font-semibold text-gray-800">{{ $subscore }}</span>
+                                        <span class="text-sm font-semibold text-gray-800">{{ $subscore }}</span>
                                     </td>
                                 @endforeach
                             @endif
                             <td class="px-6 py-4 text-center">
                                 <div class="flex justify-center items-center">
-                                    <span class="text-md font-semibold text-gray-800">{{ $rawScore }}</span>
-                                    @if($maxScore > 0)
-                                        <span class="text-md text-gray-500 ml-1">/ {{ $maxScore }}</span>
+                                    <span class="text-sm font-semibold text-gray-800">{{ $rawScore }}</span>
+                                    @if($showScoreMaximum && $maxScore > 0)
+                                        <span class="ml-1 text-sm text-gray-500">/ {{ $maxScore }}</span>
                                     @endif
                                 </div>
                             </td>
@@ -307,7 +381,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $hasMultipleSubtests ? 6 + $tryout->tryoutDetails->count() : 6 }}"
+                            <td colspan="{{ ($schoolLeaderboard ? 6 : 8) + ($hasMultipleSubtests ? $tryout->tryoutDetails->count() : 0) }}"
                                 class="px-6 py-8 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="ri-trophy-line text-4xl text-gray-300 mb-2"></i>
@@ -339,6 +413,42 @@
         @endif
     </div>
 
+@endsection
+
+@section('styles')
+<style>
+    .leaderboard-podium { position:relative; isolation:isolate; overflow:hidden; border-radius:1rem; padding:1.1rem clamp(1.5rem,7vw,8rem) 0; color:#fff; background:radial-gradient(circle at 8% -15%,rgba(255,255,255,.25),transparent 32%),radial-gradient(circle at 100% 100%,rgba(77,190,231,.22),transparent 42%),linear-gradient(135deg,color-mix(in srgb,var(--color-primary,#1c3259) 84%,#fff),color-mix(in srgb,var(--color-primary,#1c3259) 94%,#3d96c2)); transition:padding-bottom .3s ease; }
+    .leaderboard-podium::before { position:absolute; inset:0; z-index:-1; content:""; opacity:.5; background:linear-gradient(125deg,transparent 0 48%,rgba(255,255,255,.08) 48% 49%,transparent 49% 100%),linear-gradient(125deg,transparent 0 61%,rgba(255,255,255,.08) 61% 62%,transparent 62% 100%); }
+    .leaderboard-podium__heading { position:absolute; top:1.1rem; left:1.25rem; z-index:2; display:flex; align-items:center; gap:.65rem; margin:0; }
+    .leaderboard-podium__heading h2 { font-size:.875rem; font-weight:700; line-height:1.1; }
+    .leaderboard-podium__heading p { margin-top:.15rem; font-size:.6875rem; color:rgba(255,255,255,.76); }
+    .leaderboard-podium__trophy { display:flex; height:2rem; width:2rem; align-items:center; justify-content:center; border-radius:.6rem; background:rgba(255,255,255,.14); color:#ffe08a; }
+    .leaderboard-podium__toggle { position:absolute; top:1.1rem; right:1.25rem; z-index:2; display:inline-flex; align-items:center; gap:.4rem; border:0; border-radius:.5rem; padding:.45rem .6rem; color:#fff; background:rgba(255,255,255,.14); font-size:.6875rem; font-weight:700; line-height:1; transition:background-color .2s ease; }
+    .leaderboard-podium__toggle:hover { background:rgba(255,255,255,.22); }
+    .leaderboard-podium__toggle:focus-visible { outline:2px solid rgba(255,255,255,.8); outline-offset:2px; }
+    .leaderboard-podium--collapsed { min-height:4.25rem; padding-bottom:1.1rem; }
+    .leaderboard-podium__content { display:grid; grid-template-rows:1fr; opacity:1; transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1),opacity .2s ease; }
+    .leaderboard-podium__content > div { min-height:0; overflow:hidden; }
+    .leaderboard-podium--collapsed .leaderboard-podium__content { grid-template-rows:0fr; opacity:0; pointer-events:none; }
+    .leaderboard-podium__stage { position:relative; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:.6rem; padding-top:2.35rem; }
+    .leaderboard-podium__entry { min-width:0; text-align:center; }
+    .leaderboard-podium__entry:only-child { grid-column:2; }
+    .leaderboard-podium__medal { display:flex; width:2.45rem; height:2.45rem; margin:0 auto .35rem; align-items:center; justify-content:center; border-radius:999px; background:rgba(255,255,255,.15); font-size:1.3rem; }
+    .leaderboard-podium__entry--1 .leaderboard-podium__medal { color:#ffda62; transform:scale(1.14); }
+    .leaderboard-podium__entry--2 .leaderboard-podium__medal { color:#e7edf4; }
+    .leaderboard-podium__entry--3 .leaderboard-podium__medal { color:#f3b17d; }
+    .leaderboard-podium__name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:1rem; font-weight:700; letter-spacing:-.015em; }
+    .leaderboard-podium__profile { margin-top:.2rem; min-height:2rem; color:rgba(255,255,255,.8); font-size:.6875rem; line-height:1.35; }
+    .leaderboard-podium__profile p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .leaderboard-podium__profile p + p { color:rgba(255,255,255,.62); }
+    .leaderboard-podium__score { display:inline-block; margin:.38rem 0 .9rem; border-radius:.55rem; padding:.32rem .68rem; background:rgba(255,255,255,.78); color:#26374f; font-size:.8125rem; font-weight:700; }
+    .leaderboard-podium__score span { color:rgba(38,55,79,.68); font-weight:500; }
+    .leaderboard-podium__block { display:flex; height:6.5rem; align-items:center; justify-content:center; border-radius:.65rem .65rem 0 0; background:linear-gradient(135deg,#dce3e9,#91a1b0); }
+    .leaderboard-podium__block span { font-size:2.5rem; font-weight:800; line-height:1; }
+    .leaderboard-podium__entry--1 .leaderboard-podium__block { height:8.5rem; background:linear-gradient(135deg,#f4d67c,#bd881e); }
+    .leaderboard-podium__entry--3 .leaderboard-podium__block { height:4.6rem; background:linear-gradient(135deg,#dfae89,#9b613d); }
+    @media (max-width:420px) { .leaderboard-podium { padding:1.1rem 1rem 0; } .leaderboard-podium__heading { left:1rem; } .leaderboard-podium__toggle { right:1rem; } .leaderboard-podium__stage { gap:.3rem; padding-top:2.35rem; } .leaderboard-podium__name { font-size:.8125rem; } .leaderboard-podium__score { padding:.28rem .5rem; font-size:.75rem; } .leaderboard-podium__block span { font-size:2.05rem; } }
+</style>
 @endsection
 
 @section('scripts')

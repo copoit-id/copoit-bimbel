@@ -9,6 +9,10 @@ class AttendanceSetting extends Model
 {
     use HasFactory;
 
+    public const MODE_BUTTON = 'button';
+
+    public const MODE_PHOTO = 'photo';
+
     protected $fillable = [
         'class_schedule_id',
         'mode',
@@ -22,6 +26,11 @@ class AttendanceSetting extends Model
         'close_minutes_after' => 'integer',
         'allow_admin_override' => 'boolean',
     ];
+
+    public function requiresPhoto(): bool
+    {
+        return $this->mode === self::MODE_PHOTO;
+    }
 
     public function schedule()
     {

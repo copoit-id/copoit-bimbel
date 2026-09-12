@@ -192,6 +192,30 @@ class ScheduleBookingServiceTest extends TestCase
         );
     }
 
+    public function test_per_session_booking_requires_and_stores_the_session_price(): void
+    {
+        [$booking, $tutorUser, $package] = $this->booking('per_session');
+        $service = app(ScheduleBookingService::class);
+
+        try {
+            $service->approve($booking, $tutorUser, Carbon::parse('2026-07-30 13:00:00'));
+            $this->fail('A per-session booking must require a session price.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('session_price', $exception->errors());
+        }
+
+        $approved = $service->approve(
+            $booking->fresh(),
+            $tutorUser,
+            Carbon::parse('2026-07-30 13:00:00'),
+            ['session_price' => 150000],
+        );
+
+        $this->assertSame(150000, $approved->session_price);
+        $this->assertSame('awaiting_tutor_payment', $approved->tutor_payment_status);
+        $this->assertSame($package->package_id, $approved->package_id);
+    }
+
     /**
      * @return array{
      *   ScheduleBookingRequest,
@@ -202,7 +226,7 @@ class ScheduleBookingServiceTest extends TestCase
      *   User
      * }
      */
-    private function booking(): array
+    private function booking(string $paymentModel = 'upfront'): array
     {
         $student = $this->user('student', 'user');
         $tutorUser = $this->user('tutor', 'tutor');
@@ -226,6 +250,7 @@ class ScheduleBookingServiceTest extends TestCase
             'cancellation_hours' => 6,
             'allow_custom_time' => true,
             'allow_all_tutors' => true,
+            'payment_model' => $paymentModel,
         ]);
         $access = $this->access($student, $package);
         $booking = $this->pendingBooking(
@@ -345,6 +370,7 @@ class ScheduleBookingServiceTest extends TestCase
             $table->unsignedSmallInteger('max_participants')->default(1);
             $table->string('default_location')->nullable();
             $table->unsignedSmallInteger('payment_deadline_hours')->default(48);
+            $table->string('payment_model', 20)->default('upfront');
             $table->timestamps();
         });
         Schema::create('class_schedules', function (Blueprint $table): void {
@@ -414,6 +440,11 @@ class ScheduleBookingServiceTest extends TestCase
             $table->dateTime('requested_end_at');
             $table->dateTime('scheduled_start_at')->nullable();
             $table->dateTime('scheduled_end_at')->nullable();
+            $table->unsignedBigInteger('session_price')->nullable();
+            $table->string('tutor_payment_status', 30)->default('not_required');
+            $table->timestamp('paid_to_tutor_at')->nullable();
+            $table->timestamp('deposited_to_admin_at')->nullable();
+            $table->foreignId('deposited_to_admin_by')->nullable();
             $table->string('status')->default('pending');
             $table->text('student_notes')->nullable();
             $table->text('tutor_notes')->nullable();

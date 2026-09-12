@@ -21,9 +21,15 @@ class FeedbackController extends Controller
     {
         $now = Carbon::now('Asia/Jakarta');
         $userId = Auth::id();
+        $tryout = Tryout::query()->findOrFail($id_tryout);
 
         if ($id_package !== 'free') {
-            $package = Package::findOrFail($id_package);
+            $package = Package::query()->findOrFail($id_package);
+
+            abort_unless(
+                $package->tryouts()->where('tryouts.tryout_id', $tryout->tryout_id)->exists(),
+                404
+            );
 
             $hasAccess = UserPackageAcces::where('user_id', $userId)
                 ->where('package_id', $id_package)
@@ -39,8 +45,6 @@ class FeedbackController extends Controller
                     ->with('error', 'Anda tidak memiliki akses ke paket ini');
             }
         }
-
-        $tryout = Tryout::findOrFail($id_tryout);
 
         $hasAttempt = UserAnswer::where('user_id', $userId)
             ->where('tryout_id', $id_tryout)

@@ -3,6 +3,7 @@
 @section('content')
 @php
     $showResultScores = $tryout->shouldShowResultScores();
+    $showScoreMaximum = $tryout->shouldShowScoreMaximum();
     $showTotalResultScore = $tryout->shouldShowTotalResultScore();
 @endphp
 
@@ -96,7 +97,7 @@
                 @if($showResultScores)
                     <div class="flex justify-between">
                         <span class="text-gray-600">Raw Score:</span>
-                        <span class="font-medium">{{ $result['raw_score'] }}/{{ $result['total_questions'] }}</span>
+                        <span class="font-medium">{{ $result['raw_score'] }}@if($showScoreMaximum)/{{ $result['total_questions'] }}@endif</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">
@@ -168,15 +169,15 @@
     <!-- Action Buttons -->
     <div class="flex gap-4 justify-center">
         @if($package)
-        <a href="{{ route('user.package.tryout', $package->package_id) }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', $package->package_id)"
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali
-        </a>
+            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+        </x-ui.history-back>
         @else
-        <a href="{{ route('user.event.index') }}"
+        <x-ui.history-back :fallback="route('user.package.tryout', 'free')"
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Event
-        </a>
+            <i class="ri-arrow-left-line mr-2"></i>Kembali ke Tryout
+        </x-ui.history-back>
         @endif
         @if($tryout->show_discussion)
         <a href="{{ route('user.package.tryout.pembahasan', [request()->route('id_package') ?? ($package->package_id ?? 'free'), $tryout->tryout_id, $latestAttemptToken]) }}"

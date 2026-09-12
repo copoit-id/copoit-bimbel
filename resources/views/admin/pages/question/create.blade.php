@@ -1,37 +1,91 @@
-@extends('admin.layout.admin')
-@section('title', isset($question) ? 'Edit Soal' : 'Tambah Soal')
+@extends($questionForm['layout'])
+@section('title', $questionForm['title'])
 @section('content')
+
+<style>
+    .question-editor-form .question-type-section {
+        border: 1px solid rgb(226 232 240);
+        border-radius: 0.875rem;
+        background: rgb(248 250 252);
+        padding: 1.25rem;
+    }
+
+    .question-editor-form .question-type-section > :first-child h3 {
+        color: rgb(15 23 42);
+        font-weight: 700;
+    }
+
+    .question-editor-form .option-row,
+    .question-editor-form .matching-pair-row {
+        border: 1px solid rgb(226 232 240);
+        border-radius: 0.75rem;
+        background: white;
+        padding: 1rem;
+    }
+
+    .question-editor-form .option-row:focus-within,
+    .question-editor-form .matching-pair-row:focus-within {
+        border-color: color-mix(in srgb, var(--primary-color, #2563eb) 45%, white);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color, #2563eb) 10%, transparent);
+    }
+
+    .question-editor-form .score-settings {
+        border: 1px solid rgb(226 232 240);
+        border-radius: 0.75rem;
+        background: white;
+        padding: 1rem;
+    }
+
+    @media (max-width: 639px) {
+        .question-editor-form .question-type-section {
+            padding: 1rem;
+        }
+
+        .question-editor-form .option-row {
+            gap: 0.75rem;
+            padding: 0.875rem;
+        }
+    }
+</style>
 
 <div class="flex justify-between items-center">
     <x-breadcrumb>
         <x-slot name="items">
-            <x-breadcrumb-item href="{{ route('admin.tryout.index') }}" title="Manajemen Tryout" />
-            <x-breadcrumb-item href="{{ route('admin.question.index', $tryout_detail->tryout_detail_id) }}"
-                title="Soal" />
-            <x-breadcrumb-item href="" title="{{ isset($question) ? 'Edit Soal' : 'Tambah Soal' }}" />
+            @foreach ($questionForm['breadcrumbs'] as $breadcrumb)
+                <x-breadcrumb-item href="{{ $breadcrumb['url'] ?? '' }}" title="{{ $breadcrumb['title'] }}" />
+            @endforeach
         </x-slot>
     </x-breadcrumb>
 </div>
-<x-page-desc title="{{ isset($question) ? 'Edit Soal' : 'Tambah Soal' }} - {{ $tryout->name }}">
+<x-page-desc title="{{ $questionForm['pageTitle'] }}">
     <x-slot name="description">
-        Subtest: {{ strtoupper($tryout_detail->type_subtest) }} • Durasi: {{ $tryout_detail->duration }} menit
+        {{ $questionForm['description'] }}
     </x-slot>
 </x-page-desc>
 
 <div class="space-y-6">
-    <div class="bg-white rounded-lg border border-gray-200">
-        <form
-            action="{{ isset($question) ? route('admin.question.update', [$tryout_detail->tryout_detail_id, $question->question_id]) : route('admin.question.store', $tryout_detail->tryout_detail_id) }}"
-            method="POST" enctype="multipart/form-data" novalidate>
+    @if ($errors->any())
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <ul class="list-inside list-disc space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <form action="{{ $questionForm['action'] }}" method="POST" enctype="multipart/form-data" novalidate class="question-editor-form">
             @csrf
-            @if(isset($question))
+            @if($questionForm['method'] !== 'POST')
             @method('PUT')
+            @endif
+            @if($questionForm['importTarget'])
+                <input type="hidden" name="import_for" value="{{ $questionForm['importTarget'] }}">
             @endif
 
             @php
             $rawType = old('question_type', isset($question) ? $question->question_type : 'multiple_choice');
-            $currentType = in_array($rawType, ['short_answer', 'essay', 'multiple_true_false']) ? $rawType : (in_array($rawType, ['true_false', 'multiple_answer']) ?
-            'multiple_choice' : $rawType);
+            $currentType = $rawType === 'true_false' ? 'multiple_choice' : $rawType;
 
             $metadata = isset($question) ? ($question->metadata ?? []) : [];
 
@@ -56,13 +110,14 @@
                 
                 // Essay AI Quota Check
                 $essayAI = $planQuota['essay_ai'] ?? \App\Services\PlanQuotaService::canUseEssayAI();
+                $essayAutoAvailable = (bool) ($essayAI['allowed'] ?? false);
                 
                 $essayEvaluationMode = old(
                     'essay_evaluation_mode',
-                    $shortAnswerMeta['evaluation_mode'] ?? (($shortAnswerMeta['manual_review'] ?? true) ? 'manual' : 'auto')
+                    $shortAnswerMeta['evaluation_mode'] ?? 'manual'
                 );
                 // Force manual jika AI tidak tersedia
-                if (!$essayAI['allowed'] && $essayEvaluationMode === 'auto') {
+                if (!$essayAutoAvailable && $essayEvaluationMode === 'auto') {
                     $essayEvaluationMode = 'manual';
                 }
                 
@@ -93,7 +148,7 @@
                         ];
                     }
                 }
-                while (count($mtfStatements) < 2) {
+                while (count($mtfStatements) < 1) {
                     $mtfStatements[] = [
                         'id' => 'stmt_' . (count($mtfStatements) + 1),
                         'text' => '',
@@ -102,21 +157,20 @@
                 }
                 @endphp
 
-                <div class="p-6 space-y-6">
-                    <div>
+                <div class="space-y-7 p-5 sm:p-6 lg:p-7">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                         <label for="question_type" class="block text-sm font-medium text-gray-700 mb-2">Jenis Soal <span
                                 class="text-red-500">*</span></label>
                         <select id="question_type" name="question_type"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                            <option value="multiple_choice" {{ $rawType==='multiple_choice' ? 'selected' : '' }}>
+                            <option value="multiple_choice" {{ $currentType==='multiple_choice' ? 'selected' : '' }}>
                                 Multiple
                                 Choice</option>
                             <option value="multiple_answer" {{ $rawType==='multiple_answer' ? 'selected' : '' }}>
                                 Multiple Answer (Lebih dari 1 benar)</option>
-                            <option value="true_false" {{ $rawType==='true_false' ? 'selected' : '' }}>Benar/Salah
-                            </option>
                             <option value="matching" {{ $rawType==='matching' ? 'selected' : '' }}>Pencocokan</option>
                             <option value="multiple_true_false" {{ $rawType==='multiple_true_false' ? 'selected' : '' }}>Multiple True/False</option>
+                            <option value="short_answer" {{ $rawType==='short_answer' ? 'selected' : '' }}>Jawaban Singkat</option>
                             <option value="essay" {{ $rawType==='essay' ? 'selected' : '' }}>Essay</option>
                             <option value="audio" {{ $rawType==='audio' ? 'selected' : '' }}>Jawaban Audio</option>
                         </select>
@@ -124,16 +178,16 @@
                     </div>
 
                     <!-- Question Text -->
-                    <div>
+                    <div class="rounded-xl border border-slate-200 p-4 sm:p-5">
                         <label for="question_text" class="block text-sm font-medium text-gray-700 mb-2">Teks Soal <span
                                 class="text-red-500">*</span></label>
                         <textarea id="question_text" name="question_text" required rows="4"
                             class="ckeditor w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            placeholder="Masukkan teks soal...">{{ isset($question) ? $question->question_text : old('question_text') }}</textarea>
+                            placeholder="Masukkan teks soal...">{{ old('question_text', isset($question) ? $question->question_text : '') }}</textarea>
                     </div>
 
                     <!-- Audio Upload -->
-                    <div class="grid grid-cols-1 gap-6">
+                    <div class="grid grid-cols-1 gap-6 rounded-xl border border-slate-200 p-4 sm:p-5">
                         <div>
                             <label for="sound" class="block text-sm font-medium text-gray-700 mb-2">Audio Soal
                                 (Opsional)</label>
@@ -153,12 +207,12 @@
                     </div>
 
                     <!-- Multiple Choice -->
-                    <div class="space-y-4 question-type-section" data-question-type="multiple_choice"
+                    <div class="space-y-5 question-type-section" data-question-type="multiple_choice"
                         style="display:none;">
                         <div class="flex justify-between items-center">
                             <h3 class="text-lg font-medium text-gray-800">Pilihan Jawaban</h3>
-                            @if ($tryout->is_toefl !== 1)
-                            @if($tryout_detail->type_subtest !== 'tkp')
+                            @if (! $questionForm['isToefl'])
+                            @if($questionForm['subtestType'] !== 'tkp')
                             <div class="flex items-center" id="customScoreToggle">
                                 <input type="checkbox" id="use_custom_scores" name="use_custom_scores" value="1" {{
                                     (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ?
@@ -178,8 +232,9 @@
                             @endif
                             @endif
                         </div>
+                        <p class="text-sm text-gray-500">Isi minimal dua opsi (A dan B). Pilihan C sampai E bersifat opsional.</p>
                         <div id="multipleAnswerScoreContainer"
-                            class="space-y-2 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
+                            class="score-settings space-y-3 {{ $rawType === 'multiple_answer' ? '' : 'hidden' }}">
                             <label class="block text-sm font-medium text-gray-700">Skor Multiple Answer</label>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
                                 @php
@@ -188,22 +243,7 @@
                                     $multiScoreWrong = old('multiple_answer_score_wrong', $existingMultiMeta['score_wrong'] ?? 0);
                                     $multiScoringMode = old('multiple_answer_scoring_mode', $existingMultiMeta['scoring_mode'] ?? 'fullscore');
                                 @endphp
-                                <div>
-                                    <div class="flex items-center gap-1 mb-1">
-                                        <label for="multiple_answer_scoring_mode" class="block text-xs font-medium text-gray-600">Mode Penilaian</label>
-                                        <div class="relative group">
-                                            <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
-                                            <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
-                                                Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <select id="multiple_answer_scoring_mode" name="multiple_answer_scoring_mode"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                        <option value="fullscore" {{ $multiScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
-                                        <option value="partial" {{ $multiScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
-                                    </select>
-                                </div>
+                                <x-form.scoring-mode id="multiple_answer_scoring_mode" name="multiple_answer_scoring_mode" :value="$multiScoringMode" />
                                 <div>
                                     <label for="multiple_answer_score_correct" class="block text-xs font-medium text-gray-600 mb-1">Skor Benar</label>
                                     <input type="number" id="multiple_answer_score_correct" name="multiple_answer_score_correct" step="0.1"
@@ -224,14 +264,14 @@
                         @php
                         $optionData = null;
                         $isCorrect = false;
-                        if (isset($question) && $question->questionOptions && isset($question->questionOptions[$index]))
+                        if (isset($question) && isset($questionOptions[$index]))
                         {
-                        $optionData = $question->questionOptions[$index];
+                        $optionData = $questionOptions[$index];
                         $isCorrect = $optionData->is_correct == 1;
                         }
                         @endphp
                         <div class="option-row flex gap-3 items-start" data-option-key="{{ $optionKey }}">
-                            <div class="pt-8">
+                            <div class="pt-8 sm:pt-8">
                                 <input type="radio" id="correct_{{ strtolower($optionKey) }}" name="correct_answer"
                                     value="{{ $optionKey }}" {{ $isCorrect || old('correct_answer')==$optionKey
                                     ? 'checked' : '' }} {{ $optionKey==='E' ? '' : 'required' }}
@@ -245,18 +285,19 @@
                                 <label for="option_{{ strtolower($optionKey) }}"
                                     class="block text-sm font-medium text-gray-700 mb-2">
                                     Pilihan {{ $optionKey }}
-                                    @if($optionKey !== 'E')<span class="text-red-500">*</span>@endif
+                                    @if(in_array($optionKey, ['A', 'B'], true))<span class="text-red-500">*</span>@endif
                                 </label>
                                 <textarea id="option_{{ strtolower($optionKey) }}"
-                                    name="option_{{ strtolower($optionKey) }}" {{ $optionKey==='E' ? '' : 'required' }}
-                                    class="ckeditor-option w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    name="option_{{ strtolower($optionKey) }}" {{ in_array($optionKey, ['A', 'B'], true) ? 'required' : '' }}
+                                    class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    data-height="180"
                                     placeholder="Pilihan {{ $optionKey }}">{{ $optionData ? $optionData->option_text : old('option_' . strtolower($optionKey)) }}</textarea>
                             </div>
                             <div class="custom-score-field w-full sm:w-1/4"
-                                style="{{ ($tryout_detail->type_subtest === 'tkp') || (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ? '' : 'display: none;' }}">
+                                style="{{ ($questionForm['subtestType'] === 'tkp') || (isset($question) && $question->custom_score == 'yes') || old('use_custom_scores') ? '' : 'display: none;' }}">
                                 <label for="score_{{ strtolower($optionKey) }}"
                                     class="block text-sm font-medium text-gray-700 mb-2">
-                                    @if($tryout_detail->type_subtest === 'tkp')
+                                    @if($questionForm['subtestType'] === 'tkp')
                                     Skor {{ $optionKey }} (1-5)
                                     @else
                                     Skor {{ $optionKey }}
@@ -264,17 +305,17 @@
                                 </label>
                                 <input type="number" id="score_{{ strtolower($optionKey) }}"
                                     name="score_{{ strtolower($optionKey) }}"
-                                    value="{{ $optionData ? $optionData->weight : old('score_' . strtolower($optionKey), $tryout_detail->type_subtest === 'tkp' ? 1 : 0) }}"
+                                    value="{{ $optionData ? $optionData->weight : old('score_' . strtolower($optionKey), $questionForm['subtestType'] === 'tkp' ? 1 : 0) }}"
                                     min="0" max="5" step="0.1"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="{{ $tryout_detail->type_subtest === 'tkp' ? '1-5' : '0' }}">
+                                    placeholder="{{ $questionForm['subtestType'] === 'tkp' ? '1-5' : '0' }}">
                             </div>
                         </div>
                         @endforeach
                     </div>
 
                     <!-- Matching -->
-                    <div class="space-y-4 question-type-section" data-question-type="matching" style="display:none;">
+                    <div class="space-y-5 question-type-section" data-question-type="matching" style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Pasangan Pencocokan</h3>
                             <p class="text-sm text-gray-600">Masukkan minimal dua pasangan jawaban. Peserta akan
@@ -286,26 +327,11 @@
                             $matchingScoreCorrect = old('matching_score_correct', $matchingScores['score_correct'] ?? 1);
                             $matchingScoreWrong = old('matching_score_wrong', $matchingScores['score_wrong'] ?? 0);
                         @endphp
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
-                            <div>
-                                <div class="flex items-center gap-1 mb-1">
-                                    <label for="matching_scoring_mode" class="block text-sm font-medium text-gray-700">Mode Penilaian</label>
-                                    <div class="relative group">
-                                        <i class="ri-information-line text-gray-400 text-sm cursor-help"></i>
-                                        <div class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-72 -translate-x-1/2 rounded-md border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 shadow-sm group-hover:block">
-                                            Fullscore: nilai pakai skor benar+salah. Partial: jika ada benar, nilai proporsional; jika salah semua, pakai skor salah.
-                                        </div>
-                                    </div>
-                                </div>
-                                @php
-                                    $matchingScoringMode = old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore');
-                                @endphp
-                                <select id="matching_scoring_mode" name="matching_scoring_mode"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                    <option value="fullscore" {{ $matchingScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
-                                    <option value="partial" {{ $matchingScoringMode === 'partial' ? 'selected' : '' }}>Partial (seperti multiple)</option>
-                                </select>
-                            </div>
+                        <div class="score-settings grid grid-cols-1 gap-3 md:w-full md:grid-cols-3">
+                            @php
+                                $matchingScoringMode = old('matching_scoring_mode', $matchingScores['scoring_mode'] ?? 'fullscore');
+                            @endphp
+                            <x-form.scoring-mode id="matching_scoring_mode" name="matching_scoring_mode" :value="$matchingScoringMode" />
                             <div>
                                 <label for="matching_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar</label>
                                 <input type="number" id="matching_score_correct" name="matching_score_correct" step="0.1"
@@ -321,7 +347,7 @@
                         </div>
                         <div id="matchingPairsContainer" class="space-y-3">
                             @foreach($normalizedPairs as $index => $pair)
-                            <div class="matching-pair-row flex flex-col sm:flex-row gap-3 items-start"
+                            <div class="matching-pair-row flex flex-col gap-3 sm:flex-row sm:items-start"
                                 data-index="{{ $index }}">
                                 <div class="flex-1">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Item Kiri {{ $index + 1
@@ -354,34 +380,13 @@
                     </div>
 
                     <!-- Multiple True/False -->
-                    <div class="space-y-4 question-type-section" data-question-type="multiple_true_false" style="display:none;">
+                    <div class="space-y-5 question-type-section" data-question-type="multiple_true_false" style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Multiple True/False</h3>
-                            <p class="text-sm text-gray-600">Isi beberapa pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
+                            <p class="text-sm text-gray-600">Isi satu atau lebih pernyataan. Peserta akan memilih salah satu dari dua opsi pada tiap baris.</p>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label for="mtf_true_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 1</label>
-                                <input type="text" id="mtf_true_label" name="mtf_true_label" value="{{ $mtfTrueLabel }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="Contoh: Benar / Setuju">
-                            </div>
-                            <div>
-                                <label for="mtf_false_label" class="block text-sm font-medium text-gray-700 mb-1">Teks Opsi Kolom 2</label>
-                                <input type="text" id="mtf_false_label" name="mtf_false_label" value="{{ $mtfFalseLabel }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="Contoh: Salah / Tidak Setuju">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:w-full">
-                            <div>
-                                <label for="mtf_scoring_mode" class="block text-sm font-medium text-gray-700 mb-1">Mode Penilaian</label>
-                                <select id="mtf_scoring_mode" name="mtf_scoring_mode"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                    <option value="fullscore" {{ $mtfScoringMode === 'fullscore' ? 'selected' : '' }}>Benar/Salah Fullscore</option>
-                                    <option value="partial" {{ $mtfScoringMode === 'partial' ? 'selected' : '' }}>Partial</option>
-                                </select>
-                            </div>
+                        <div class="score-settings grid grid-cols-1 gap-3 md:w-full md:grid-cols-3">
+                            <x-form.scoring-mode id="mtf_scoring_mode" name="mtf_scoring_mode" :value="$mtfScoringMode" />
                             <div>
                                 <label for="mtf_score_correct" class="block text-sm font-medium text-gray-700 mb-1">Skor Benar (Total)</label>
                                 <input type="number" id="mtf_score_correct" name="mtf_score_correct" step="0.1"
@@ -395,14 +400,25 @@
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                             </div>
                         </div>
-                        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
                             <table class="min-w-full text-sm">
-                                <thead class="bg-gray-100 text-gray-700">
+                                <thead class="bg-slate-50 text-slate-700">
                                     <tr>
                                         <th class="px-5 py-3.5 text-left font-semibold w-[75%]">Pernyataan</th>
-                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderTrue">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Kolom 1' }}</th>
-                                        <th class="px-5 py-3.5 text-center font-semibold whitespace-nowrap w-[10%]" id="mtfHeaderFalse">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Kolom 2' }}</th>
-                                        <th class="px-5 py-3.5 text-center font-semibold w-[5%] min-w-[72px]">Aksi</th>
+                                        <th class="w-[10%] whitespace-nowrap px-5 py-3.5 text-center font-semibold">
+                                            <span id="mtfHeaderTrue">{{ $mtfTrueLabel !== '' ? $mtfTrueLabel : 'Kolom 1' }}</span>
+                                        </th>
+                                        <th class="w-[10%] whitespace-nowrap px-5 py-3.5 text-center font-semibold">
+                                            <div class="flex items-center justify-center gap-1">
+                                                <span id="mtfHeaderFalse">{{ $mtfFalseLabel !== '' ? $mtfFalseLabel : 'Kolom 2' }}</span>
+                                                <button type="button" id="openMtfLabelSettings"
+                                                    class="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-primary"
+                                                    title="Atur teks kolom" aria-label="Atur teks kolom" aria-controls="mtfLabelSettingsModal">
+                                                    <i class="ri-settings-3-line"></i>
+                                                </button>
+                                            </div>
+                                        </th>
+                                        <th class="w-[5%] min-w-[72px] px-5 py-3.5 text-center font-semibold">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="mtfStatementsContainer">
@@ -412,7 +428,8 @@
                                             <input type="hidden" name="mtf_statements[{{ $index }}][id]" value="{{ $statement['id'] }}">
                                             <input type="hidden" name="mtf_statements[{{ $index }}][correct]" value="{{ $statement['correct'] === 'false' ? 'false' : 'true' }}" class="mtf-correct-input">
                                             <textarea name="mtf_statements[{{ $index }}][text]" rows="2"
-                                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                data-height="180"
                                                 placeholder="Tulis pernyataan...">{{ $statement['text'] }}</textarea>
                                         </td>
                                         <td class="px-5 py-3.5 text-center align-middle">
@@ -434,6 +451,38 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="mtfLabelSettingsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="mtfLabelSettingsTitle">
+                            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+                                <div class="mb-5 flex items-start justify-between gap-4">
+                                    <div>
+                                        <h4 id="mtfLabelSettingsTitle" class="text-lg font-semibold text-slate-900">Teks kolom jawaban</h4>
+                                        <p class="mt-1 text-sm text-slate-500">Ubah nama pilihan yang tampil di header tabel.</p>
+                                    </div>
+                                    <button type="button" data-close-mtf-label-settings class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100" aria-label="Tutup pengaturan">
+                                        <i class="ri-close-line text-xl"></i>
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="mtf_true_label" class="mb-1.5 block text-sm font-medium text-slate-700">Teks opsi kolom 1</label>
+                                        <input type="text" id="mtf_true_label" name="mtf_true_label" value="{{ $mtfTrueLabel }}"
+                                            class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="Contoh: Benar / Setuju">
+                                    </div>
+                                    <div>
+                                        <label for="mtf_false_label" class="mb-1.5 block text-sm font-medium text-slate-700">Teks opsi kolom 2</label>
+                                        <input type="text" id="mtf_false_label" name="mtf_false_label" value="{{ $mtfFalseLabel }}"
+                                            class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="Contoh: Salah / Tidak Setuju">
+                                    </div>
+                                </div>
+                                <div class="mt-6 flex justify-end">
+                                    <button type="button" data-close-mtf-label-settings class="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+                                        Selesai
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <button type="button" id="addMtfRow"
                             class="px-4 py-2 border border-dashed border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2">
                             <i class="ri-add-line"></i>
@@ -442,92 +491,73 @@
                     </div>
 
                     <!-- Short Answer / Essay -->
-                    <div class="space-y-4 question-type-section" data-question-type="short_answer"
+                    <div class="space-y-5 question-type-section" data-question-type="short_answer"
                         style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Pengaturan Jawaban Teks</h3>
                             <p class="text-sm text-gray-600" data-expected-hint>Isi daftar jawaban benar jika ingin penilaian otomatis.
                                 Kosongkan untuk penilaian manual.</p>
                         </div>
-                        <div class="space-y-2" data-essay-scoring style="display:none;">
-                            <span class="text-sm font-medium text-gray-700">Mode Koreksi Essay</span>
-                            @if(!$essayAI['allowed'])
+                        <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5" data-essay-scoring style="display:none;">
+                            <div>
+                                <span class="text-sm font-semibold text-slate-800">Mode Koreksi Essay</span>
+                                <p class="mt-1 text-xs text-slate-500">Pilih apakah jawaban dinilai otomatis dari referensi atau diperiksa secara manual.</p>
+                            </div>
+                            @if(!$essayAutoAvailable)
                                 <div class="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-2 rounded-lg text-sm">
                                     <i class="ri-information-line mr-1"></i>
-                                    Essay AI tidak tersedia. Mode otomatis dinonaktifkan. 
-                                    Silakan upgrade paket atau hubungi admin untuk mengaktifkan fitur ini.
+                                    {{ $essayAI['reason'] ?? 'Essay AI belum diaktifkan oleh Super Admin. Mode otomatis dikunci.' }}
                                 </div>
                             @endif
-                            <div class="flex flex-wrap gap-4">
-                                <label class="inline-flex items-center gap-2 text-sm {{ $essayAI['allowed'] ? 'text-gray-700' : 'text-gray-400 cursor-not-allowed' }}">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <label class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm {{ $essayAutoAvailable ? 'text-gray-700' : 'cursor-not-allowed border-dashed bg-slate-50 text-gray-400' }}">
                                     <input type="radio" name="essay_evaluation_mode" value="auto" {{ $essayEvaluationMode === 'auto' ? 'checked' : '' }}
-                                        {{ !$essayAI['allowed'] ? 'disabled' : '' }}
-                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary disabled:opacity-50">
-                                    Otomatis (berdasarkan jawaban referensi)
-                                    @if(!$essayAI['allowed'])
-                                        <i class="ri-lock-line text-gray-400 ml-1" title="{{ $essayAI['reason'] ?? 'Essay AI tidak tersedia' }}"></i>
+                                        {{ !$essayAutoAvailable ? 'disabled' : '' }}
+                                        class="mt-0.5 h-4 w-4 text-primary border-gray-300 focus:ring-primary disabled:opacity-50">
+                                    <span>Otomatis <span class="block mt-0.5 text-xs font-normal text-slate-500">Berdasarkan jawaban referensi</span></span>
+                                    @if(!$essayAutoAvailable)
+                                        <i class="ri-lock-line ml-auto text-gray-400" title="{{ $essayAI['reason'] ?? 'Essay AI belum diaktifkan oleh Super Admin' }}"></i>
                                     @endif
                                 </label>
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                                <label class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm text-gray-700">
                                     <input type="radio" name="essay_evaluation_mode" value="manual" {{ $essayEvaluationMode !== 'auto' ? 'checked' : '' }}
-                                        class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
-                                    Manual (perlu dikoreksi)
+                                        class="mt-0.5 h-4 w-4 text-primary border-gray-300 focus:ring-primary">
+                                    <span>Manual <span class="block mt-0.5 text-xs font-normal text-slate-500">Perlu dikoreksi oleh pengajar</span></span>
                                 </label>
                             </div>
                         </div>
                         
                         {{-- Mode Penilaian Essay: FULL vs RANGE --}}
-                        <div class="space-y-3">
+                        <div class="score-settings grid grid-cols-1 gap-3 md:grid-cols-3" data-essay-score-mode>
+                            <x-form.scoring-mode id="essay_scoring_mode" name="essay_scoring_mode"
+                                :value="old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : 'full')" variant="essay" />
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Mode Penilaian Skor Essay</label>
-                                <div class="flex flex-wrap gap-4">
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" name="essay_scoring_mode" value="full" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : 'full') === 'full' ? 'checked' : '' }}
-                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
-                                        FULL (Benar/Salah)
-                                    </label>
-                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" name="essay_scoring_mode" value="range" {{ old('essay_scoring_mode', isset($question) ? $question->essay_scoring_mode : '') === 'range' ? 'checked' : '' }}
-                                            class="w-4 h-4 text-primary border-gray-300 focus:ring-primary">
-                                        RANGE (Proporsional)
-                                    </label>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2">
-                                    <strong>FULL:</strong> Benar = Skor Benar, Salah = Skor Salah | 
-                                    <strong>RANGE:</strong> Skor proporsional berdasarkan similarity (0 - Skor Benar)
-                                </p>
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Benar</label>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Skor jika benar</label>
                                     <input type="number" name="essay_score_correct" step="0.01" min="0"
                                         value="{{ old('essay_score_correct', isset($question) ? $question->essay_score_correct : '') }}"
-                                        placeholder="{{ $tryout_detail->default_weight ?? 1 }}"
+                                        placeholder="{{ $questionForm['defaultWeight'] }}"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
                                     <p class="text-xs text-gray-500 mt-1">Kosongkan = pakai default weight</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Skor Jika Salah</label>
+                            </div>
+                            <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Skor jika salah</label>
                                     <input type="number" name="essay_score_wrong" step="0.01" min="0"
                                         value="{{ old('essay_score_wrong', isset($question) ? $question->essay_score_wrong : 0) }}"
                                         placeholder="0"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                                </div>
                             </div>
                         </div>
 
-                        <div>
+                        <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
                             <label for="short_answer_expected"
-                                class="block text-sm font-medium text-gray-700 mb-2">Daftar
-                                Jawaban Benar (Opsional)</label>
+                                class="block text-sm font-semibold text-slate-800 mb-2">Jawaban referensi</label>
                             <textarea id="short_answer_expected" name="short_answer_expected" rows="4"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Masukkan satu jawaban per baris">{{ $shortAnswerExpected }}</textarea>
-                            <p class="text-xs text-gray-500 mt-2">Pisahkan dengan baris baru untuk jawaban alternatif
-                                (contoh:
-                                &quot;Jakarta&quot; kemudian baris berikutnya &quot;DKI Jakarta&quot;).</p>
+                                class="summernote-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                data-height="220"
+                                placeholder="Masukkan jawaban benar atau referensi koreksi.">{{ $shortAnswerExpected }}</textarea>
+                            <p class="text-xs text-gray-500 mt-2">Essay mendukung format dan gambar sebagai referensi koreksi otomatis.</p>
                         </div>
-                        <div class="flex items-center gap-2" data-short-answer-case>
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3" data-short-answer-case>
                             <input type="checkbox" id="short_answer_case_sensitive" name="short_answer_case_sensitive"
                                 value="1" {{ $shortAnswerCaseSensitive ? 'checked' : '' }}
                                 class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2">
@@ -535,7 +565,7 @@
                                 besar-kecil
                                 saat menilai otomatis</label>
                         </div>
-                        <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm">
+                        <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm" data-essay-manual-note>
                             <i class="ri-information-line mr-1"></i>
                             Soal essay akan ditandai sebagai butuh penilaian manual jika tidak ada jawaban benar yang
                             ditentukan.
@@ -543,42 +573,22 @@
                     </div>
 
                     <!-- Audio Answer -->
-                    <div class="space-y-4 question-type-section" data-question-type="audio" style="display:none;">
+                    <div class="space-y-5 question-type-section" data-question-type="audio" style="display:none;">
                         <div>
                             <h3 class="text-lg font-medium text-gray-800">Pengaturan Jawaban Audio</h3>
                             <p class="text-sm text-gray-600">Peserta akan mengunggah jawaban dalam bentuk rekaman suara.
                             </p>
                         </div>
-                        <div>
-                            <label for="audio_instructions"
-                                class="block text-sm font-medium text-gray-700 mb-2">Instruksi
-                                untuk Peserta (Opsional)</label>
-                            <textarea id="audio_instructions" name="audio_instructions" rows="3"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                placeholder="Contoh: Ceritakan pendapatmu selama 1 menit">{{ $audioInstructions }}</textarea>
-                        </div>
+                        <x-ui.input.textarea name="audio_instructions" label="Instruksi untuk Peserta (Opsional)"
+                            :value="$audioInstructions" rows="3" resize="vertical"
+                            placeholder="Contoh: Ceritakan pendapatmu selama 1 menit" />
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label for="audio_max_duration"
-                                    class="block text-sm font-medium text-gray-700 mb-2">Durasi
-                                    Maksimal (detik)</label>
-                                <input type="number" id="audio_max_duration" name="audio_max_duration" min="5" max="600"
-                                    value="{{ $audioMaxDuration }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="Contoh: 90">
-                                <p class="text-xs text-gray-500 mt-1">Kosongkan jika tidak dibatasi (maks. 10 menit).
-                                </p>
-                            </div>
-                            <div>
-                                <label for="audio_max_size" class="block text-sm font-medium text-gray-700 mb-2">Batas
-                                    Ukuran
-                                    File (MB)</label>
-                                <input type="number" id="audio_max_size" name="audio_max_size" min="1" max="100"
-                                    value="{{ $audioMaxSize }}"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                    placeholder="Contoh: 10">
-                                <p class="text-xs text-gray-500 mt-1">Format yang didukung: MP3, WAV, M4A.</p>
-                            </div>
+                            <x-ui.input name="audio_max_duration" type="number" label="Durasi Maksimal (detik)"
+                                :value="$audioMaxDuration" placeholder="Contoh: 90"
+                                helper="Kosongkan jika tidak dibatasi (maks. 10 menit)." min="5" max="600" />
+                            <x-ui.input name="audio_max_size" type="number" label="Batas Ukuran File (MB)"
+                                :value="$audioMaxSize" placeholder="Contoh: 10"
+                                helper="Format yang didukung: MP3, WAV, M4A." min="1" max="100" />
                         </div>
                         <div class="rounded-lg bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 text-sm">
                             <i class="ri-information-line mr-1"></i>
@@ -589,7 +599,7 @@
                     </div>
 
                     <!-- Explanation -->
-                    <div>
+                    <div class="rounded-xl border border-slate-200 p-4 sm:p-5">
                         <label for="explanation" class="block text-sm font-medium text-gray-700 mb-2">Pembahasan
                             (Opsional)</label>
                         <textarea id="explanation" name="explanation" rows="4"
@@ -598,13 +608,13 @@
                     </div>
 
                     <!-- Submit Buttons -->
-                    <div class="flex justify-end gap-4 pt-6">
-                        <a href="{{ route('admin.question.index', $tryout_detail->tryout_detail_id) }}"
-                            class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+                        <a href="{{ $questionForm['cancelUrl'] }}"
+                            class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
                             Batal
                         </a>
                         <button type="submit"
-                            class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                            class="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
                             {{ isset($question) ? 'Perbarui' : 'Simpan' }} Soal
                         </button>
                     </div>
@@ -623,7 +633,7 @@
         const useCustomScores = document.getElementById('use_custom_scores');
         const customScoreFields = document.querySelectorAll('.custom-score-field');
         const customScoreToggle = document.getElementById('customScoreToggle');
-        const tryoutType = '{{ $tryout_detail->type_subtest }}';
+        const tryoutType = @json($questionForm['subtestType']);
         const form = document.querySelector('form');
         const matchingContainer = document.getElementById('matchingPairsContainer');
         const addMatchingPairBtn = document.getElementById('addMatchingPair');
@@ -633,6 +643,9 @@
         const mtfFalseLabelInput = document.getElementById('mtf_false_label');
         const mtfHeaderTrue = document.getElementById('mtfHeaderTrue');
         const mtfHeaderFalse = document.getElementById('mtfHeaderFalse');
+        const mtfLabelSettingsModal = document.getElementById('mtfLabelSettingsModal');
+        const openMtfLabelSettings = document.getElementById('openMtfLabelSettings');
+        const closeMtfLabelSettingsButtons = document.querySelectorAll('[data-close-mtf-label-settings]');
         const optionRows = document.querySelectorAll('.option-row');
         const multipleAnswerScoreContainer = document.getElementById('multipleAnswerScoreContainer');
 
@@ -654,12 +667,16 @@
             });
 
             const essayScoring = document.querySelector('[data-essay-scoring]');
+            const essayScoreMode = document.querySelector('[data-essay-score-mode]');
+            const essayManualNote = document.querySelector('[data-essay-manual-note]');
             const shortAnswerCase = document.querySelector('[data-short-answer-case]');
             const expectedHint = document.querySelector('[data-expected-hint]');
 
-            if (essayScoring && shortAnswerCase && expectedHint) {
+            if (essayScoring && essayScoreMode && essayManualNote && shortAnswerCase && expectedHint) {
                 const isEssay = currentType === 'essay';
                 essayScoring.style.display = isEssay ? '' : 'none';
+                essayScoreMode.style.display = isEssay ? '' : 'none';
+                essayManualNote.style.display = isEssay ? '' : 'none';
                 shortAnswerCase.style.display = isEssay ? 'none' : '';
                 expectedHint.textContent = isEssay
                     ? 'Isi daftar jawaban referensi jika memilih koreksi otomatis.'
@@ -824,6 +841,7 @@
             addMtfRowBtn.addEventListener('click', function() {
                 const row = createMtfRow(mtfIndex);
                 mtfContainer.appendChild(row);
+                window.initSummernoteFields?.();
                 mtfIndex += 1;
             });
 
@@ -834,8 +852,8 @@
                 }
 
                 const rows = mtfContainer.querySelectorAll('.mtf-row');
-                if (rows.length <= 2) {
-                    alert('Minimal harus ada dua pernyataan.');
+                if (rows.length <= 1) {
+                    alert('Minimal harus ada satu pernyataan.');
                     return;
                 }
 
@@ -869,7 +887,8 @@
                         <input type="hidden" name="mtf_statements[${index}][id]" value="stmt_${index + 1}">
                         <input type="hidden" name="mtf_statements[${index}][correct]" value="${normalizedCorrect}" class="mtf-correct-input">
                         <textarea name="mtf_statements[${index}][text]" rows="2"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            class="summernote-field w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            data-height="180"
                             placeholder="Tulis pernyataan...">${textValue}</textarea>
                     </td>
                     <td class="px-5 py-3.5 text-center align-middle">
@@ -910,6 +929,63 @@
         }
         syncMtfHeaderLabels();
 
+        function toggleMtfLabelSettings(isOpen) {
+            if (!mtfLabelSettingsModal) {
+                return;
+            }
+
+            mtfLabelSettingsModal.classList.toggle('hidden', !isOpen);
+            mtfLabelSettingsModal.classList.toggle('flex', isOpen);
+
+            if (isOpen) {
+                mtfTrueLabelInput?.focus();
+            }
+        }
+
+        openMtfLabelSettings?.addEventListener('click', function() {
+            toggleMtfLabelSettings(true);
+        });
+
+        closeMtfLabelSettingsButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                toggleMtfLabelSettings(false);
+            });
+        });
+
+        mtfLabelSettingsModal?.addEventListener('click', function(event) {
+            if (event.target === mtfLabelSettingsModal) {
+                toggleMtfLabelSettings(false);
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && mtfLabelSettingsModal?.classList.contains('flex')) {
+                toggleMtfLabelSettings(false);
+            }
+        });
+
+        function hasEditorContent(textarea) {
+            const $ = window.jQuery || window.$;
+            const value = $ && $(textarea).data('summernoteInitialized')
+                ? $(textarea).summernote('code')
+                : textarea.value;
+
+            return value
+                .replace(/<(?:br|\/?p|\/?div)[^>]*>/gi, '')
+                .replace(/&nbsp;/gi, '')
+                .trim() !== '';
+        }
+
+        function setEditorContent(textarea, value) {
+            const $ = window.jQuery || window.$;
+            if ($ && $(textarea).data('summernoteInitialized')) {
+                $(textarea).summernote('code', value);
+                return;
+            }
+
+            textarea.value = value;
+        }
+
         function configureOptionRows(questionType) {
             const isTrueFalse = questionType === 'true_false';
             const isMultipleAnswer = questionType === 'multiple_answer';
@@ -923,8 +999,8 @@
                 if (isTrueFalse) {
                     if (key === 'A' || key === 'B') {
                         row.style.display = '';
-                        if (textarea && !textarea.value.trim()) {
-                            textarea.value = key === 'A' ? 'Benar' : 'Salah';
+                        if (textarea && !hasEditorContent(textarea)) {
+                            setEditorContent(textarea, key === 'A' ? 'Benar' : 'Salah');
                         }
                         if (textarea) {
                             textarea.required = false;
@@ -947,7 +1023,7 @@
                         row.style.display = 'none';
                         if (textarea) {
                             textarea.required = false;
-                            textarea.value = '';
+                            setEditorContent(textarea, '');
                         }
                         if (radio) {
                             radio.required = false;
@@ -964,10 +1040,10 @@
                 } else {
                     row.style.display = '';
                     if (textarea) {
-                        textarea.required = key !== 'E';
+                        textarea.required = key === 'A' || key === 'B';
                     }
                     if (radio) {
-                        radio.required = !isMultipleAnswer && key !== 'E';
+                        radio.required = !isMultipleAnswer && key === 'A';
                         radio.classList.toggle('hidden', isMultipleAnswer);
                     }
                     if (multiCheckbox) {

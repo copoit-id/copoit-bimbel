@@ -50,9 +50,24 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'birthday' => 'date',
             'password' => 'hashed',
             'admin_expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Keep the public participant-profile field compatible with the actual
+     * users-table column used by the admin and school-admin portals.
+     */
+    public function getDateOfBirthAttribute(): mixed
+    {
+        return $this->birthday;
+    }
+
+    public function setDateOfBirthAttribute(mixed $value): void
+    {
+        $this->attributes['birthday'] = $value;
     }
 
     public static function containsUrlLike(string $value): bool
@@ -90,6 +105,37 @@ class User extends Authenticatable
         }
 
         return self::obfuscateUrlLike($name);
+    }
+
+    public function getLeaderboardMajorChoicesDisplayAttribute(): ?string
+    {
+        $choices = array_column($this->leaderboard_major_choices, 'value');
+
+        return $choices === [] ? null : implode(' / ', array_values(array_unique($choices)));
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function getLeaderboardMajorChoicesAttribute(): array
+    {
+        $choices = [
+            [
+                'label' => 'Pilihan 1',
+                'value' => $this->participant_destination_display_name
+                    ?: trim((string) ($this->attributes['major_choice_1'] ?? '')),
+            ],
+            [
+                'label' => 'Pilihan 2',
+                'value' => $this->second_participant_destination_display_name
+                    ?: trim((string) ($this->attributes['major_choice_2'] ?? '')),
+            ],
+        ];
+
+        return array_values(array_filter(
+            $choices,
+            static fn (array $choice): bool => $choice['value'] !== ''
+        ));
     }
 
     public function setNameAttribute($value): void
@@ -213,6 +259,12 @@ class User extends Authenticatable
                 'unit_price_snapshot',
                 'paid_at',
             ])
+            ->withTimestamps();
+    }
+
+    public function schoolAdminStudyGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(StudyGroup::class, 'school_admin_study_group')
             ->withTimestamps();
     }
 

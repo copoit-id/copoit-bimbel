@@ -162,18 +162,6 @@
     {{-- TAB OTOMATIS (AI) --}}
     
     {{-- Filter Tabs --}}
-    @php
-        $currentFilter = request('filter', 'all');
-        $filters = [
-            'all' => ['label' => 'Semua', 'count' => $jobs->count()],
-            'pending' => ['label' => 'Menunggu', 'count' => $jobs->where('status', 'pending')->count()],
-            'queued' => ['label' => 'Antrian', 'count' => $jobs->where('status', 'queued')->count()],
-            'processing' => ['label' => 'Diproses', 'count' => $jobs->where('status', 'processing')->count()],
-            'completed' => ['label' => 'Selesai', 'count' => $jobs->where('status', 'completed')->count()],
-            'failed' => ['label' => 'Gagal', 'count' => $jobs->where('status', 'failed')->count()],
-        ];
-    @endphp
-    
     <div class="flex flex-wrap gap-2 mb-6">
         @foreach($filters as $key => $filter)
             <a href="{{ route('admin.essay-review.index', ['tab' => 'automatic', 'filter' => $key]) }}"
@@ -206,12 +194,6 @@
     </div>
 
     {{-- Job List (Table-like) --}}
-    @php
-        $filteredJobs = $currentFilter === 'all' 
-            ? $jobs 
-            : $jobs->filter(fn($j) => $j->status === $currentFilter);
-    @endphp
-    
     @if($filteredJobs->count() > 0)
         <div class="bg-white rounded-lg border border-gray-200 overflow-hidden" id="jobs-container">
             {{-- Header --}}
@@ -398,12 +380,7 @@
                         <div id="detail-{{ $job->id }}" class="hidden bg-gray-50 border-t border-gray-100">
                             <div class="p-4">
                                 <h4 class="text-sm font-medium text-gray-700 mb-3">Detail Essay ({{ $totalCount }} soal)</h4>
-                                @php
-                                    $details = \App\Models\UserAnswerDetail::whereHas('userAnswer', fn($q) => $q->where('user_answer_id', $job->user_answer_id))
-                                        ->whereHas('question', fn($q) => $q->where('question_type', 'essay'))
-                                        ->with(['question', 'userAnswer'])
-                                        ->get();
-                                @endphp
+                                @php($details = $detailsByJob->get($job->user_answer_id, collect()))
                                 
                                 @if($details->count() > 0)
                                     <div class="space-y-2 max-h-64 overflow-y-auto">
